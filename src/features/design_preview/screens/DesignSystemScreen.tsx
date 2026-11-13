@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../../../theme/ThemeContext';
+import { colors, typography, shapes, spacing } from '../../../theme/tokens';
 
 const TOKENS = [
   { label: 'Primary', value: colors.primary },

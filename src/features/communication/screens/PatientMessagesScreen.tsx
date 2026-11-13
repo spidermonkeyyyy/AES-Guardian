@@ -12,6 +12,65 @@ interface Message {
   timestamp: string;
 }
 
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  messagesList: { padding: spacing.lg, gap: spacing.sm },
+  headerNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    padding: spacing.xs,
+    borderRadius: shapes.sm,
+    marginBottom: spacing.xs,
+  },
+  noticeText: {
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.xs,
+  },
+  messageBubble: {
+    maxWidth: '80%',
+    padding: spacing.md,
+    borderRadius: shapes.md,
+    marginVertical: 2,
+  },
+  messageText: {
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
+  },
+  timestamp: {
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: 10,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  composer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderTopWidth: 1,
+    gap: spacing.sm,
+  },
+  composerInput: {
+    flex: 1,
+    borderRadius: shapes.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    maxHeight: 100,
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.sm,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+
 export default function PatientMessagesScreen() {
   const { colors } = useTheme();
   const [messages, setMessages] = useState<Message[]>([
@@ -107,60 +166,4 @@ export default function PatientMessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  messagesList: { padding: spacing.lg, gap: spacing.sm },
-  headerNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    padding: spacing.xs,
-    borderRadius: shapes.sm,
-    marginBottom: spacing.xs,
-  },
-  noticeText: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.xs,
-  },
-  messageBubble: {
-    maxWidth: '80%',
-    padding: spacing.md,
-    borderRadius: shapes.md,
-    marginVertical: 2,
-  },
-  messageText: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.sm,
-    lineHeight: 20,
-  },
-  timestamp: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: 10,
-    marginTop: 4,
-    alignSelf: 'flex-end',
-  },
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderTopWidth: 1,
-    gap: spacing.sm,
-  },
-  composerInput: {
-    flex: 1,
-    borderRadius: shapes.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    maxHeight: 100,
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.sm,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+

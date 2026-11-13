@@ -35,6 +35,42 @@ export default function AuthGateScreen({ navigation }: any) {
           variant="outline"
           fullWidth
         />
+        <AppButton
+          title="🛡️ Espace AES Guardian (Démonstration PFE)"
+          onPress={() => navigation.navigate('aesGuardianWorkspace')}
+          variant="secondary"
+          fullWidth
+        />
+        <AppButton
+          title="Déclarations AES (Prototype)"
+          onPress={() => navigation.navigate('declarations')}
+          variant="secondary"
+          fullWidth
+        />
+        <AppButton
+          title="File d'attente administrative (Admin Démo)"
+          onPress={() => navigation.navigate('adminReviewQueue')}
+          variant="outline"
+          fullWidth
+        />
+        <AppButton
+          title="Coordination Santé au Travail (OH Démo)"
+          onPress={() => navigation.navigate('ohCoordinationQueue')}
+          variant="outline"
+          fullWidth
+        />
+        <AppButton
+          title="Tableau de bord de surveillance (Qualité Démo)"
+          onPress={() => navigation.navigate('surveillanceDashboard')}
+          variant="outline"
+          fullWidth
+        />
+        <AppButton
+          title="Prévention & Actions Correctives (Qualité Démo)"
+          onPress={() => navigation.navigate('preventionOverview')}
+          variant="outline"
+          fullWidth
+        />
       </View>
 
       <TouchableOpacity

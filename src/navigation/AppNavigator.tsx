@@ -34,6 +34,28 @@ import RuleDetailScreen from '../features/nurse/rules/screens/RuleDetailScreen';
 import RuleBuilderScreen from '../features/nurse/rules/screens/RuleBuilderScreen';
 import DesignSystemScreen from '../features/design_preview/screens/DesignSystemScreen';
 
+// AES Guardian Screens
+import {
+  AesGuardianWorkspaceScreen,
+  DeclarationListScreen,
+  DeclarationFormScreen,
+  DeclarationDetailsScreen,
+  SubmissionConfirmationScreen,
+  AdminReviewQueueScreen,
+  AdminReviewActionScreen,
+  CorrectionResponseScreen,
+  OhCoordinationQueueScreen,
+  OhCoordinationDetailScreen,
+  OhFollowUpEventScreen,
+  CreateCoordinationScreen,
+  DeclarationCoordinationStatusScreen,
+  SurveillanceDashboardScreen,
+  PreventionOverviewScreen,
+  PreventionActionRegisterScreen,
+  PreventionActionCreateScreen,
+  PreventionActionDetailScreen,
+} from '../features/aes-guardian';
+
 import Icon from 'react-native-vector-icons/Feather';
 
 import { RootStackParamList, PatientTabParamList, NurseTabParamList } from './routes';
@@ -270,25 +292,99 @@ export default function AppNavigator() {
           ) : status === 'unauthenticated' || status === 'error' ? (
             <>
               <Stack.Screen name="authGate" component={AuthGateScreen} />
+              <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
               <Stack.Screen name="signIn" component={LoginScreen} />
               <Stack.Screen name="signUp" component={RegisterScreen} />
               <Stack.Screen name="forgotPassword" component={ForgotPasswordScreen} />
+              <Stack.Screen name="declarations" component={DeclarationListScreen} options={{ headerShown: true, title: 'Déclarations AES' }} />
+              <Stack.Screen name="newDeclaration" component={DeclarationFormScreen} options={{ headerShown: true, title: 'Nouvelle déclaration' }} />
+              <Stack.Screen name="declarationDetails" component={DeclarationDetailsScreen} options={{ headerShown: true, title: 'Détails de la déclaration' }} />
+              <Stack.Screen name="submissionConfirmation" component={SubmissionConfirmationScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="adminReviewQueue" component={AdminReviewQueueScreen} options={{ headerShown: true, title: 'Revue administrative' }} />
+              <Stack.Screen name="adminReviewAction" component={AdminReviewActionScreen} options={{ headerShown: true, title: 'Traitement de la revue' }} />
+              <Stack.Screen name="correctionResponse" component={CorrectionResponseScreen} options={{ headerShown: true, title: 'Réponse à la correction' }} />
+              <Stack.Screen name="ohCoordinationQueue" component={OhCoordinationQueueScreen} options={{ headerShown: true, title: 'Coordination Santé au Travail' }} />
+              <Stack.Screen name="ohCoordinationDetail" component={OhCoordinationDetailScreen} options={{ headerShown: true, title: 'Détail de la coordination' }} />
+              <Stack.Screen name="createCoordination" component={CreateCoordinationScreen} options={{ headerShown: true, title: 'Créer une coordination' }} />
+              <Stack.Screen name="recordFollowUpEvent" component={OhFollowUpEventScreen} options={{ headerShown: true, title: 'Événement de suivi' }} />
+              <Stack.Screen name="declarationCoordinationStatus" component={DeclarationCoordinationStatusScreen} options={{ headerShown: true, title: 'Statut de coordination' }} />
+              <Stack.Screen name="surveillanceDashboard" component={SurveillanceDashboardScreen} options={{ headerShown: true, title: 'Surveillance AES' }} />
+              <Stack.Screen name="preventionOverview" component={PreventionOverviewScreen} options={{ headerShown: true, title: 'Prevention & CAPA' }} />
+              <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
+              <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
+              <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
             </>
           ) : status === 'authenticated' && nurseSide ? (
             <>
               <Stack.Screen name="nurseTabs" component={NurseTabsNavigator} />
+              <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
               <Stack.Screen name="rules" component={RulesScreen} options={{ headerShown: true, title: 'Règles' }} />
               <Stack.Screen name="ruleDetail" component={RuleDetailScreen} options={{ headerShown: true, title: 'Détail de la règle' }} />
               <Stack.Screen name="ruleBuilder" component={RuleBuilderScreen} options={{ headerShown: true, title: 'Règle' }} />
               <Stack.Screen name="designSystem" component={DesignSystemScreen} />
+              <Stack.Screen name="declarations" component={DeclarationListScreen} options={{ headerShown: true, title: 'Déclarations AES' }} />
+              <Stack.Screen name="newDeclaration" component={DeclarationFormScreen} options={{ headerShown: true, title: 'Nouvelle déclaration' }} />
+              <Stack.Screen name="declarationDetails" component={DeclarationDetailsScreen} options={{ headerShown: true, title: 'Détails de la déclaration' }} />
+              <Stack.Screen name="submissionConfirmation" component={SubmissionConfirmationScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="adminReviewQueue" component={AdminReviewQueueScreen} options={{ headerShown: true, title: 'Revue administrative' }} />
+              <Stack.Screen name="adminReviewAction" component={AdminReviewActionScreen} options={{ headerShown: true, title: 'Traitement de la revue' }} />
+              <Stack.Screen name="correctionResponse" component={CorrectionResponseScreen} options={{ headerShown: true, title: 'Réponse à la correction' }} />
+              <Stack.Screen name="ohCoordinationQueue" component={OhCoordinationQueueScreen} options={{ headerShown: true, title: 'Coordination Santé au Travail' }} />
+              <Stack.Screen name="ohCoordinationDetail" component={OhCoordinationDetailScreen} options={{ headerShown: true, title: 'Détail de la coordination' }} />
+              <Stack.Screen name="createCoordination" component={CreateCoordinationScreen} options={{ headerShown: true, title: 'Créer une coordination' }} />
+              <Stack.Screen name="recordFollowUpEvent" component={OhFollowUpEventScreen} options={{ headerShown: true, title: 'Événement de suivi' }} />
+              <Stack.Screen name="declarationCoordinationStatus" component={DeclarationCoordinationStatusScreen} options={{ headerShown: true, title: 'Statut de coordination' }} />
+              <Stack.Screen name="surveillanceDashboard" component={SurveillanceDashboardScreen} options={{ headerShown: true, title: 'Surveillance AES' }} />
+              <Stack.Screen name="preventionOverview" component={PreventionOverviewScreen} options={{ headerShown: true, title: 'Prevention & CAPA' }} />
+              <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
+              <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
+              <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
             </>
           ) : status === 'authenticated' && !nurseSide ? (
             <>
               <Stack.Screen name="patientTabs" component={PatientTabsNavigator} />
+              <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
               <Stack.Screen name="designSystem" component={DesignSystemScreen} />
+              <Stack.Screen name="declarations" component={DeclarationListScreen} options={{ headerShown: true, title: 'Déclarations AES' }} />
+              <Stack.Screen name="newDeclaration" component={DeclarationFormScreen} options={{ headerShown: true, title: 'Nouvelle déclaration' }} />
+              <Stack.Screen name="declarationDetails" component={DeclarationDetailsScreen} options={{ headerShown: true, title: 'Détails de la déclaration' }} />
+              <Stack.Screen name="submissionConfirmation" component={SubmissionConfirmationScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="adminReviewQueue" component={AdminReviewQueueScreen} options={{ headerShown: true, title: 'Revue administrative' }} />
+              <Stack.Screen name="adminReviewAction" component={AdminReviewActionScreen} options={{ headerShown: true, title: 'Traitement de la revue' }} />
+              <Stack.Screen name="correctionResponse" component={CorrectionResponseScreen} options={{ headerShown: true, title: 'Réponse à la correction' }} />
+              <Stack.Screen name="ohCoordinationQueue" component={OhCoordinationQueueScreen} options={{ headerShown: true, title: 'Coordination Santé au Travail' }} />
+              <Stack.Screen name="ohCoordinationDetail" component={OhCoordinationDetailScreen} options={{ headerShown: true, title: 'Détail de la coordination' }} />
+              <Stack.Screen name="createCoordination" component={CreateCoordinationScreen} options={{ headerShown: true, title: 'Créer une coordination' }} />
+              <Stack.Screen name="recordFollowUpEvent" component={OhFollowUpEventScreen} options={{ headerShown: true, title: 'Événement de suivi' }} />
+              <Stack.Screen name="declarationCoordinationStatus" component={DeclarationCoordinationStatusScreen} options={{ headerShown: true, title: 'Statut de coordination' }} />
+              <Stack.Screen name="surveillanceDashboard" component={SurveillanceDashboardScreen} options={{ headerShown: true, title: 'Surveillance AES' }} />
+              <Stack.Screen name="preventionOverview" component={PreventionOverviewScreen} options={{ headerShown: true, title: 'Prevention & CAPA' }} />
+              <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
+              <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
+              <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
             </>
           ) : (
-            <Stack.Screen name="authGate" component={AuthGateScreen} />
+            <>
+              <Stack.Screen name="authGate" component={AuthGateScreen} />
+              <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
+              <Stack.Screen name="declarations" component={DeclarationListScreen} options={{ headerShown: true, title: 'Déclarations AES' }} />
+              <Stack.Screen name="newDeclaration" component={DeclarationFormScreen} options={{ headerShown: true, title: 'Nouvelle déclaration' }} />
+              <Stack.Screen name="declarationDetails" component={DeclarationDetailsScreen} options={{ headerShown: true, title: 'Détails de la déclaration' }} />
+              <Stack.Screen name="submissionConfirmation" component={SubmissionConfirmationScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="adminReviewQueue" component={AdminReviewQueueScreen} options={{ headerShown: true, title: 'Revue administrative' }} />
+              <Stack.Screen name="adminReviewAction" component={AdminReviewActionScreen} options={{ headerShown: true, title: 'Traitement de la revue' }} />
+              <Stack.Screen name="correctionResponse" component={CorrectionResponseScreen} options={{ headerShown: true, title: 'Réponse à la correction' }} />
+              <Stack.Screen name="ohCoordinationQueue" component={OhCoordinationQueueScreen} options={{ headerShown: true, title: 'Coordination Santé au Travail' }} />
+              <Stack.Screen name="ohCoordinationDetail" component={OhCoordinationDetailScreen} options={{ headerShown: true, title: 'Détail de la coordination' }} />
+              <Stack.Screen name="createCoordination" component={CreateCoordinationScreen} options={{ headerShown: true, title: 'Créer une coordination' }} />
+              <Stack.Screen name="recordFollowUpEvent" component={OhFollowUpEventScreen} options={{ headerShown: true, title: 'Événement de suivi' }} />
+              <Stack.Screen name="declarationCoordinationStatus" component={DeclarationCoordinationStatusScreen} options={{ headerShown: true, title: 'Statut de coordination' }} />
+              <Stack.Screen name="surveillanceDashboard" component={SurveillanceDashboardScreen} options={{ headerShown: true, title: 'Surveillance AES' }} />
+              <Stack.Screen name="preventionOverview" component={PreventionOverviewScreen} options={{ headerShown: true, title: 'Prévention & CAPA' }} />
+              <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
+              <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
+              <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
+            </>
           )}
         </Stack.Navigator>
       </NavigationContainer>
