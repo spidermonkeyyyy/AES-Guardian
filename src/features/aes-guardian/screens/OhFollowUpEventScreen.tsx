@@ -1,35 +1,54 @@
 /**
- * AES Guardian — OH Follow-Up Event Screen (Phase 2C.4)
+ * AES Guardian — OH Record Follow-Up Event Screen
  *
- * Allows the oh_professional to record a follow-up event milestone
- * on an acknowledged coordination record.
+ * Phase 2E.1.6.1 — Batch 6: Occupational Health Coordination UI Transformation
  *
- * Authorization: oh_professional only.
- * Clinical safety: Controlled category list only. No clinical fields,
- * no diagnoses, no PEP recommendations, no lab values.
+ * Strictly enforces:
+ * - Restricted to `oh_professional` role via `canFollowUp()`.
+ * - 6 Canonical event categories:
+ *     1. 'contact_attempt_recorded'
+ *     2. 'contact_established'
+ *     3. 'appointment_coordinated'
+ *     4. 'consultation_recorded'
+ *     5. 'follow_up_continued'
+ *     6. 'follow_up_completed'
+ * - ISO event date input with validation (YYYY-MM-DD).
+ * - Administrative non-clinical note with 300 character limit and counter.
+ * - Synchronous submission guard preventing duplicate submits.
+ * - Failure preserves form state.
+ * - Standard AES Guardian design system (AesScreenContainer, AesScreenHeader, AesOptionCard, AesButton).
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import {
+  aesColors,
+  aesTypography,
+  aesSpacing,
+  aesRadii,
+  aesShadows,
+} from '../../../theme/tokens';
+import {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesOptionCard,
+  AesButton,
+} from '../components';
 import {
   getDatabase,
   canFollowUp,
-  SYNTHETIC_OH_PROFESSIONAL_CONTEXT,
+  useDemoRoleStore,
   OH_FOLLOW_UP_EVENT_CATEGORIES,
-  OhFollowUpEventCategory,
+  type OhFollowUpEventCategory,
   logAuditEvent,
 } from '../../../core';
 import { t } from '../../../localization';
@@ -38,34 +57,53 @@ type ParamList = {
   recordFollowUpEvent: { coordinationId: number };
 };
 
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
 export const OhFollowUpEventScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'recordFollowUpEvent'>>();
   const { coordinationId } = route.params;
 
-  const authContext = SYNTHETIC_OH_PROFESSIONAL_CONTEXT;
+  const { activeContext } = useDemoRoleStore();
+  const authContext = activeContext;
   const isAuthorized = canFollowUp(authContext);
 
   const [selectedCategory, setSelectedCategory] = useState<OhFollowUpEventCategory>(
-    'contact_attempt_recorded',
+    'contact_attempt_recorded'
   );
   const [eventDate, setEventDate] = useState<string>(
-    new Date().toISOString().slice(0, 10),
+    new Date().toISOString().slice(0, 10)
   );
+  const [dateError, setDateError] = useState<string | null>(null);
   const [adminNote, setAdminNote] = useState<string>('');
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const submittingRef = useRef(false);
+
+  const handleDateChange = (val: string) => {
+    setEventDate(val);
+    if (dateError) {
+      setDateError(null);
+    }
+  };
 
   const handleSubmit = useCallback(async () => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || submitting || submittingRef.current) return;
 
+    // Validate ISO date format YYYY-MM-DD
+    const trimmedDate = eventDate.trim();
+    if (!ISO_DATE_REGEX.test(trimmedDate)) {
+      setDateError(t('oh.event.dateInvalid'));
+      return;
+    }
+
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const db = getDatabase();
       const eventId = await db.createOhFollowUpEvent({
         coordination_id: coordinationId,
         event_category: selectedCategory,
-        event_date: eventDate || new Date().toISOString(),
+        event_date: trimmedDate,
         recorded_by_user_id: authContext.userId!,
         administrative_note: adminNote.trim() || undefined,
       });
@@ -83,140 +121,247 @@ export const OhFollowUpEventScreen: React.FC = () => {
         },
       ]);
     } catch (err: any) {
-      Alert.alert(t('error.generic'), err?.message ?? t('error.saveFailed'));
+      Alert.alert(t('error.generic'), err?.message || t('error.saveFailed'));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [isAuthorized, coordinationId, selectedCategory, eventDate, adminNote, authContext, navigation]);
+  }, [
+    isAuthorized,
+    submitting,
+    eventDate,
+    coordinationId,
+    selectedCategory,
+    adminNote,
+    authContext,
+    navigation,
+  ]);
 
   if (!isAuthorized) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.unauthorizedBox, { backgroundColor: colors.card, borderColor: colors.destructive }]}>
-          <Text style={[styles.unauthorizedText, { color: colors.destructive }]}>{t('oh.error.unauthorized')}</Text>
+      <AesScreenContainer testID="record-follow-up-event-unauthorized">
+        <AesScreenHeader
+          title={t('oh.event.title')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centerContainer}>
+          <View style={styles.unauthorizedCard} testID="oh-event-unauthorized-card">
+            <Text style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</Text>
+            <Text style={styles.unauthorizedText}>
+              {t('oh.detail.unauthorizedMessage')}
+            </Text>
+          </View>
         </View>
-      </View>
+      </AesScreenContainer>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Category picker */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.event.category')}</Text>
-        {OH_FOLLOW_UP_EVENT_CATEGORIES.map(cat => {
-          const isSelected = selectedCategory === cat;
-          return (
-            <TouchableOpacity
-              key={cat}
+    <AesScreenContainer scrollable testID="record-follow-up-event-screen">
+      <AesScreenHeader
+        title={t('oh.event.title')}
+        subtitle={`${t('oh.detail.title')} #${coordinationId}`}
+        onBack={() => navigation.goBack()}
+      />
+
+      <View style={styles.formContainer}>
+        {/* Category Selection */}
+        <Text style={styles.sectionLabel}>{t('oh.event.category')}</Text>
+        <View style={styles.optionsGroup} testID="oh-event-category-options">
+          {OH_FOLLOW_UP_EVENT_CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <AesOptionCard
+                key={cat}
+                title={t(`oh.event.${cat}` as any)}
+                selected={isSelected}
+                onPress={() => setSelectedCategory(cat)}
+                variant="radio"
+                testID={`oh-event-category-${cat}`}
+                style={styles.optionCard}
+              />
+            );
+          })}
+        </View>
+
+        {/* Date Input Section */}
+        <View style={styles.fieldSection}>
+          <Text style={styles.sectionLabel}>{t('oh.event.date')}</Text>
+          <TextInput
+            style={[
+              styles.textInput,
+              dateError ? styles.textInputError : null,
+            ]}
+            value={eventDate}
+            onChangeText={handleDateChange}
+            placeholder="AAAA-MM-JJ"
+            placeholderTextColor={aesColors.textPlaceholder}
+            maxLength={10}
+            accessibilityLabel={t('oh.event.date')}
+            testID="oh-event-date-input"
+          />
+          {dateError ? (
+            <Text style={styles.errorCaption} testID="oh-event-date-error">
+              {dateError}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Administrative Note Section */}
+        <View style={styles.fieldSection}>
+          <View style={styles.noteHeaderRow}>
+            <Text style={styles.sectionLabel}>{t('oh.event.note')}</Text>
+            <Text
               style={[
-                styles.categoryCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                },
+                styles.charCounter,
+                adminNote.length >= 280 ? styles.charCounterWarning : null,
               ]}
-              onPress={() => setSelectedCategory(cat)}
-              activeOpacity={0.7}
+              testID="oh-event-char-counter"
             >
-              <Text style={[styles.categoryLabel, { color: isSelected ? colors.primary : colors.foreground, fontWeight: isSelected ? '700' : '400' }]}>
-                {t(`oh.event.${cat}` as any)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+              {adminNote.length} / 300 {t('oh.event.charCount')}
+            </Text>
+          </View>
+          <Text style={styles.noteCaption}>{t('oh.event.noteDescription')}</Text>
+          <TextInput
+            style={[styles.textInput, styles.textArea]}
+            value={adminNote}
+            onChangeText={setAdminNote}
+            placeholder={t('oh.event.notePlaceholder')}
+            placeholderTextColor={aesColors.textPlaceholder}
+            multiline
+            maxLength={300}
+            numberOfLines={4}
+            accessibilityLabel={t('oh.event.note')}
+            testID="oh-event-note-input"
+          />
+        </View>
 
-        {/* Date input */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.event.date')}</Text>
-        <TextInput
-          style={[styles.dateInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-          value={eventDate}
-          onChangeText={setEventDate}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.mutedForeground}
-          keyboardType="numeric"
-          maxLength={10}
-        />
+        {/* Clinical Safety Disclaimer */}
+        <View style={styles.clinicalNoticeCard} testID="oh-event-clinical-notice">
+          <Text style={styles.clinicalNoticeText}>
+            {t('oh.disclaimer.clinical')}
+          </Text>
+        </View>
 
-        {/* Administrative note */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.event.note')}</Text>
-        <Text style={[styles.noteCaption, { color: colors.mutedForeground }]}>{t('oh.disclaimer.clinical')}</Text>
-        <TextInput
-          style={[styles.noteInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-          value={adminNote}
-          onChangeText={setAdminNote}
-          placeholder={t('oh.event.notePlaceholder')}
-          placeholderTextColor={colors.mutedForeground}
-          multiline
-          maxLength={300}
-        />
-
-        {/* Submit */}
-        <TouchableOpacity
-          style={[styles.submitButton, { backgroundColor: submitting ? colors.muted : colors.primary }]}
-          onPress={handleSubmit}
-          disabled={submitting}
-          activeOpacity={0.8}
-        >
-          {submitting ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <Text style={[styles.submitLabel, { color: colors.primaryForeground }]}>{t('oh.event.submit')}</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+        {/* Primary Action Button */}
+        <View style={styles.actionContainer}>
+          <AesButton
+            title={t('oh.event.submit')}
+            onPress={handleSubmit}
+            loading={submitting}
+            disabled={submitting}
+            variant="primary"
+            testID="oh-event-submit-button"
+          />
+        </View>
+      </View>
+    </AesScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { padding: spacing.screenPadding },
-  sectionTitle: {
-    fontSize: typography.fontSize.bodySmall,
+  formContainer: {
+    paddingHorizontal: aesSpacing.lg,
+    paddingBottom: aesSpacing.xl,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: aesSpacing.lg,
+  },
+  sectionLabel: {
+    fontSize: aesTypography.subheading.fontSize,
     fontWeight: '700',
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
+    color: aesColors.textPrimary,
+    marginBottom: aesSpacing.xs,
   },
-  categoryCard: {
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    marginBottom: spacing.xs,
-    borderWidth: 1.5,
+  optionsGroup: {
+    gap: aesSpacing.xs,
+    marginBottom: aesSpacing.md,
   },
-  categoryLabel: { fontSize: typography.fontSize.bodySmall },
-  dateInput: {
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    fontSize: typography.fontSize.bodyMedium,
+  optionCard: {
+    marginBottom: 0,
+  },
+  fieldSection: {
+    marginBottom: aesSpacing.md,
+  },
+  noteHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  charCounter: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.textTertiary,
+  },
+  charCounterWarning: {
+    color: aesColors.banners.error.text,
+    fontWeight: '700',
+  },
+  noteCaption: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.textSecondary,
+    marginBottom: aesSpacing.xs,
+  },
+  textInput: {
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.input,
     borderWidth: 1,
-    marginBottom: spacing.xs,
+    borderColor: aesColors.borderMedium,
+    paddingHorizontal: aesSpacing.md,
+    paddingVertical: aesSpacing.sm,
+    fontSize: aesTypography.body.fontSize,
+    color: aesColors.textPrimary,
+    minHeight: 48,
   },
-  noteInput: {
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    fontSize: typography.fontSize.bodyMedium,
-    borderWidth: 1,
-    minHeight: 80,
+  textInputError: {
+    borderColor: aesColors.banners.error.text,
+  },
+  textArea: {
+    minHeight: 96,
     textAlignVertical: 'top',
   },
-  noteCaption: { fontSize: typography.fontSize.xs, marginBottom: spacing.xs },
-  submitButton: {
-    borderRadius: shapes.md,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
+  errorCaption: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.banners.error.text,
+    marginTop: 4,
   },
-  submitLabel: { fontSize: typography.fontSize.bodyMedium, fontWeight: '700' },
-  unauthorizedBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.screenPadding,
-    margin: spacing.md,
-    borderRadius: shapes.md,
+  clinicalNoticeCard: {
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
     borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.md,
+    marginBottom: aesSpacing.lg,
   },
-  unauthorizedText: { fontSize: typography.fontSize.bodyMedium, textAlign: 'center' },
+  clinicalNoticeText: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.textSecondary,
+    lineHeight: 16,
+  },
+  actionContainer: {
+    marginBottom: aesSpacing.xl,
+  },
+  unauthorizedCard: {
+    backgroundColor: aesColors.surface,
+    padding: aesSpacing.lg,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.banners.error.border,
+    width: '100%',
+    maxWidth: 360,
+  },
+  unauthorizedTitle: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.banners.error.text,
+    marginBottom: aesSpacing.xs,
+    textAlign: 'center',
+  },
+  unauthorizedText: {
+    fontSize: aesTypography.body.fontSize,
+    color: aesColors.textSecondary,
+    textAlign: 'center',
+  },
 });

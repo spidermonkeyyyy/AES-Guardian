@@ -16,6 +16,7 @@ import {
   initializeDatabase,
   resetDatabaseForTesting,
   getDatabase,
+  useDemoRoleStore,
 } from '../../../core';
 import { ThemeProvider } from '../../../theme/ThemeContext';
 
@@ -46,9 +47,11 @@ describe('Phase 2C.3: Administrative Review Workflow Screens', () => {
     mockRouteParams = {};
     resetDatabaseForTesting();
     await initializeDatabase();
+    useDemoRoleStore.getState().setRole('admin_reviewer');
   });
 
   afterEach(() => {
+    useDemoRoleStore.getState().setRole('exposed_professional');
     resetDatabaseForTesting();
   });
 
@@ -200,10 +203,10 @@ describe('Phase 2C.3: Administrative Review Workflow Screens', () => {
       // Verify database state updated
       await waitFor(async () => {
         const db = getDatabase();
-        const updated = await db.getDeclarationById(declId);
+        const updated = await db.getDeclarationById(declId, 2);
         expect(updated!.status).toBe('under_review');
 
-        const history = await db.getDeclarationReviewHistory(declId);
+        const history = await db.getDeclarationReviewHistory(declId, 2);
         expect(history.length).toBe(1);
         expect(history[0].outcome).toBe('acknowledged');
 
@@ -213,6 +216,23 @@ describe('Phase 2C.3: Administrative Review Workflow Screens', () => {
       });
 
       alertSpy.mockRestore();
+    });
+
+    it('renders unauthorized view when activeContext is not admin_reviewer', async () => {
+      useDemoRoleStore.getState().setRole('exposed_professional');
+      mockRouteParams = { declarationId: 1 };
+
+      const component = render(
+        <ThemeProvider>
+          <AdminReviewActionScreen />
+        </ThemeProvider>,
+      );
+
+      await waitFor(() => {
+        expect(
+          component.getByText('Accès réservé exclusivement au rôle réviseur administratif.'),
+        ).toBeTruthy();
+      });
     });
   });
 });

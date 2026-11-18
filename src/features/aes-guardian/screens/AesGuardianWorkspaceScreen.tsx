@@ -31,7 +31,7 @@ import {
   AesGuardianRole,
   seedDemoScenarioIfEmpty,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale } from '../../../localization';
 
 interface ModuleCardProps {
   iconText: string;
@@ -47,6 +47,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const isFocused = useIsFocused();
+  const locale = useLocale();
   const styles = createStyles(colors);
 
   const {
@@ -64,6 +65,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [stats, setStats] = useState<{
     myDeclarationsCount?: number;
     pendingCorrectionsCount?: number;
@@ -73,6 +75,69 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
     capaCount?: number;
     schemaVersion?: number;
   }>({});
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  const handleResetDemoData = () => {
+    if (activeRole !== 'tech_admin') {
+      Alert.alert(
+        t('reset.errorTitle', locale),
+        'Seul l’administrateur technique peut réinitialiser le jeu de données.',
+      );
+      return;
+    }
+
+    Alert.alert(
+      t('reset.dialog1Title', locale),
+      t('reset.dialog1Message', locale),
+      [
+        { text: t('reset.dialog1Cancel', locale), style: 'cancel' },
+        {
+          text: t('reset.dialog1Continue', locale),
+          style: 'destructive',
+          onPress: () => confirmFinalReset(),
+        },
+      ],
+      { cancelable: true },
+    );
+  };
+
+  const confirmFinalReset = () => {
+    Alert.alert(
+      t('reset.dialog2Title', locale),
+      t('reset.dialog2Message', locale),
+      [
+        { text: t('reset.dialog2Cancel', locale), style: 'cancel' },
+        {
+          text: t('reset.dialog2Confirm', locale),
+          style: 'destructive',
+          onPress: async () => {
+            if (!activeContext.userId) {
+              Alert.alert(t('reset.errorTitle', locale), 'ID utilisateur introuvable.');
+              return;
+            }
+            setResetting(true);
+            try {
+              const db = getDatabase();
+              const res = await db.resetDemoScenario(activeContext.userId);
+              await loadRoleStats();
+              setResetting(false);
+              Alert.alert(
+                t('reset.successTitle', locale),
+                `${t('reset.successMessage', locale)}\n\n• ${res.declarationsCount} déclarations\n• ${res.preventionActionsCount} actions CAPA\n• Journal d'audit réinitialisé`,
+              );
+            } catch (err: any) {
+              setResetting(false);
+              Alert.alert(
+                t('reset.errorTitle', locale),
+                `${t('reset.errorMessage', locale)} ${err?.message || 'Erreur inconnue'}`,
+              );
+            }
+          },
+        },
+      ],
+      { cancelable: true },
+    );
+  };
 
   const loadRoleStats = useCallback(async () => {
     try {
@@ -80,13 +145,13 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
       const newStats: typeof stats = {};
 
       if (activeRole === 'exposed_professional' && activeContext.userId) {
-        const myDecls = await db.getDeclarations({ userId: activeContext.userId });
+        const myDecls = await db.getDeclarations({ userId: activeContext.userId, requestingUserId: activeContext.userId });
         newStats.myDeclarationsCount = myDecls.length;
         newStats.pendingCorrectionsCount = myDecls.filter(
           (d) => d.status === 'correction_requested',
         ).length;
-      } else if (activeRole === 'admin_reviewer') {
-        const queue = await db.getReviewQueue();
+      } else if (activeRole === 'admin_reviewer' && activeContext.userId) {
+        const queue = await db.getReviewQueue({ requestingUserId: activeContext.userId });
         newStats.adminQueueCount = queue.length;
       } else if (activeRole === 'oh_professional' && activeContext.userId) {
         const ohQueue = await db.listOhCoordinationsQueue(activeContext.userId);
@@ -106,6 +171,19 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
       setStats(newStats);
     } catch (err: any) {
       console.warn('[Workspace] loadRoleStats error:', err?.message);
+    }
+
+    // Load unread notification count for non-tech_admin roles
+    if (activeRole !== 'tech_admin' && activeContext.userId) {
+      try {
+        const db = getDatabase();
+        const count = await db.getUnreadNotificationCount(activeContext.userId);
+        setUnreadNotificationCount(count);
+      } catch {
+        // non-critical — badge stays at previous value
+      }
+    } else {
+      setUnreadNotificationCount(0);
     }
   }, [activeRole, activeContext.userId]);
 
@@ -176,7 +254,42 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
           </View>
           <View style={styles.brandTextContainer}>
             <Text style={styles.appName}>AES GUARDIAN</Text>
-            <Text style={styles.appTagline}>{t('workspace.tagline')}</Text>
+            <Text style={styles.appTagline}>{t('workspace.tagline', locale)}</Text>
+          </View>
+          <View style={styles.headerActionsRow}>
+            {activeRole !== 'tech_admin' && (
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={() => navigation.navigate('notificationCentre')}
+                accessibilityRole="button"
+                accessibilityLabel={t('notificationCentre.a11y.unreadBadge', locale)}
+              >
+                <Text style={styles.headerActionIcon}>🔔</Text>
+                {unreadNotificationCount > 0 && (
+                  <View style={styles.notifBadge} testID="workspace-unread-badge">
+                    <Text style={styles.notifBadgeText}>
+                      {unreadNotificationCount > 99 ? '99+' : String(unreadNotificationCount)}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.headerActionButton}
+              onPress={() => navigation.navigate('helpGlossary')}
+              accessibilityRole="button"
+              accessibilityLabel={t('helpGlossary.tabHelp', locale)}
+            >
+              <Text style={styles.headerActionIcon}>❓</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerActionButton}
+              onPress={() => navigation.navigate('aesGuardianProfile')}
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.title', locale)}
+            >
+              <Text style={styles.headerActionIcon}>👤</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -421,6 +534,32 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               </View>
             </View>
 
+            {/* Technical Maintenance Reset Card */}
+            <View style={styles.techResetCard}>
+              <Text style={styles.techResetTitle}>
+                ⚙️ {t('reset.sectionTitle', locale)}
+              </Text>
+              <Text style={styles.techResetDesc}>
+                {t('reset.sectionDesc', locale)}
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.techResetBtn, resetting && styles.techResetBtnDisabled]}
+                onPress={handleResetDemoData}
+                disabled={resetting}
+                accessibilityRole="button"
+                accessibilityLabel={t('reset.buttonLabel', locale)}
+              >
+                {resetting ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={styles.techResetBtnText}>
+                    ⚠️ {t('reset.buttonLabel', locale)}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.privacyNoticeBox}>
               <Text style={styles.privacyNoticeText}>
                 🔒 {t('workspace.notice.techRestrictions')}
@@ -519,6 +658,45 @@ function createStyles(colors: any) {
       fontSize: typography.fontSize.xs,
       color: colors.mutedForeground,
       fontFamily: typography.fontFamily.openSans,
+    },
+    headerActionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    headerActionButton: {
+      width: 36,
+      height: 36,
+      borderRadius: shapes.sm,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerActionIcon: {
+      fontSize: 18,
+    },
+    notifBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      backgroundColor: colors.primary,
+      borderRadius: shapes.full,
+      minWidth: 16,
+      height: 16,
+      paddingHorizontal: 3,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.card,
+    },
+    notifBadgeText: {
+      color: colors.primaryForeground ?? '#ffffff',
+      fontSize: 9,
+      fontWeight: typography.fontWeight.bold,
+      textAlign: 'center',
+      lineHeight: 11,
     },
     disclaimerBanner: {
       backgroundColor: '#FEF3C7',
@@ -838,6 +1016,43 @@ function createStyles(colors: any) {
     stepActiveBadgeText: {
       fontSize: typography.fontSize.xs - 2,
       color: '#166534',
+      fontWeight: typography.fontWeight.bold,
+    },
+    techResetCard: {
+      backgroundColor: '#FEF2F2',
+      borderRadius: shapes.md,
+      borderWidth: 1,
+      borderColor: '#FCA5A5',
+      borderLeftWidth: 4,
+      borderLeftColor: '#DC2626',
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    techResetTitle: {
+      fontSize: typography.fontSize.sm,
+      fontWeight: typography.fontWeight.bold,
+      color: '#991B1B',
+      marginBottom: spacing.xs,
+    },
+    techResetDesc: {
+      fontSize: typography.fontSize.xs - 1,
+      color: '#B91C1C',
+      lineHeight: 16,
+      marginBottom: spacing.sm,
+    },
+    techResetBtn: {
+      backgroundColor: '#DC2626',
+      paddingVertical: spacing.sm,
+      borderRadius: shapes.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    techResetBtnDisabled: {
+      opacity: 0.6,
+    },
+    techResetBtnText: {
+      color: '#ffffff',
+      fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
     },
   });

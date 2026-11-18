@@ -42,6 +42,12 @@ export default function AuthGateScreen({ navigation }: any) {
           fullWidth
         />
         <AppButton
+          title="✨ Découverte & Onboarding AES (Visite Guidée)"
+          onPress={() => navigation.navigate('aesSplash')}
+          variant="outline"
+          fullWidth
+        />
+        <AppButton
           title="Déclarations AES (Prototype)"
           onPress={() => navigation.navigate('declarations')}
           variant="secondary"

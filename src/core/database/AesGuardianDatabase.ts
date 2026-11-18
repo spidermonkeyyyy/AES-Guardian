@@ -36,6 +36,8 @@ import type {
   DemoUser,
   MutationResult,
   OhCoordination,
+  ExposedOhCoordinationSummary,
+  AdminOhCoordinationSummary,
   OhCoordinationReason,
   OhCoordinationStatus,
   OhFollowUpEvent,
@@ -52,6 +54,16 @@ import type {
   PreventionActionFilters,
   PreventionOverview,
   PreventionActionDetail,
+  ResetDemoScenarioResult,
+  SeedResult,
+  NotificationEventType,
+  NotificationEntityType,
+  InAppNotification,
+  CreateNotificationInput,
+  NotificationFilters,
+  OhQueueFilterOptions,
+  SqlQueryExecutor,
+  TransactionExecutor,
 } from './types';
 import {
   AES_GUARDIAN_ROLES,
@@ -64,10 +76,13 @@ import {
   PREVENTION_ACTION_STATUSES,
   PREVENTION_ACTION_TYPES,
   CONTRIBUTING_FACTOR_CATEGORIES,
+  NOTIFICATION_EVENT_TYPES,
+  NOTIFICATION_ENTITY_TYPES,
+  EVENT_RECIPIENT_ROLE,
 } from './types';
 
 /** Current schema version. Increment when migrations are added. */
-const CURRENT_SCHEMA_VERSION = 7;
+const CURRENT_SCHEMA_VERSION = 8;
 
 /**
  * Ordered list of migrations.
@@ -374,6 +389,49 @@ export const MIGRATIONS: Array<{
       `CREATE INDEX IF NOT EXISTS idx_prevention_created_by ON prevention_actions(created_by_user_id)`,
     ],
   },
+
+  // Migration 8 (Phase 2D.2): In-App Notification System
+  {
+    version: 8,
+    description: 'In-app notification system: notifications table, recipient scoping, idempotency, indexes',
+    up: [
+      `CREATE TABLE IF NOT EXISTS in_app_notifications (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        recipient_user_id   INTEGER NOT NULL REFERENCES demo_users(id) ON DELETE CASCADE,
+        event_type          TEXT    NOT NULL CHECK (event_type IN (
+                              'declaration_submitted',
+                              'review_completed',
+                              'correction_requested',
+                              'correction_submitted',
+                              'oh_coordination_created',
+                              'oh_coordination_acknowledged',
+                              'oh_milestone_recorded',
+                              'oh_coordination_completed',
+                              'capa_created',
+                              'capa_status_changed',
+                              'capa_finalized'
+                            )),
+        title_key           TEXT    NOT NULL,
+        message_key         TEXT    NOT NULL,
+        entity_type         TEXT    NOT NULL CHECK (entity_type IN (
+                              'aes_declaration',
+                              'administrative_review',
+                              'correction_response',
+                              'oh_coordination',
+                              'oh_follow_up_events',
+                              'prevention_action'
+                            )),
+        entity_id           INTEGER NOT NULL,
+        entity_reference    TEXT,
+        is_read             INTEGER NOT NULL DEFAULT 0 CHECK (is_read IN (0, 1)),
+        created_at          TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        read_at             TEXT,
+        idempotency_key     TEXT    UNIQUE
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread ON in_app_notifications(recipient_user_id, is_read, created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_notifications_recipient_all ON in_app_notifications(recipient_user_id, created_at)`,
+    ],
+  },
 ];
 
 function generateReferenceNumber(): string {
@@ -445,11 +503,18 @@ export class AesGuardianDatabase {
   }
 
   /**
+   * Executes a function within an atomic SQLite transaction on the underlying database.
+   */
+  async transaction<T>(fn: (tx: TransactionExecutor) => Promise<T>): Promise<T> {
+    return this.db.transaction(fn);
+  }
+
+  /**
    * Returns the first row matching the query, or undefined.
    * Convenience wrapper for tests.
    */
-  async get(sql: string, params?: any[]): Promise<any> {
-    const result = await this.db.query<any>(sql, params ?? []);
+  async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
+    const result = await this.db.query<T>(sql, params ?? []);
     return result.rows[0];
   }
 
@@ -693,7 +758,7 @@ export class AesGuardianDatabase {
       notes: string | null;
     }>,
   ): Promise<MutationResult> {
-    const existing = await this.getDeclarationById(id);
+    const existing = await this.getDeclarationByIdInternal(id);
     if (!existing) {
       throw new Error(`updateDraft: declaration ${id} not found`);
     }
@@ -741,7 +806,7 @@ export class AesGuardianDatabase {
   }
 
   async submitDeclaration(id: number): Promise<MutationResult> {
-    const existing = await this.getDeclarationById(id);
+    const existing = await this.getDeclarationByIdInternal(id);
     if (!existing) {
       throw new Error(`submitDeclaration: declaration ${id} not found`);
     }
@@ -753,23 +818,40 @@ export class AesGuardianDatabase {
     }
 
     const now = new Date().toISOString();
-    return this.db.execute(
-      `UPDATE aes_declarations
-       SET status = 'submitted', submitted_at = ?, updated_at = ?
-       WHERE id = ?`,
-      [now, now, id],
-    );
+    let result: MutationResult = { rowsAffected: 0 };
+
+    await this.db.transaction(async tx => {
+      const adminReviewerId = await this.getRecipientUserIdByRole('admin_reviewer', tx);
+      result = await tx.execute(
+        `UPDATE aes_declarations
+         SET status = 'submitted', submitted_at = ?, updated_at = ?
+         WHERE id = ?`,
+        [now, now, id],
+      );
+
+      await this.insertNotification(
+        {
+          recipient_user_id: adminReviewerId,
+          event_type: 'declaration_submitted',
+          title_key: 'notification.declarationSubmitted.title',
+          message_key: 'notification.declarationSubmitted.message',
+          entity_type: 'aes_declaration',
+          entity_id: id,
+          entity_reference: existing.reference_number,
+          idempotency_key: `notif:declaration_submitted:aes_declaration:${id}:${adminReviewerId}`,
+        },
+        tx,
+      );
+    });
+
+    return result;
   }
 
-  async getDeclarationById(id: number, requestingUserId?: number): Promise<AesDeclaration | null> {
-    if (requestingUserId !== undefined) {
-      const user = await this.getDemoUser(requestingUserId);
-      if (user && user.role === 'tech_admin') {
-        throw new Error(
-          `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing clinical declaration content.`,
-        );
-      }
-    }
+  /**
+   * Internal privileged query to retrieve a declaration row by ID without caller role checks.
+   * Strictly for internal database operations (e.g., status verification within workflows).
+   */
+  private async getDeclarationByIdInternal(id: number): Promise<AesDeclaration | null> {
     const result = await this.db.query<AesDeclaration>(
       `SELECT * FROM aes_declarations WHERE id = ?`,
       [id],
@@ -777,11 +859,93 @@ export class AesGuardianDatabase {
     return result.rows[0] ?? null;
   }
 
+  /**
+   * Retrieves an AES declaration by primary key.
+   *
+   * ACCESS CONTROL & OWNERSHIP RULES:
+   * - tech_admin: strictly prohibited from clinical declaration content.
+   * - quality_staff: strictly prohibited from identifiable declaration content.
+   * - exposed_professional: may ONLY view declarations they personally authored (declared_by_user_id === requestingUserId).
+   * - admin_reviewer: permitted for administrative review triage and processing.
+   * - oh_professional: strictly prohibited from direct declaration retrieval (must access via authorized OH coordination).
+   */
+  async getDeclarationById(id: number, requestingUserId?: number | null): Promise<AesDeclaration | null> {
+    if (requestingUserId === undefined || requestingUserId === null) {
+      throw new Error('Unauthorized: requesting user ID is required to access declaration content.');
+    }
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(`getDeclarationById: requesting user ${requestingUserId} not found`);
+    }
+    if (user.role === 'tech_admin') {
+      throw new Error(
+        `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing clinical declaration content.`,
+      );
+    }
+    if (user.role === 'quality_staff') {
+      throw new Error(
+        `Unauthorized: quality_staff user ${requestingUserId} is strictly prohibited from accessing identifiable declaration content.`,
+      );
+    }
+    if (user.role === 'oh_professional') {
+      throw new Error(
+        `Unauthorized: oh_professional user ${requestingUserId} is strictly prohibited from direct declaration retrieval. Access incident records via authorized OH coordination.`,
+      );
+    }
+    const decl = await this.getDeclarationByIdInternal(id);
+    if (!decl) {
+      return null;
+    }
+    if (user.role === 'exposed_professional' && decl.declared_by_user_id !== requestingUserId) {
+      throw new Error(
+        `Unauthorized: exposed_professional user ${requestingUserId} is not permitted to access declaration ${id} owned by user ${decl.declared_by_user_id}.`,
+      );
+    }
+    return decl;
+  }
+
   async getDeclarations(
-    options: { userId?: number; limit?: number } = {},
+    options: { userId?: number | null; limit?: number; requestingUserId?: number | null } = {},
   ): Promise<AesDeclaration[]> {
-    const { userId, limit = 100 } = options;
-    if (userId !== undefined) {
+    const { userId, limit = 100, requestingUserId } = options;
+    if (requestingUserId === undefined || requestingUserId === null) {
+      throw new Error('Unauthorized: requesting user ID is required to query declarations.');
+    }
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(`getDeclarations: requesting user ${requestingUserId} not found`);
+    }
+    if (user.role === 'tech_admin') {
+      throw new Error(
+        `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing clinical declaration content.`,
+      );
+    }
+    if (user.role === 'quality_staff') {
+      throw new Error(
+        `Unauthorized: quality_staff user ${requestingUserId} is strictly prohibited from accessing identifiable declaration content.`,
+      );
+    }
+    if (user.role === 'oh_professional') {
+      throw new Error(
+        `Unauthorized: oh_professional user ${requestingUserId} is not permitted to query general-purpose declaration lists. Access incident records via the OH coordination workflow.`,
+      );
+    }
+    if (user.role === 'exposed_professional') {
+      if (userId !== undefined && userId !== null && userId !== requestingUserId) {
+        throw new Error(
+          `Unauthorized: exposed_professional user ${requestingUserId} is not permitted to access declarations owned by user ${userId}.`,
+        );
+      }
+      const result = await this.db.query<AesDeclaration>(
+        `SELECT * FROM aes_declarations
+         WHERE declared_by_user_id = ?
+         ORDER BY created_at DESC
+         LIMIT ?`,
+        [requestingUserId, limit],
+      );
+      return result.rows;
+    }
+    if (userId !== undefined && userId !== null) {
       const result = await this.db.query<AesDeclaration>(
         `SELECT * FROM aes_declarations
          WHERE declared_by_user_id = ?
@@ -798,9 +962,41 @@ export class AesGuardianDatabase {
     return result.rows;
   }
 
-  async getDeclarationsByStatus(status: DeclarationStatus): Promise<AesDeclaration[]> {
+  async getDeclarationsByStatus(
+    status: DeclarationStatus,
+    requestingUserId?: number | null,
+  ): Promise<AesDeclaration[]> {
     if (!DECLARATION_STATUSES.includes(status)) {
       throw new Error(`getDeclarationsByStatus: invalid status "${status}"`);
+    }
+    if (requestingUserId === undefined || requestingUserId === null) {
+      throw new Error('Unauthorized: requesting user ID is required to query declarations by status.');
+    }
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(`getDeclarationsByStatus: requesting user ${requestingUserId} not found`);
+    }
+    if (user.role === 'tech_admin') {
+      throw new Error(
+        `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing clinical declaration content.`,
+      );
+    }
+    if (user.role === 'quality_staff') {
+      throw new Error(
+        `Unauthorized: quality_staff user ${requestingUserId} is strictly prohibited from accessing identifiable declaration content.`,
+      );
+    }
+    if (user.role === 'oh_professional') {
+      throw new Error(
+        `Unauthorized: oh_professional user ${requestingUserId} is not permitted to query declarations by status. Access incident records via the OH coordination workflow.`,
+      );
+    }
+    if (user.role === 'exposed_professional') {
+      const result = await this.db.query<AesDeclaration>(
+        `SELECT * FROM aes_declarations WHERE status = ? AND declared_by_user_id = ? ORDER BY created_at DESC`,
+        [status, requestingUserId],
+      );
+      return result.rows;
     }
     const result = await this.db.query<AesDeclaration>(
       `SELECT * FROM aes_declarations WHERE status = ? ORDER BY created_at DESC`,
@@ -826,9 +1022,21 @@ export class AesGuardianDatabase {
    * sorted newest first. Can also filter by specific status.
    */
   async getReviewQueue(
-    options: { status?: DeclarationStatus; limit?: number } = {},
+    options: { status?: DeclarationStatus; limit?: number; requestingUserId?: number | null } = {},
   ): Promise<AesDeclaration[]> {
-    const { status, limit = 100 } = options;
+    const { status, limit = 100, requestingUserId } = options;
+    if (requestingUserId === undefined || requestingUserId === null) {
+      throw new Error('Unauthorized: requesting user ID is required to access the review queue.');
+    }
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(`getReviewQueue: requesting user ${requestingUserId} not found`);
+    }
+    if (user.role !== 'admin_reviewer') {
+      throw new Error(
+        `Unauthorized: only admin_reviewer may access the review queue, got ${user.role}.`,
+      );
+    }
     if (status) {
       const result = await this.db.query<AesDeclaration>(
         `SELECT * FROM aes_declarations
@@ -889,7 +1097,7 @@ export class AesGuardianDatabase {
     }
 
     // 3. Verify declaration
-    const decl = await this.getDeclarationById(input.declaration_id);
+    const decl = await this.getDeclarationByIdInternal(input.declaration_id);
     if (!decl) {
       throw new Error(`createAdministrativeReview: declaration ${input.declaration_id} not found`);
     }
@@ -916,7 +1124,7 @@ export class AesGuardianDatabase {
     let reviewId = 0;
     const now = new Date().toISOString();
 
-    // 4. Atomic transaction: write review record + transition declaration status
+    // 4. Atomic transaction: write review record + transition declaration status + generate notification
     await this.db.transaction(async tx => {
       const reviewRes = await tx.execute(
         `INSERT INTO administrative_reviews (
@@ -938,6 +1146,32 @@ export class AesGuardianDatabase {
       await tx.execute(
         `UPDATE aes_declarations SET status = ?, updated_at = ? WHERE id = ?`,
         [targetStatus, now, input.declaration_id],
+      );
+
+      const isCorrection = input.outcome === 'correction_requested';
+      const eventType: NotificationEventType = isCorrection
+        ? 'correction_requested'
+        : 'review_completed';
+      const titleKey = isCorrection
+        ? 'notification.correctionRequested.title'
+        : 'notification.reviewCompleted.title';
+      const messageKey = isCorrection
+        ? 'notification.correctionRequested.message'
+        : 'notification.reviewCompleted.message';
+      const idempotencyKey = `notif:${eventType}:administrative_review:${reviewId}:${decl.declared_by_user_id}`;
+
+      await this.insertNotification(
+        {
+          recipient_user_id: decl.declared_by_user_id,
+          event_type: eventType,
+          title_key: titleKey,
+          message_key: messageKey,
+          entity_type: 'administrative_review',
+          entity_id: reviewId,
+          entity_reference: decl.reference_number,
+          idempotency_key: idempotencyKey,
+        },
+        tx,
       );
     });
 
@@ -976,7 +1210,7 @@ export class AesGuardianDatabase {
     }
 
     // 2. Declaration existence & ownership check
-    const decl = await this.getDeclarationById(input.declaration_id);
+    const decl = await this.getDeclarationByIdInternal(input.declaration_id);
     if (!decl) {
       throw new Error(`createCorrectionResponse: declaration ${input.declaration_id} not found`);
     }
@@ -1038,6 +1272,7 @@ export class AesGuardianDatabase {
 
     // 7. Atomic transaction
     await this.db.transaction(async tx => {
+      const adminReviewerId = await this.getRecipientUserIdByRole('admin_reviewer', tx);
       const respRes = await tx.execute(
         `INSERT INTO correction_responses (
            declaration_id, review_id, responding_user_id, response_text, responded_at, created_at
@@ -1057,6 +1292,20 @@ export class AesGuardianDatabase {
         `UPDATE aes_declarations SET status = 'resubmitted', updated_at = ? WHERE id = ?`,
         [now, input.declaration_id],
       );
+
+      await this.insertNotification(
+        {
+          recipient_user_id: adminReviewerId,
+          event_type: 'correction_submitted',
+          title_key: 'notification.correctionSubmitted.title',
+          message_key: 'notification.correctionSubmitted.message',
+          entity_type: 'correction_response',
+          entity_id: responseId,
+          entity_reference: decl.reference_number,
+          idempotency_key: `notif:correction_submitted:correction_response:${responseId}:${adminReviewerId}`,
+        },
+        tx,
+      );
     });
 
     return { responseId, declarationStatus: 'resubmitted' };
@@ -1067,13 +1316,30 @@ export class AesGuardianDatabase {
    */
   async getCorrectionResponses(
     declarationId: number,
-    requestingUserId?: number,
+    requestingUserId?: number | null,
   ): Promise<CorrectionResponse[]> {
-    if (requestingUserId !== undefined) {
-      const user = await this.getDemoUser(requestingUserId);
-      if (user && user.role === 'tech_admin') {
+    if (requestingUserId === undefined || requestingUserId === null) {
+      throw new Error('Unauthorized: requesting user ID is required to access correction responses.');
+    }
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(`getCorrectionResponses: requesting user ${requestingUserId} not found`);
+    }
+    if (user.role === 'tech_admin') {
+      throw new Error(
+        `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing correction response content.`,
+      );
+    }
+    if (user.role === 'quality_staff') {
+      throw new Error(
+        `Unauthorized: quality_staff user ${requestingUserId} is strictly prohibited from accessing correction response content.`,
+      );
+    }
+    if (user.role === 'exposed_professional') {
+      const decl = await this.getDeclarationByIdInternal(declarationId);
+      if (!decl || decl.declared_by_user_id !== requestingUserId) {
         throw new Error(
-          `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing correction response content.`,
+          `Unauthorized: exposed_professional user ${requestingUserId} is not permitted to access correction responses for declaration ${declarationId}.`,
         );
       }
     }
@@ -1094,7 +1360,7 @@ export class AesGuardianDatabase {
     declarationId: number,
     userId: number,
   ): Promise<AdministrativeReview | null> {
-    const decl = await this.getDeclarationById(declarationId);
+    const decl = await this.getDeclarationByIdInternal(declarationId);
     if (!decl) throw new Error(`Declaration ${declarationId} not found`);
     if (decl.declared_by_user_id !== userId) {
       throw new Error(`Unauthorized: user ${userId} does not own declaration ${declarationId}`);
@@ -1102,7 +1368,7 @@ export class AesGuardianDatabase {
     if (decl.status !== 'correction_requested') {
       return null;
     }
-    const history = await this.getDeclarationReviewHistory(declarationId);
+    const history = await this.getDeclarationReviewHistory(declarationId, userId);
     const pending = history.find(
       r => r.outcome === 'correction_requested' && !r.response,
     );
@@ -1115,7 +1381,7 @@ export class AesGuardianDatabase {
    */
   async getDeclarationReviewHistory(
     declarationId: number,
-    optionsOrUserId?: { order?: 'ASC' | 'DESC'; requestingUserId?: number } | number,
+    optionsOrUserId?: { order?: 'ASC' | 'DESC'; requestingUserId?: number | null } | number | null,
   ): Promise<AdministrativeReview[]> {
     const requestingUserId =
       typeof optionsOrUserId === 'number'
@@ -1126,11 +1392,28 @@ export class AesGuardianDatabase {
         ? 'ASC'
         : 'DESC';
 
-    if (requestingUserId !== undefined) {
-      const user = await this.getDemoUser(requestingUserId);
-      if (user && user.role === 'tech_admin') {
+    if (requestingUserId === undefined || requestingUserId === null) {
+      throw new Error('Unauthorized: requesting user ID is required to access review history.');
+    }
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(`getDeclarationReviewHistory: requesting user ${requestingUserId} not found`);
+    }
+    if (user.role === 'tech_admin') {
+      throw new Error(
+        `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing review history content.`,
+      );
+    }
+    if (user.role === 'quality_staff') {
+      throw new Error(
+        `Unauthorized: quality_staff user ${requestingUserId} is strictly prohibited from accessing review history content.`,
+      );
+    }
+    if (user.role === 'exposed_professional') {
+      const decl = await this.getDeclarationByIdInternal(declarationId);
+      if (!decl || decl.declared_by_user_id !== requestingUserId) {
         throw new Error(
-          `Unauthorized: tech_admin user ${requestingUserId} is strictly prohibited from accessing review history content.`,
+          `Unauthorized: exposed_professional user ${requestingUserId} is not permitted to access review history for declaration ${declarationId}.`,
         );
       }
     }
@@ -1226,12 +1509,13 @@ export class AesGuardianDatabase {
 
     // Verify declaration exists
     const declResult = await this.db.query<AesDeclaration>(
-      `SELECT id FROM aes_declarations WHERE id = ?`,
+      `SELECT id, reference_number FROM aes_declarations WHERE id = ?`,
       [input.declaration_id],
     );
     if (declResult.rows.length === 0) {
       throw new Error(`createOhCoordination: declaration ${input.declaration_id} not found`);
     }
+    const decl = declResult.rows[0];
 
     // Check for existing active coordination (domain-level guard; DB also enforces via partial unique index)
     const activeResult = await this.db.query<{ id: number }>(
@@ -1244,14 +1528,35 @@ export class AesGuardianDatabase {
       );
     }
 
+    let coordId = 0;
     const now = new Date().toISOString();
-    const result = await this.db.execute(
-      `INSERT INTO oh_coordinations
-         (declaration_id, created_by_user_id, coordination_reason, status, created_at, updated_at)
-       VALUES (?, ?, ?, 'pending_acknowledgement', ?, ?)`,
-      [input.declaration_id, input.created_by_user_id, input.coordination_reason, now, now],
-    );
-    return result.insertId!;
+
+    await this.db.transaction(async tx => {
+      const ohProfessionalId = await this.getRecipientUserIdByRole('oh_professional', tx);
+      const result = await tx.execute(
+        `INSERT INTO oh_coordinations
+           (declaration_id, created_by_user_id, coordination_reason, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'pending_acknowledgement', ?, ?)`,
+        [input.declaration_id, input.created_by_user_id, input.coordination_reason, now, now],
+      );
+      coordId = result.insertId!;
+
+      await this.insertNotification(
+        {
+          recipient_user_id: ohProfessionalId,
+          event_type: 'oh_coordination_created',
+          title_key: 'notification.ohCoordinationCreated.title',
+          message_key: 'notification.ohCoordinationCreated.message',
+          entity_type: 'oh_coordination',
+          entity_id: coordId,
+          entity_reference: decl.reference_number,
+          idempotency_key: `notif:oh_coordination_created:oh_coordination:${coordId}:${ohProfessionalId}`,
+        },
+        tx,
+      );
+    });
+
+    return coordId;
   }
 
   /**
@@ -1289,13 +1594,34 @@ export class AesGuardianDatabase {
       );
     }
 
+    const decl = await this.getDeclarationByIdInternal(coord.declaration_id);
+    if (!decl) {
+      throw new Error(`acknowledgeOhCoordination: declaration for coordination ${coordination_id} not found`);
+    }
+
     const now = new Date().toISOString();
-    await this.db.execute(
-      `UPDATE oh_coordinations
-       SET status = 'acknowledged', acknowledged_by_user_id = ?, acknowledged_at = ?, updated_at = ?
-       WHERE id = ?`,
-      [acknowledging_user_id, now, now, coordination_id],
-    );
+    await this.db.transaction(async tx => {
+      await tx.execute(
+        `UPDATE oh_coordinations
+         SET status = 'acknowledged', acknowledged_by_user_id = ?, acknowledged_at = ?, updated_at = ?
+         WHERE id = ?`,
+        [acknowledging_user_id, now, now, coordination_id],
+      );
+
+      await this.insertNotification(
+        {
+          recipient_user_id: decl.declared_by_user_id,
+          event_type: 'oh_coordination_acknowledged',
+          title_key: 'notification.ohCoordinationAcknowledged.title',
+          message_key: 'notification.ohCoordinationAcknowledged.message',
+          entity_type: 'oh_coordination',
+          entity_id: coordination_id,
+          entity_reference: decl.reference_number,
+          idempotency_key: `notif:oh_coordination_acknowledged:oh_coordination:${coordination_id}:${decl.declared_by_user_id}`,
+        },
+        tx,
+      );
+    });
   }
 
   /**
@@ -1333,13 +1659,34 @@ export class AesGuardianDatabase {
       );
     }
 
+    const decl = await this.getDeclarationByIdInternal(coord.declaration_id);
+    if (!decl) {
+      throw new Error(`completeOhCoordination: declaration for coordination ${coordination_id} not found`);
+    }
+
     const now = new Date().toISOString();
-    await this.db.execute(
-      `UPDATE oh_coordinations
-       SET status = 'completed', completed_by_user_id = ?, completed_at = ?, updated_at = ?
-       WHERE id = ?`,
-      [completing_user_id, now, now, coordination_id],
-    );
+    await this.db.transaction(async tx => {
+      await tx.execute(
+        `UPDATE oh_coordinations
+         SET status = 'completed', completed_by_user_id = ?, completed_at = ?, updated_at = ?
+         WHERE id = ?`,
+        [completing_user_id, now, now, coordination_id],
+      );
+
+      await this.insertNotification(
+        {
+          recipient_user_id: decl.declared_by_user_id,
+          event_type: 'oh_coordination_completed',
+          title_key: 'notification.ohCoordinationCompleted.title',
+          message_key: 'notification.ohCoordinationCompleted.message',
+          entity_type: 'oh_coordination',
+          entity_id: coordination_id,
+          entity_reference: decl.reference_number,
+          idempotency_key: `notif:oh_coordination_completed:oh_coordination:${coordination_id}:${decl.declared_by_user_id}`,
+        },
+        tx,
+      );
+    });
   }
 
   /**
@@ -1390,14 +1737,17 @@ export class AesGuardianDatabase {
    */
   async getOhCoordinationById(
     coordination_id: number,
-    requesting_user_id: number,
-  ): Promise<OhCoordination | null> {
+    requesting_user_id: number | null,
+  ): Promise<OhCoordination | AdminOhCoordinationSummary | ExposedOhCoordinationSummary | null> {
+    if (requesting_user_id === undefined || requesting_user_id === null) {
+      throw new Error('Unauthorized: requesting user ID is required to access coordination data');
+    }
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
       [requesting_user_id],
     );
     if (userResult.rows.length === 0) {
-      throw new Error('getOhCoordinationById: requesting user not found');
+      throw new Error(`getOhCoordinationById: requesting user ${requesting_user_id} not found`);
     }
     const user = userResult.rows[0];
     if (user.role === 'tech_admin') {
@@ -1405,9 +1755,22 @@ export class AesGuardianDatabase {
         'getOhCoordinationById: tech_admin is not authorized to access coordination data',
       );
     }
+    if (user.role === 'quality_staff') {
+      throw new Error(
+        'getOhCoordinationById: quality_staff is not authorized to access coordination data',
+      );
+    }
+    if (user.role !== 'oh_professional' && user.role !== 'admin_reviewer' && user.role !== 'exposed_professional') {
+      throw new Error(
+        `getOhCoordinationById: role ${user.role} is not authorized to access coordination data`,
+      );
+    }
 
-    const result = await this.db.query<OhCoordination>(
-      `SELECT * FROM oh_coordinations WHERE id = ?`,
+    const result = await this.db.query<any>(
+      `SELECT c.*, d.reference_number AS declaration_reference
+       FROM oh_coordinations c
+       LEFT JOIN aes_declarations d ON d.id = c.declaration_id
+       WHERE c.id = ?`,
       [coordination_id],
     );
     if (result.rows.length === 0) return null;
@@ -1424,23 +1787,66 @@ export class AesGuardianDatabase {
           'getOhCoordinationById: exposed_professional may only view coordination for their own declaration',
         );
       }
-      // Return minimal status-only view
-      return {
+      // Return minimal status-only projection (unauthorized fields completely omitted)
+      const exposedSummary: ExposedOhCoordinationSummary = {
+        id: coord.id,
+        declaration_id: coord.declaration_id,
+        status: coord.status,
+        created_at: coord.created_at,
+        updated_at: coord.updated_at,
+      };
+      return exposedSummary;
+    }
+
+    // admin_reviewer: approved minimal administrative projection (unauthorized fields completely omitted)
+    if (user.role === 'admin_reviewer') {
+      const adminSummary: AdminOhCoordinationSummary = {
         id: coord.id,
         declaration_id: coord.declaration_id,
         created_by_user_id: coord.created_by_user_id,
         coordination_reason: coord.coordination_reason,
         status: coord.status,
-        acknowledged_by_user_id: null,
-        acknowledged_at: null,
-        completed_by_user_id: null,
-        completed_at: null,
+        acknowledged_at: coord.acknowledged_at,
+        completed_at: coord.completed_at,
         created_at: coord.created_at,
         updated_at: coord.updated_at,
       };
+      const declRef = coord.declaration_reference ?? coord.reference_number;
+      if (declRef) {
+        adminSummary.declaration_reference = declRef;
+      }
+      return adminSummary;
     }
 
     return coord;
+  }
+
+  /**
+   * Internal coordination detail path: Retrieves the declaration associated with an authorized OH coordination.
+   * Scoped strictly to an existing authorized coordination; verifies caller is oh_professional.
+   * Cannot be used to query arbitrary declarations.
+   */
+  async getDeclarationForCoordinationInternal(
+    coordination_id: number,
+    requesting_user_id: number | null | undefined,
+  ): Promise<AesDeclaration | null> {
+    if (requesting_user_id === undefined || requesting_user_id === null) {
+      throw new Error('Unauthorized: requesting user ID is required to access declaration via coordination.');
+    }
+    const user = await this.getDemoUser(requesting_user_id);
+    if (!user) {
+      throw new Error(`getDeclarationForCoordinationInternal: requesting user ${requesting_user_id} not found`);
+    }
+    if (user.role !== 'oh_professional') {
+      throw new Error(
+        `Unauthorized: role ${user.role} is not permitted to access declaration via OH coordination internal path.`,
+      );
+    }
+    const coord = (await this.getOhCoordinationById(coordination_id, requesting_user_id)) as OhCoordination | null;
+    if (!coord) {
+      return null;
+    }
+    return this.getDeclarationByIdInternal(coord.declaration_id);
   }
 
   /**
@@ -1448,14 +1854,17 @@ export class AesGuardianDatabase {
    */
   async getOhCoordinationByDeclaration(
     declaration_id: number,
-    requesting_user_id: number,
-  ): Promise<OhCoordination | null> {
+    requesting_user_id: number | null,
+  ): Promise<OhCoordination | AdminOhCoordinationSummary | ExposedOhCoordinationSummary | null> {
+    if (requesting_user_id === undefined || requesting_user_id === null) {
+      throw new Error('Unauthorized: requesting user ID is required to access coordination data');
+    }
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
       [requesting_user_id],
     );
     if (userResult.rows.length === 0) {
-      throw new Error('getOhCoordinationByDeclaration: requesting user not found');
+      throw new Error(`getOhCoordinationByDeclaration: requesting user ${requesting_user_id} not found`);
     }
     const user = userResult.rows[0];
     if (user.role === 'tech_admin') {
@@ -1463,11 +1872,23 @@ export class AesGuardianDatabase {
         'getOhCoordinationByDeclaration: tech_admin is not authorized to access coordination data',
       );
     }
+    if (user.role === 'quality_staff') {
+      throw new Error(
+        'getOhCoordinationByDeclaration: quality_staff is not authorized to access coordination data',
+      );
+    }
+    if (user.role !== 'oh_professional' && user.role !== 'admin_reviewer' && user.role !== 'exposed_professional') {
+      throw new Error(
+        `getOhCoordinationByDeclaration: role ${user.role} is not authorized to access coordination data`,
+      );
+    }
 
-    const result = await this.db.query<OhCoordination>(
-      `SELECT * FROM oh_coordinations
-       WHERE declaration_id = ? AND status IN ('pending_acknowledgement', 'acknowledged')
-       ORDER BY created_at DESC
+    const result = await this.db.query<any>(
+      `SELECT c.*, d.reference_number AS declaration_reference
+       FROM oh_coordinations c
+       LEFT JOIN aes_declarations d ON d.id = c.declaration_id
+       WHERE c.declaration_id = ? AND c.status IN ('pending_acknowledgement', 'acknowledged')
+       ORDER BY c.created_at DESC
        LIMIT 1`,
       [declaration_id],
     );
@@ -1485,19 +1906,35 @@ export class AesGuardianDatabase {
           'getOhCoordinationByDeclaration: exposed_professional may only view their own declaration',
         );
       }
-      return {
+      // Return minimal status-only projection (unauthorized fields completely omitted)
+      const exposedSummary: ExposedOhCoordinationSummary = {
+        id: coord.id,
+        declaration_id: coord.declaration_id,
+        status: coord.status,
+        created_at: coord.created_at,
+        updated_at: coord.updated_at,
+      };
+      return exposedSummary;
+    }
+
+    // admin_reviewer: approved minimal administrative projection (unauthorized fields completely omitted)
+    if (user.role === 'admin_reviewer') {
+      const adminSummary: AdminOhCoordinationSummary = {
         id: coord.id,
         declaration_id: coord.declaration_id,
         created_by_user_id: coord.created_by_user_id,
         coordination_reason: coord.coordination_reason,
         status: coord.status,
-        acknowledged_by_user_id: null,
-        acknowledged_at: null,
-        completed_by_user_id: null,
-        completed_at: null,
+        acknowledged_at: coord.acknowledged_at,
+        completed_at: coord.completed_at,
         created_at: coord.created_at,
         updated_at: coord.updated_at,
       };
+      const declRef = coord.declaration_reference ?? coord.reference_number;
+      if (declRef) {
+        adminSummary.declaration_reference = declRef;
+      }
+      return adminSummary;
     }
 
     return coord;
@@ -1507,13 +1944,33 @@ export class AesGuardianDatabase {
    * List all non-completed coordination records for the OH professional queue.
    * Returns records with enriched declaration reference.
    */
-  async listOhCoordinationsQueue(requesting_user_id: number): Promise<OhCoordination[]> {
+  /**
+   * List OH coordination records for the occupational-health professional queue.
+   *
+   * Default (options omitted or options.includeCompleted falsy):
+   *   Returns pending_acknowledgement and acknowledged records only.
+   *   This is the operational active-task inbox used by the workspace badge count.
+   *
+   * With options.includeCompleted === true:
+   *   Also includes completed records (blueprint Tab 3 "Suivi terminé").
+   *   cancelled records remain excluded in all invocation modes.
+   *
+   * Phase 2E.1.6.0.2 — backward-compatible extension.
+   * Authorization: oh_professional only. Fails closed for all other identities.
+   */
+  async listOhCoordinationsQueue(
+    requesting_user_id: number | null | undefined,
+    options?: OhQueueFilterOptions,
+  ): Promise<OhCoordination[]> {
+    if (requesting_user_id === undefined || requesting_user_id === null) {
+      throw new Error('Unauthorized: requesting user ID is required to list OH queue');
+    }
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
       [requesting_user_id],
     );
     if (userResult.rows.length === 0) {
-      throw new Error('listOhCoordinationsQueue: requesting user not found');
+      throw new Error(`listOhCoordinationsQueue: requesting user ${requesting_user_id} not found`);
     }
     const user = userResult.rows[0];
     if (user.role !== 'oh_professional') {
@@ -1522,29 +1979,43 @@ export class AesGuardianDatabase {
       );
     }
 
-    const result = await this.db.query<OhCoordination>(
-      `SELECT c.*, d.reference_number AS declaration_reference,
-              u.display_name AS creator_name
-       FROM oh_coordinations c
-       LEFT JOIN aes_declarations d ON d.id = c.declaration_id
-       LEFT JOIN demo_users u ON u.id = c.created_by_user_id
-       WHERE c.status IN ('pending_acknowledgement', 'acknowledged')
-       ORDER BY c.created_at ASC`,
-      [],
-    );
+    // Use explicit, fixed SQL for the two supported filter modes.
+    // Do not interpolate caller-supplied status values into SQL.
+    const sql = options?.includeCompleted === true
+      ? `SELECT c.*, d.reference_number AS declaration_reference,
+                u.display_name AS creator_name
+         FROM oh_coordinations c
+         LEFT JOIN aes_declarations d ON d.id = c.declaration_id
+         LEFT JOIN demo_users u ON u.id = c.created_by_user_id
+         WHERE c.status IN ('pending_acknowledgement', 'acknowledged', 'completed')
+         ORDER BY c.created_at ASC`
+      : `SELECT c.*, d.reference_number AS declaration_reference,
+                u.display_name AS creator_name
+         FROM oh_coordinations c
+         LEFT JOIN aes_declarations d ON d.id = c.declaration_id
+         LEFT JOIN demo_users u ON u.id = c.created_by_user_id
+         WHERE c.status IN ('pending_acknowledgement', 'acknowledged')
+         ORDER BY c.created_at ASC`;
+
+    const result = await this.db.query<OhCoordination>(sql, []);
     return result.rows;
   }
 
   /**
    * List coordinations created by a specific admin_reviewer.
    */
-  async listOhCoordinationsForAdmin(requesting_user_id: number): Promise<OhCoordination[]> {
+  async listOhCoordinationsForAdmin(
+    requesting_user_id: number | null | undefined,
+  ): Promise<AdminOhCoordinationSummary[]> {
+    if (requesting_user_id === undefined || requesting_user_id === null) {
+      throw new Error('Unauthorized: requesting user ID is required to list coordinations');
+    }
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
       [requesting_user_id],
     );
     if (userResult.rows.length === 0) {
-      throw new Error('listOhCoordinationsForAdmin: requesting user not found');
+      throw new Error(`listOhCoordinationsForAdmin: requesting user ${requesting_user_id} not found`);
     }
     const user = userResult.rows[0];
     if (user.role !== 'admin_reviewer') {
@@ -1553,7 +2024,7 @@ export class AesGuardianDatabase {
       );
     }
 
-    const result = await this.db.query<OhCoordination>(
+    const result = await this.db.query<any>(
       `SELECT c.*, d.reference_number AS declaration_reference
        FROM oh_coordinations c
        LEFT JOIN aes_declarations d ON d.id = c.declaration_id
@@ -1561,7 +2032,24 @@ export class AesGuardianDatabase {
        ORDER BY c.created_at DESC`,
       [requesting_user_id],
     );
-    return result.rows;
+    return result.rows.map((coord) => {
+      const adminSummary: AdminOhCoordinationSummary = {
+        id: coord.id,
+        declaration_id: coord.declaration_id,
+        created_by_user_id: coord.created_by_user_id,
+        coordination_reason: coord.coordination_reason,
+        status: coord.status,
+        acknowledged_at: coord.acknowledged_at,
+        completed_at: coord.completed_at,
+        created_at: coord.created_at,
+        updated_at: coord.updated_at,
+      };
+      const declRef = coord.declaration_reference ?? coord.reference_number;
+      if (declRef) {
+        adminSummary.declaration_reference = declRef;
+      }
+      return adminSummary;
+    });
   }
 
   /**
@@ -1606,51 +2094,92 @@ export class AesGuardianDatabase {
       );
     }
 
-    const now = new Date().toISOString();
-    const result = await this.db.execute(
-      `INSERT INTO oh_follow_up_events
-         (coordination_id, event_category, event_date, recorded_by_user_id, administrative_note, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        input.coordination_id,
-        input.event_category,
-        input.event_date,
-        input.recorded_by_user_id,
-        input.administrative_note ?? null,
-        now,
-      ],
-    );
-
-    // Auto-complete coordination when follow_up_completed event is recorded
-    if (input.event_category === 'follow_up_completed') {
-      await this.db.execute(
-        `UPDATE oh_coordinations
-         SET status = 'completed', completed_by_user_id = ?, completed_at = ?, updated_at = ?
-         WHERE id = ?`,
-        [input.recorded_by_user_id, now, now, input.coordination_id],
-      );
+    const decl = await this.getDeclarationByIdInternal(coord.declaration_id);
+    if (!decl) {
+      throw new Error(`createOhFollowUpEvent: declaration for coordination ${input.coordination_id} not found`);
     }
 
-    return result.insertId!;
+    let eventId = 0;
+    const now = new Date().toISOString();
+
+    await this.db.transaction(async tx => {
+      const result = await tx.execute(
+        `INSERT INTO oh_follow_up_events
+           (coordination_id, event_category, event_date, recorded_by_user_id, administrative_note, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          input.coordination_id,
+          input.event_category,
+          input.event_date,
+          input.recorded_by_user_id,
+          input.administrative_note ?? null,
+          now,
+        ],
+      );
+      eventId = result.insertId!;
+
+      // Auto-complete coordination and notify when follow_up_completed event is recorded
+      if (input.event_category === 'follow_up_completed') {
+        await tx.execute(
+          `UPDATE oh_coordinations
+           SET status = 'completed', completed_by_user_id = ?, completed_at = ?, updated_at = ?
+           WHERE id = ?`,
+          [input.recorded_by_user_id, now, now, input.coordination_id],
+        );
+
+        await this.insertNotification(
+          {
+            recipient_user_id: decl.declared_by_user_id,
+            event_type: 'oh_coordination_completed',
+            title_key: 'notification.ohCoordinationCompleted.title',
+            message_key: 'notification.ohCoordinationCompleted.message',
+            entity_type: 'oh_coordination',
+            entity_id: input.coordination_id,
+            entity_reference: decl.reference_number,
+            idempotency_key: `notif:oh_coordination_completed:oh_coordination:${input.coordination_id}:${decl.declared_by_user_id}`,
+          },
+          tx,
+        );
+      } else {
+        await this.insertNotification(
+          {
+            recipient_user_id: decl.declared_by_user_id,
+            event_type: 'oh_milestone_recorded',
+            title_key: 'notification.ohMilestoneRecorded.title',
+            message_key: 'notification.ohMilestoneRecorded.message',
+            entity_type: 'oh_follow_up_events',
+            entity_id: eventId,
+            entity_reference: decl.reference_number,
+            idempotency_key: `notif:oh_milestone_recorded:oh_follow_up_events:${eventId}:${decl.declared_by_user_id}`,
+          },
+          tx,
+        );
+      }
+    });
+
+    return eventId;
   }
 
   /**
    * Get follow-up events for a coordination record.
-   * Only oh_professional or admin_reviewer may read events.
+   * Strictly oh_professional only (admin_reviewer, quality_staff, exposed_professional, tech_admin denied).
    */
   async getOhFollowUpEvents(
     coordination_id: number,
-    requesting_user_id: number,
+    requesting_user_id: number | null,
   ): Promise<OhFollowUpEvent[]> {
+    if (requesting_user_id === undefined || requesting_user_id === null) {
+      throw new Error('Unauthorized: requesting user ID is required to read follow-up events');
+    }
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
       [requesting_user_id],
     );
     if (userResult.rows.length === 0) {
-      throw new Error('getOhFollowUpEvents: requesting user not found');
+      throw new Error(`getOhFollowUpEvents: requesting user ${requesting_user_id} not found`);
     }
     const user = userResult.rows[0];
-    if (user.role === 'tech_admin' || user.role === 'quality_staff' || user.role === 'exposed_professional') {
+    if (user.role !== 'oh_professional') {
       throw new Error(
         `getOhFollowUpEvents: role ${user.role} is not authorized to read follow-up events`,
       );
@@ -1912,7 +2441,7 @@ export class AesGuardianDatabase {
   async createPreventionAction(
     userId: number,
     input: CreatePreventionActionInput,
-  ): Promise<PreventionAction> {
+  ): Promise<PreventionActionDetail> {
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
       [userId],
@@ -1967,34 +2496,55 @@ export class AesGuardianDatabase {
       }
     }
     const referenceCode = generateCapaReferenceNumber();
+    let actionId = 0;
+    const now = new Date().toISOString();
 
-    const result = await this.db.execute(
-      `INSERT INTO prevention_actions
-         (reference_code, title, description, action_type, contributing_factor,
-          rationale, surveillance_reference, status, target_date, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
-      [
-        referenceCode,
-        title,
-        description,
-        input.action_type,
-        input.contributing_factor,
-        rationale,
-        surveillanceRef,
-        targetDate,
-        userId,
-      ],
-    );
+    await this.db.transaction(async tx => {
+      const result = await tx.execute(
+        `INSERT INTO prevention_actions
+           (reference_code, title, description, action_type, contributing_factor,
+            rationale, surveillance_reference, status, target_date, created_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
+        [
+          referenceCode,
+          title,
+          description,
+          input.action_type,
+          input.contributing_factor,
+          rationale,
+          surveillanceRef,
+          targetDate,
+          userId,
+        ],
+      );
+      actionId = result.insertId!;
 
-    const actionId = result.insertId!;
+      // Inlined atomic audit event
+      await tx.execute(
+        `INSERT INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
+         VALUES ('prevention_action_created', ?, 'prevention_action', ?, ?, ?)`,
+        [
+          userId,
+          actionId,
+          `Création de la mesure de prévention: ${referenceCode} (${title})`,
+          now,
+        ],
+      );
 
-    // Audit event
-    await this.logAuditEvent({
-      event_type: 'prevention_action_created',
-      user_id: userId,
-      entity_type: 'prevention_action',
-      entity_id: actionId,
-      description: `Création de la mesure de prévention: ${referenceCode} (${title})`,
+      // Event 9: capa_created (recipient: quality_staff)
+      await this.insertNotification(
+        {
+          recipient_user_id: userId,
+          event_type: 'capa_created',
+          title_key: 'notification.capaCreated.title',
+          message_key: 'notification.capaCreated.message',
+          entity_type: 'prevention_action',
+          entity_id: actionId,
+          entity_reference: referenceCode,
+          idempotency_key: `notif:capa_created:prevention_action:${actionId}:${userId}`,
+        },
+        tx,
+      );
     });
 
     const action = await this.getPreventionActionById(userId, actionId);
@@ -2012,7 +2562,7 @@ export class AesGuardianDatabase {
     actionId: number,
     newStatus: PreventionActionStatus,
     completionNotes?: string,
-  ): Promise<PreventionAction> {
+  ): Promise<PreventionActionDetail> {
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
       [userId],
@@ -2060,20 +2610,53 @@ export class AesGuardianDatabase {
       }
     }
 
-    await this.db.execute(
-      `UPDATE prevention_actions
-       SET status = ?, completed_at = ?, completion_notes = ?,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-       WHERE id = ?`,
-      [newStatus, completedAt, notes, actionId],
-    );
+    const now = new Date().toISOString();
+    await this.db.transaction(async tx => {
+      await tx.execute(
+        `UPDATE prevention_actions
+         SET status = ?, completed_at = ?, completion_notes = ?,
+             updated_at = ?
+         WHERE id = ?`,
+        [newStatus, completedAt, notes, now, actionId],
+      );
 
-    await this.logAuditEvent({
-      event_type: 'prevention_status_changed',
-      user_id: userId,
-      entity_type: 'prevention_action',
-      entity_id: actionId,
-      description: `Statut de la mesure ${action.reference_code} modifié: ${action.status} -> ${newStatus}`,
+      // Inlined atomic audit event
+      await tx.execute(
+        `INSERT INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
+         VALUES ('prevention_status_changed', ?, 'prevention_action', ?, ?, ?)`,
+        [
+          userId,
+          actionId,
+          `Statut de la mesure ${action.reference_code} modifié: ${action.status} -> ${newStatus}`,
+          now,
+        ],
+      );
+
+      const isFinalized = newStatus === 'completed' || newStatus === 'cancelled';
+      const eventType: NotificationEventType = isFinalized
+        ? 'capa_finalized'
+        : 'capa_status_changed';
+      const titleKey = isFinalized
+        ? 'notification.capaFinalized.title'
+        : 'notification.capaStatusChanged.title';
+      const messageKey = isFinalized
+        ? 'notification.capaFinalized.message'
+        : 'notification.capaStatusChanged.message';
+      const idempotencyKey = `notif:${eventType}:prevention_action:${actionId}:${userId}:${newStatus}`;
+
+      await this.insertNotification(
+        {
+          recipient_user_id: userId,
+          event_type: eventType,
+          title_key: titleKey,
+          message_key: messageKey,
+          entity_type: 'prevention_action',
+          entity_id: actionId,
+          entity_reference: action.reference_code,
+          idempotency_key: idempotencyKey,
+        },
+        tx,
+      );
     });
 
     const updated = await this.getPreventionActionById(userId, actionId);
@@ -2220,6 +2803,961 @@ export class AesGuardianDatabase {
       in_progress,
       completed,
       cancelled,
+    };
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  Phase 2D.2: In-App Notification System Repository Methods
+  // ────────────────────────────────────────────────────────────
+
+  /**
+   * Helper to resolve the recipient user ID for a role dynamically from demo_users.
+   * Uses deterministic selection rule: ORDER BY id ASC LIMIT 1.
+   * Throws RecipientResolutionError if no active user with the role exists.
+   * Prohibits tech_admin from receiving operational notifications.
+   */
+  async getRecipientUserIdByRole(
+    role: AesGuardianRole,
+    executor?: { query: <T = unknown>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }> },
+  ): Promise<number> {
+    if (role === 'tech_admin') {
+      throw new Error("Unauthorized: operational notifications cannot be addressed to 'tech_admin'.");
+    }
+    const exec = executor ?? this.db;
+
+    const result = await exec.query<DemoUser>(
+      `SELECT id, role FROM demo_users WHERE role = ? ORDER BY id ASC LIMIT 1`,
+      [role],
+    );
+    if (result.rows.length === 0) {
+      throw new Error(
+        `RecipientResolutionError: No active user found with required role '${role}'. Cannot deliver workflow notification.`,
+      );
+    }
+    return result.rows[0].id;
+  }
+
+  /**
+   * Internal notification creation primitive used by workflow transactions and seeding.
+   *
+   * SAFE IDEMPOTENCY STRATEGY:
+   * Uses `ON CONFLICT(idempotency_key) DO NOTHING` to gracefully handle duplicate events
+   * without suppressing schema constraint violations (CHECK constraints, NOT NULL, FOREIGN KEY).
+   *
+   * STRICT BOUNDARY:
+   * tech_admin is strictly prohibited from receiving operational notifications.
+   */
+  async insertNotification(
+    input: CreateNotificationInput,
+    executor?: {
+      execute: (sql: string, params?: unknown[]) => Promise<MutationResult>;
+      query?: <T = unknown>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
+    },
+  ): Promise<MutationResult> {
+    let user: DemoUser | null = null;
+    if (executor && typeof executor.query === 'function') {
+      const res = await executor.query<DemoUser>(
+        `SELECT id, role, display_name FROM demo_users WHERE id = ?`,
+        [input.recipient_user_id],
+      );
+      user = res.rows[0] ?? null;
+    } else {
+      user = await this.getDemoUser(input.recipient_user_id);
+    }
+    if (!user) {
+      throw new Error(`insertNotification: recipient user ${input.recipient_user_id} not found`);
+    }
+    if (user.role === 'tech_admin') {
+      throw new Error('Unauthorized: operational notifications cannot be created for tech_admin');
+    }
+    if (!NOTIFICATION_EVENT_TYPES.includes(input.event_type)) {
+      throw new Error(`insertNotification: invalid event_type '${input.event_type}'`);
+    }
+    if (!NOTIFICATION_ENTITY_TYPES.includes(input.entity_type)) {
+      throw new Error(`insertNotification: invalid entity_type '${input.entity_type}'`);
+    }
+    const expectedRole = EVENT_RECIPIENT_ROLE[input.event_type];
+    if (user.role !== expectedRole) {
+      throw new Error(
+        `insertNotification: recipient user ${input.recipient_user_id} has role '${user.role}', but event '${input.event_type}' requires role '${expectedRole}'.`,
+      );
+    }
+
+    const exec = executor ?? this.db;
+    return exec.execute(
+      `INSERT INTO in_app_notifications (
+         recipient_user_id, event_type, title_key, message_key,
+         entity_type, entity_id, entity_reference, idempotency_key
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(idempotency_key) DO NOTHING;`,
+      [
+        input.recipient_user_id,
+        input.event_type,
+        input.title_key,
+        input.message_key,
+        input.entity_type,
+        input.entity_id,
+        input.entity_reference ?? null,
+        input.idempotency_key ?? null,
+      ],
+    );
+  }
+
+  /**
+   * Internal database insertion primitive for notifications.
+   */
+  async createNotification(
+    input: CreateNotificationInput,
+    executor?: { execute: (sql: string, params?: unknown[]) => Promise<MutationResult> },
+  ): Promise<MutationResult> {
+    return this.insertNotification(input, executor);
+  }
+
+  /**
+   * Retrieves notifications for a specific synthetic user, ordered newest first.
+   *
+   * STRICT BOUNDARY:
+   * tech_admin receives an empty array.
+   */
+  async getNotifications(
+    userId: number,
+    filters?: NotificationFilters,
+  ): Promise<InAppNotification[]> {
+    const user = await this.getDemoUser(userId);
+    if (!user || user.role === 'tech_admin') {
+      return [];
+    }
+
+    let sql = `SELECT * FROM in_app_notifications WHERE recipient_user_id = ?`;
+    const params: unknown[] = [userId];
+
+    if (filters?.is_read !== undefined) {
+      sql += ` AND is_read = ?`;
+      params.push(typeof filters.is_read === 'boolean' ? (filters.is_read ? 1 : 0) : filters.is_read);
+    }
+
+    sql += ` ORDER BY created_at DESC`;
+
+    if (filters?.limit !== undefined) {
+      sql += ` LIMIT ?`;
+      params.push(filters.limit);
+    }
+
+    const result = await this.db.query<InAppNotification>(sql, params);
+    return result.rows;
+  }
+
+  /**
+   * Retrieves a single in-app notification by ID, strictly scoped to the requesting user.
+   *
+   * RECIPIENT DOUBLE-GUARD:
+   * Enforces WHERE id = ? AND recipient_user_id = ?.
+   * If the notification does not exist or belongs to another user, returns null.
+   *
+   * STRICT BOUNDARY:
+   * tech_admin returns null.
+   */
+  async getNotificationById(
+    notificationId: number,
+    userId: number,
+  ): Promise<InAppNotification | null> {
+    const user = await this.getDemoUser(userId);
+    if (!user || user.role === 'tech_admin') {
+      return null;
+    }
+
+    const result = await this.db.query<InAppNotification>(
+      `SELECT * FROM in_app_notifications WHERE id = ? AND recipient_user_id = ? LIMIT 1`,
+      [notificationId, userId],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  /**
+   * Retrieves the unread notification count for a specific synthetic user.
+   *
+   * Uses an indexed COUNT query: WHERE recipient_user_id = ? AND is_read = 0.
+   * STRICT BOUNDARY: tech_admin returns 0.
+   */
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const user = await this.getDemoUser(userId);
+    if (!user || user.role === 'tech_admin') {
+      return 0;
+    }
+
+    const result = await this.db.query<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM in_app_notifications WHERE recipient_user_id = ? AND is_read = 0`,
+      [userId],
+    );
+    return result.rows[0]?.count ?? 0;
+  }
+
+  /**
+   * Marks a single notification as read.
+   *
+   * RECIPIENT DOUBLE-GUARD:
+   * Enforces WHERE id = ? AND recipient_user_id = ? AND is_read = 0.
+   * Cross-user mutation is completely prevented.
+   * STRICT BOUNDARY: tech_admin cannot mark notifications read.
+   */
+  async markNotificationRead(
+    notificationId: number,
+    userId: number,
+  ): Promise<MutationResult> {
+    const user = await this.getDemoUser(userId);
+    if (!user || user.role === 'tech_admin') {
+      return { rowsAffected: 0 };
+    }
+
+    const now = new Date().toISOString();
+    return this.db.execute(
+      `UPDATE in_app_notifications
+       SET is_read = 1, read_at = ?
+       WHERE id = ? AND recipient_user_id = ? AND is_read = 0`,
+      [now, notificationId, userId],
+    );
+  }
+
+  /**
+   * Marks all unread notifications for a specific user as read.
+   *
+   * STRICT BOUNDARY: tech_admin receives rowsAffected: 0.
+   */
+  async markAllNotificationsRead(userId: number): Promise<MutationResult> {
+    const user = await this.getDemoUser(userId);
+    if (!user || user.role === 'tech_admin') {
+      return { rowsAffected: 0 };
+    }
+
+    const now = new Date().toISOString();
+    return this.db.execute(
+      `UPDATE in_app_notifications
+       SET is_read = 1, read_at = ?
+       WHERE recipient_user_id = ? AND is_read = 0`,
+      [now, userId],
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────
+  //  Phase 2D.2F — Navigation resolution helpers
+  // ────────────────────────────────────────────────────────────
+
+  /**
+   * Retrieves a single administrative review by its primary key.
+   *
+   * AUTHORIZATION:
+   * - tech_admin: throws Unauthorized
+   * - quality_staff: throws Unauthorized
+   * - oh_professional: throws Unauthorized
+   * - exposed_professional: allowed only if the review's declaration belongs to them
+   * - admin_reviewer: unrestricted (all reviews within system)
+   *
+   * Returns null if the record does not exist (or the exposed_professional does
+   * not own the declaration).
+   */
+  async getAdministrativeReviewById(
+    reviewId: number,
+    requestingUserId: number,
+  ): Promise<AdministrativeReview | null> {
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(
+        `getAdministrativeReviewById: requesting user ${requestingUserId} not found`,
+      );
+    }
+    if (
+      user.role === 'tech_admin' ||
+      user.role === 'quality_staff' ||
+      user.role === 'oh_professional'
+    ) {
+      throw new Error(
+        `Unauthorized: ${user.role} user ${requestingUserId} is prohibited from accessing administrative review records directly.`,
+      );
+    }
+
+    const reviewResult = await this.db.query<AdministrativeReview>(
+      `SELECT * FROM administrative_reviews WHERE id = ?`,
+      [reviewId],
+    );
+    const review = reviewResult.rows[0] ?? null;
+    if (!review) return null;
+
+    if (user.role === 'exposed_professional') {
+      const decl = await this.getDeclarationByIdInternal(review.declaration_id);
+      if (!decl || decl.declared_by_user_id !== requestingUserId) {
+        return null;
+      }
+    }
+
+    // Attach correction response if applicable
+    review.response = null;
+    if (review.outcome === 'correction_requested') {
+      const respResult = await this.db.query<CorrectionResponse>(
+        `SELECT * FROM correction_responses WHERE review_id = ? LIMIT 1`,
+        [reviewId],
+      );
+      review.response = respResult.rows[0] ?? null;
+    }
+
+    return review;
+  }
+
+  /**
+   * Retrieves a single correction response by its primary key.
+   *
+   * AUTHORIZATION:
+   * - tech_admin: throws Unauthorized
+   * - quality_staff: throws Unauthorized
+   * - oh_professional: throws Unauthorized
+   * - exposed_professional: allowed only if the response's declaration belongs to them
+   * - admin_reviewer: unrestricted (all correction responses within system)
+   *
+   * Returns null if the record does not exist or access is denied.
+   */
+  async getCorrectionResponseById(
+    responseId: number,
+    requestingUserId: number,
+  ): Promise<CorrectionResponse | null> {
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(
+        `getCorrectionResponseById: requesting user ${requestingUserId} not found`,
+      );
+    }
+    if (
+      user.role === 'tech_admin' ||
+      user.role === 'quality_staff' ||
+      user.role === 'oh_professional'
+    ) {
+      throw new Error(
+        `Unauthorized: ${user.role} user ${requestingUserId} is prohibited from accessing correction response records directly.`,
+      );
+    }
+
+    const responseResult = await this.db.query<CorrectionResponse>(
+      `SELECT * FROM correction_responses WHERE id = ?`,
+      [responseId],
+    );
+    const response = responseResult.rows[0] ?? null;
+    if (!response) return null;
+
+    if (user.role === 'exposed_professional') {
+      const decl = await this.getDeclarationByIdInternal(response.declaration_id);
+      if (!decl || decl.declared_by_user_id !== requestingUserId) {
+        return null;
+      }
+    }
+
+    return response;
+  }
+
+  /**
+   * Retrieves a single OH follow-up event by its primary key, enriched with
+   * coordination_id and declaration_id for navigation resolution.
+   *
+   * AUTHORIZATION:
+   * - tech_admin: throws Unauthorized
+   * - quality_staff: throws Unauthorized
+   * - admin_reviewer: throws Unauthorized
+   * - oh_professional: full event details (coordination_id + declaration_id)
+   * - exposed_professional: minimal navigation envelope only if the
+   *   coordination's declaration belongs to them
+   *
+   * Returns null if the record does not exist or access is denied.
+   */
+  async getOhFollowUpEventById(
+    eventId: number,
+    requestingUserId: number,
+  ): Promise<
+    | (OhFollowUpEvent & { declaration_id: number })
+    | null
+  > {
+    const user = await this.getDemoUser(requestingUserId);
+    if (!user) {
+      throw new Error(
+        `getOhFollowUpEventById: requesting user ${requestingUserId} not found`,
+      );
+    }
+    if (
+      user.role === 'tech_admin' ||
+      user.role === 'quality_staff' ||
+      user.role === 'admin_reviewer'
+    ) {
+      throw new Error(
+        `Unauthorized: ${user.role} user ${requestingUserId} is prohibited from accessing OH follow-up event records directly.`,
+      );
+    }
+
+    // Join to oh_coordinations to retrieve declaration_id
+    const eventResult = await this.db.query<
+      OhFollowUpEvent & { declaration_id: number }
+    >(
+      `SELECT e.*, c.declaration_id
+       FROM oh_follow_up_events e
+       JOIN oh_coordinations c ON c.id = e.coordination_id
+       WHERE e.id = ?`,
+      [eventId],
+    );
+    const event = eventResult.rows[0] ?? null;
+    if (!event) return null;
+
+    if (user.role === 'exposed_professional') {
+      const decl = await this.getDeclarationByIdInternal(event.declaration_id);
+      if (!decl || decl.declared_by_user_id !== requestingUserId) {
+        return null;
+      }
+    }
+
+    return event;
+  }
+
+  /**
+   * Resets the synthetic demonstration dataset back to baseline.
+   *
+   * AUTHORIZATION:
+   * Only synthetic tech_admin (userId with role === 'tech_admin') is authorized.
+   * Prohibited for exposed_professional, admin_reviewer, oh_professional, quality_staff.
+   *
+   * ATOMICITY & FOREIGN KEY GUARANTEES:
+   * Runs in an atomic SQLite transaction. PRAGMA foreign_keys remains strictly ON.
+   * Deletes dependent records in topological order:
+   * 1. in_app_notifications (FK -> demo_users)
+   * 2. oh_follow_up_events (FK -> oh_coordinations)
+   * 3. oh_coordinations (FK -> aes_declarations)
+   * 4. correction_responses (FK -> administrative_reviews, aes_declarations)
+   * 5. administrative_reviews (FK -> aes_declarations)
+   * 6. aes_declarations (referenced by above)
+   * 7. prevention_actions (FK -> demo_users)
+   * 8. audit_events (operational events)
+   * 9. Reseeds standard baseline scenario within the same transaction.
+   * 10. Records DEMO_DATA_RESET audit event within the same transaction.
+   *
+   * If any step fails, the entire transaction rolls back cleanly, leaving
+   * existing records untouched.
+   */
+  /**
+   * Resolves the primary recipient user ID for a required operational role from demo_users.
+   * Internal helper for demonstration scenario seeding.
+   */
+  private async resolveRecipientId(executor: SqlQueryExecutor, role: string): Promise<number> {
+    if (role === 'tech_admin') {
+      throw new Error(
+        `Unauthorized: operational notifications cannot be addressed to 'tech_admin'.`,
+      );
+    }
+
+    const result = await executor.query<{ id: number; role: string }>(
+      `SELECT id, role FROM demo_users WHERE role = ? ORDER BY id ASC LIMIT 1`,
+      [role],
+    );
+    if (!result.rows || result.rows.length === 0) {
+      throw new Error(
+        `RecipientResolutionError: No active user found with required role '${role}'. Cannot seed baseline notifications.`,
+      );
+    }
+    return result.rows[0].id;
+  }
+
+  /**
+   * Internal scenario seeding routine.
+   * Encapsulated strictly as a private method — cannot be called or bypassed by external modules.
+   */
+  private async seedStandardScenarioInternal(executor: TransactionExecutor): Promise<SeedResult> {
+    if (typeof executor.isCompleted === 'function' && executor.isCompleted()) {
+      throw new Error(
+        'TransactionContextError: Cannot seed scenario using a completed or rolled back transaction context.',
+      );
+    }
+
+    // Resolve required operational actors dynamically by role from demo_users.
+    // Fails closed if any required operational role is missing.
+    const exposedUserId = await this.resolveRecipientId(executor, 'exposed_professional');
+    const adminUserId = await this.resolveRecipientId(executor, 'admin_reviewer');
+    const ohUserId = await this.resolveRecipientId(executor, 'oh_professional');
+    const qualityUserId = await this.resolveRecipientId(executor, 'quality_staff');
+
+    // Check if demonstration scenario declarations already exist
+    const existingDecl = await executor.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM aes_declarations WHERE reference_number LIKE 'AES-2026-DEMO-%'`,
+    );
+
+    const declCount = existingDecl.rows[0]?.count ?? 0;
+
+    if (declCount < 4) {
+      // ────────────────────────────────────────────────────────────────────────
+      // 1. Declaration 1: Newly submitted percutaneous incident
+      // ────────────────────────────────────────────────────────────────────────
+      const res1 = await executor.execute(
+        `INSERT OR IGNORE INTO aes_declarations (
+           reference_number, declared_by_user_id, incident_date, incident_type,
+           circumstances, exposure_description, protective_measures_taken,
+           department_code, notes, status, submitted_at, created_at, updated_at
+         ) VALUES (
+           'AES-2026-DEMO-01', ?, '2026-11-10', 'percutaneous_exposure',
+           'Piqûre accidentelle lors du recapuchonnage d''une aiguille usagée après prélèvement veineux.',
+           'Aiguille creuse de calibre 21G souillée de sang veineux. Perforation du gant en latex.',
+           'Gants simples en latex portés. Collecteur pour objets piquants/tranchants situé à distance.',
+           'MED-INT', 'Déclaration immédiate transmise pour examen administratif.',
+           'submitted', '2026-11-10T09:15:00Z', '2026-11-10T09:10:00Z', '2026-11-10T09:15:00Z'
+         )`,
+        [exposedUserId],
+      );
+
+      const decl1Id = res1.insertId ?? (await executor.query<{ id: number }>(
+        `SELECT id FROM aes_declarations WHERE reference_number = 'AES-2026-DEMO-01'`,
+      )).rows[0]?.id;
+
+      if (decl1Id) {
+        await executor.execute(
+          `INSERT OR IGNORE INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
+           VALUES ('declaration_submitted', ?, 'aes_declaration', ?, 'Déclaration AES-2026-DEMO-01 soumise par le professionnel', '2026-11-10T09:15:00Z')`,
+          [exposedUserId, decl1Id],
+        );
+      }
+
+      // ────────────────────────────────────────────────────────────────────────
+      // 2. Declaration 2: Splash exposure with correction requested
+      // ────────────────────────────────────────────────────────────────────────
+      const res2 = await executor.execute(
+        `INSERT OR IGNORE INTO aes_declarations (
+           reference_number, declared_by_user_id, incident_date, incident_type,
+           circumstances, exposure_description, protective_measures_taken,
+           department_code, notes, status, submitted_at, created_at, updated_at
+         ) VALUES (
+           'AES-2026-DEMO-02', ?, '2026-11-11', 'mucocutaneous_exposure',
+           'Projection oculaire de liquide biologique lors d''une aspiration chez un patient agité en réanimation.',
+           'Projection au niveau de l''œil droit sans barrière de protection faciale.',
+           'Masque chirurgical et gants portés. Absence de lunettes de protection.',
+           'REA-01', 'Attente de précisions suite à revue administrative.',
+           'correction_requested', '2026-11-11T14:30:00Z', '2026-11-11T14:20:00Z', '2026-11-11T16:00:00Z'
+         )`,
+        [exposedUserId],
+      );
+
+      const decl2Id = res2.insertId ?? (await executor.query<{ id: number }>(
+        `SELECT id FROM aes_declarations WHERE reference_number = 'AES-2026-DEMO-02'`,
+      )).rows[0]?.id;
+
+      if (decl2Id) {
+        await executor.execute(
+          `INSERT OR IGNORE INTO administrative_reviews (
+              declaration_id, reviewer_user_id, outcome, comments, correction_reason, reviewed_at, created_at
+            ) VALUES (
+              ?, ?, 'correction_requested',
+              'Examen administratif initial : rinçage non précisé.',
+              'Veuillez préciser le délai effectif du rinçage oculaire immédiat au sérum physiologique et les mesures prises sur place.',
+              '2026-11-11T16:00:00Z', '2026-11-11T16:00:00Z'
+            )`,
+          [decl2Id, adminUserId],
+        );
+
+        await executor.execute(
+          `INSERT OR IGNORE INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
+           VALUES ('review_recorded', ?, 'aes_declaration', ?, 'Revue administrative enregistrée: correction demandée', '2026-11-11T16:00:00Z')`,
+          [adminUserId, decl2Id],
+        );
+      }
+
+      // ────────────────────────────────────────────────────────────────────────
+      // 3. Declaration 3: Incident under review + Active SST Coordination
+      // ────────────────────────────────────────────────────────────────────────
+      const res3 = await executor.execute(
+        `INSERT OR IGNORE INTO aes_declarations (
+           reference_number, declared_by_user_id, incident_date, incident_type,
+           circumstances, exposure_description, protective_measures_taken,
+           department_code, notes, status, submitted_at, created_at, updated_at
+         ) VALUES (
+           'AES-2026-DEMO-03', ?, '2026-11-05', 'percutaneous_exposure',
+           'Blessure avec trocart de perfusion lors d''une pose de voie veineuse périphérique en urgence.',
+           'Perforation face palmaire de l''index gauche avec trocart souillé.',
+           'Gants en latex.',
+           'URG-02', 'Dossier transmis au service de Santé au Travail pour prise en charge.',
+           'under_review', '2026-11-05T08:45:00Z', '2026-11-05T08:30:00Z', '2026-11-05T10:30:00Z'
+         )`,
+        [exposedUserId],
+      );
+
+      const decl3Id = res3.insertId ?? (await executor.query<{ id: number }>(
+        `SELECT id FROM aes_declarations WHERE reference_number = 'AES-2026-DEMO-03'`,
+      )).rows[0]?.id;
+
+      if (decl3Id) {
+        await executor.execute(
+          `INSERT OR IGNORE INTO administrative_reviews (
+              declaration_id, reviewer_user_id, outcome, comments, reviewed_at, created_at
+            ) VALUES (
+              ?, ?, 'acknowledged',
+              'Déclaration administrativement recevable. Transmission SST initiée.',
+              '2026-11-05T09:30:00Z', '2026-11-05T09:30:00Z'
+            )`,
+          [decl3Id, adminUserId],
+        );
+
+        const coordRes = await executor.execute(
+          `INSERT OR IGNORE INTO oh_coordinations (
+              declaration_id, created_by_user_id, coordination_reason, status,
+              acknowledged_by_user_id, acknowledged_at, created_at, updated_at
+            ) VALUES (
+              ?, ?, 'specialized_evaluation', 'acknowledged',
+              ?, '2026-11-05T10:30:00Z', '2026-11-05T09:35:00Z', '2026-11-05T10:30:00Z'
+            )`,
+          [decl3Id, adminUserId, ohUserId],
+        );
+
+        const coordId = coordRes.insertId ?? (await executor.query<{ id: number }>(
+          `SELECT id FROM oh_coordinations WHERE declaration_id = ?`,
+          [decl3Id],
+        )).rows[0]?.id;
+
+        if (coordId) {
+          await executor.execute(
+            `INSERT OR IGNORE INTO oh_follow_up_events (
+                coordination_id, recorded_by_user_id, event_category, event_date, administrative_note, created_at
+              ) VALUES
+              (?, ?, 'appointment_coordinated', '2026-11-05T11:00:00Z', 'Bilan sérologique initial réalisé à H+2 (VIH, VHB, VHC). Conforme au protocole.', '2026-11-05T11:00:00Z'),
+              (?, ?, 'consultation_recorded', '2026-11-05T11:30:00Z', 'Consultation médicale spécialisée en Santé au Travail. Statut vaccinal vérifié.', '2026-11-05T11:30:00Z')`,
+            [coordId, ohUserId, coordId, ohUserId],
+          );
+
+          await executor.execute(
+            `INSERT OR IGNORE INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
+              VALUES ('coordination_acknowledged', ?, 'oh_coordination', ?, 'Coordination SST prise en charge par le médecin du travail', '2026-11-05T10:30:00Z')`,
+            [ohUserId, coordId],
+          );
+        }
+      }
+
+      // ────────────────────────────────────────────────────────────────────────
+      // 4. Declaration 4: Cut exposure closed with completed SST follow-up
+      // ────────────────────────────────────────────────────────────────────────
+      const res4 = await executor.execute(
+        `INSERT OR IGNORE INTO aes_declarations (
+           reference_number, declared_by_user_id, incident_date, incident_type,
+           circumstances, exposure_description, protective_measures_taken,
+           department_code, notes, status, submitted_at, created_at, updated_at
+         ) VALUES (
+           'AES-2026-DEMO-04', ?, '2026-10-15', 'percutaneous_exposure',
+           'Coupure superficielle avec une lame de bistouri lors du déballage d''un plateau d''instruments.',
+           'Plaie superficielle éminence thénar main droite.',
+           'Double paire de gants chirurgicaux.',
+           'BLOC-CENTRAL', 'Dossier clos après suivi sérologique complet.',
+           'closed', '2026-10-15T11:00:00Z', '2026-10-15T10:45:00Z', '2026-11-01T15:00:00Z'
+         )`,
+        [exposedUserId],
+      );
+
+      const decl4Id = res4.insertId ?? (await executor.query<{ id: number }>(
+        `SELECT id FROM aes_declarations WHERE reference_number = 'AES-2026-DEMO-04'`,
+      )).rows[0]?.id;
+
+      if (decl4Id) {
+        await executor.execute(
+          `INSERT OR IGNORE INTO administrative_reviews (
+              declaration_id, reviewer_user_id, outcome, comments, reviewed_at, created_at
+            ) VALUES (
+              ?, ?, 'acknowledged', 'Déclaration conforme. Prise en charge chirurgicale immédiate et SST.', '2026-10-15T11:30:00Z', '2026-10-15T11:30:00Z'
+            )`,
+          [decl4Id, adminUserId],
+        );
+
+        const coordRes4 = await executor.execute(
+          `INSERT OR IGNORE INTO oh_coordinations (
+              declaration_id, created_by_user_id, coordination_reason, status,
+              acknowledged_by_user_id, acknowledged_at, completed_by_user_id, completed_at,
+              created_at, updated_at
+            ) VALUES (
+              ?, ?, 'serology_monitoring', 'completed',
+              ?, '2026-10-15T12:00:00Z', ?, '2026-11-01T15:00:00Z',
+              '2026-10-15T11:35:00Z', '2026-11-01T15:00:00Z'
+            )`,
+          [decl4Id, adminUserId, ohUserId, ohUserId],
+        );
+
+        const coordId4 = coordRes4.insertId ?? (await executor.query<{ id: number }>(
+          `SELECT id FROM oh_coordinations WHERE declaration_id = ?`,
+          [decl4Id],
+        )).rows[0]?.id;
+
+        if (coordId4) {
+          await executor.execute(
+            `INSERT OR IGNORE INTO oh_follow_up_events (
+                coordination_id, recorded_by_user_id, event_category, event_date, administrative_note, created_at
+              ) VALUES
+              (?, ?, 'appointment_coordinated', '2026-10-15T12:30:00Z', 'Prélèvement sérologique initial réalisé.', '2026-10-15T12:30:00Z'),
+              (?, ?, 'consultation_recorded', '2026-11-01T14:00:00Z', 'Contrôle sérologique complet négatif.', '2026-11-01T14:00:00Z'),
+              (?, ?, 'follow_up_completed', '2026-11-01T15:00:00Z', 'Clôture clinique du dossier SST.', '2026-11-01T15:00:00Z')`,
+            [coordId4, ohUserId, coordId4, ohUserId, coordId4, ohUserId],
+          );
+        }
+      }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 5. Ensure baseline Prevention & Corrective Actions (CAPA) exist
+    // ──────────────────────────────────────────────────────────────────────────
+    const existingCapa = await executor.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM prevention_actions`,
+    );
+
+    const capaCount = existingCapa.rows[0]?.count ?? 0;
+
+    if (capaCount < 5) {
+      await executor.execute(
+        `INSERT OR IGNORE INTO prevention_actions (
+           id, reference_code, title, description, action_type,
+           contributing_factor, rationale, status, created_by_user_id,
+           surveillance_reference, created_at, updated_at
+         ) VALUES
+         (1, 'CAPA-2026-00001', 'Dotation en collecteurs de sécurité',
+          'Installation de collecteurs d''aiguilles sécurisés à hauteur des yeux dans chaque box de soins.',
+          'preventive', 'waste_disposal_container',
+          'Observation récurrente d''accidents lors de l''élimination immédiate des aiguilles en médecine.',
+          'in_progress', ?, 'SURV-2026-Q1-SHARPS', '2026-11-12T19:17:00Z', '2026-11-12T19:17:00Z'),
+
+         (2, 'CAPA-2026-00002', 'Protocole port double paire de gants au bloc',
+          'Diffusion du protocole standardisé de double gantage pour les interventions à haut risque d''exposition.',
+          'corrective', 'procedure_compliance',
+          'Incidence de coupures per-opératoires constatée au bloc central.',
+          'in_progress', ?, 'SURV-2026-Q1-CUTS', '2026-11-12T19:17:00Z', '2026-11-12T19:17:00Z'),
+
+         (3, 'CAPA-2026-00003', 'Mise à niveau procédure élimination seringues',
+          'Rappel des bonnes pratiques d''élimination sans recapuchonnage auprès des équipes soignantes.',
+          'corrective', 'training_supervision',
+          'Deux piqûres évitables rapportées suite à un recapuchonnage d''aiguille.',
+          'completed', ?, 'SURV-2026-Q1-SHARPS', '2026-11-12T19:17:00Z', '2026-11-12T20:00:00Z'),
+
+         (4, 'CAPA-2026-00004', 'Installation de conteneurs sécurisés d''urgence',
+          'Dotation des chariots d''urgence en boîtes rigides anti-perforation.',
+          'preventive', 'waste_disposal_container',
+          'Amélioration de l''accessibilité immédiate du matériel d''élimination en réanimation.',
+          'completed', ?, 'SURV-2026-Q1-ERGONOMICS', '2026-11-12T20:19:47Z', '2026-11-12T20:19:47Z'),
+
+         (5, 'CAPA-2026-00005', 'Sensibilisation au port de surblouses',
+          'Session de formation sur les équipements de protection individuelle lors des gestes à risque.',
+          'preventive', 'protective_equipment',
+          'Prévention des projections muqueuses et cutanées.',
+          'cancelled', ?, 'SURV-2026-Q1-SPLASH', '2026-11-12T20:19:47Z', '2026-11-12T20:19:47Z')`,
+        [qualityUserId, qualityUserId, qualityUserId, qualityUserId, qualityUserId],
+      );
+
+      // Update completed_at and notes for completed/cancelled
+      await executor.execute(
+        `UPDATE prevention_actions
+         SET completed_at = '2026-11-10T14:30:00Z', completion_notes = 'Formation réalisée pour 45 soignants. Procédure validée.'
+         WHERE id = 3`,
+      );
+      await executor.execute(
+        `UPDATE prevention_actions
+         SET completed_at = '2026-11-12T20:19:47Z', completion_notes = 'Installation terminée et vérifiée dans les 12 services prioritaires.'
+         WHERE id = 4`,
+      );
+      await executor.execute(
+        `UPDATE prevention_actions
+         SET completion_notes = 'Annulation suite à révision du protocole de service.'
+         WHERE id = 5`,
+      );
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 6. Seed exactly 4 baseline demonstration notifications
+    // ──────────────────────────────────────────────────────────────────────────
+    const existingNotif = await executor.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM in_app_notifications`,
+    );
+    const notifCount = existingNotif.rows[0]?.count ?? 0;
+
+    if (notifCount < 4) {
+      const decl1Row = await executor.query<{ id: number }>(
+        `SELECT id FROM aes_declarations WHERE reference_number = 'AES-2026-DEMO-01'`,
+      );
+      const decl1Id = decl1Row.rows[0]?.id;
+      if (!decl1Id) {
+        throw new Error('EntityResolutionError: AES-2026-DEMO-01 not found for declaration_submitted notification.');
+      }
+
+      const decl2Row = await executor.query<{ id: number }>(
+        `SELECT id FROM aes_declarations WHERE reference_number = 'AES-2026-DEMO-02'`,
+      );
+      const decl2Id = decl2Row.rows[0]?.id;
+      if (!decl2Id) {
+        throw new Error('EntityResolutionError: AES-2026-DEMO-02 not found for correction_requested notification.');
+      }
+
+      const rev2Row = await executor.query<{ id: number }>(
+        `SELECT id FROM administrative_reviews WHERE declaration_id = ? AND outcome = 'correction_requested' ORDER BY id DESC LIMIT 1`,
+        [decl2Id],
+      );
+      const review2Id = rev2Row.rows[0]?.id;
+      if (!review2Id) {
+        throw new Error('EntityResolutionError: Correction-requested review for AES-2026-DEMO-02 not found.');
+      }
+
+      const decl3Row = await executor.query<{ id: number }>(
+        `SELECT id FROM aes_declarations WHERE reference_number = 'AES-2026-DEMO-03'`,
+      );
+      const decl3Id = decl3Row.rows[0]?.id;
+      if (!decl3Id) {
+        throw new Error('EntityResolutionError: AES-2026-DEMO-03 not found for oh_coordination_created notification.');
+      }
+
+      const c3Row = await executor.query<{ id: number }>(
+        `SELECT id FROM oh_coordinations WHERE declaration_id = ? ORDER BY id DESC LIMIT 1`,
+        [decl3Id],
+      );
+      const coord3Id = c3Row.rows[0]?.id;
+      if (!coord3Id) {
+        throw new Error('EntityResolutionError: OH coordination for AES-2026-DEMO-03 not found.');
+      }
+
+      const capa1Row = await executor.query<{ id: number }>(
+        `SELECT id FROM prevention_actions WHERE reference_code = 'CAPA-2026-00001'`,
+      );
+      const capa1Id = capa1Row.rows[0]?.id;
+      if (!capa1Id) {
+        throw new Error('EntityResolutionError: CAPA-2026-00001 not found for capa_created notification.');
+      }
+
+      // ── Notification 1: declaration_submitted → admin_reviewer (unread) ──
+      const key1 = `notif:declaration_submitted:aes_declaration:${decl1Id}:${adminUserId}`;
+      await executor.execute(
+        `INSERT INTO in_app_notifications (
+           recipient_user_id, event_type, title_key, message_key,
+           entity_type, entity_id, entity_reference,
+           is_read, created_at, read_at, idempotency_key
+         ) VALUES (?, 'declaration_submitted', 'notification.declarationSubmitted.title', 'notification.declarationSubmitted.message',
+                   'aes_declaration', ?, 'AES-2026-DEMO-01',
+                   0, '2026-11-10T09:15:00Z', NULL, ?)
+         ON CONFLICT(idempotency_key) DO NOTHING`,
+        [adminUserId, decl1Id, key1],
+      );
+
+      // ── Notification 2: correction_requested → exposed_professional (unread) ──
+      const key2 = `notif:correction_requested:administrative_review:${review2Id}:${exposedUserId}`;
+      await executor.execute(
+        `INSERT INTO in_app_notifications (
+           recipient_user_id, event_type, title_key, message_key,
+           entity_type, entity_id, entity_reference,
+           is_read, created_at, read_at, idempotency_key
+         ) VALUES (?, 'correction_requested', 'notification.correctionRequested.title', 'notification.correctionRequested.message',
+                   'administrative_review', ?, 'AES-2026-DEMO-02',
+                   0, '2026-11-11T16:00:00Z', NULL, ?)
+         ON CONFLICT(idempotency_key) DO NOTHING`,
+        [exposedUserId, review2Id, key2],
+      );
+
+      // ── Notification 3: oh_coordination_created → oh_professional (read) ──
+      const key3 = `notif:oh_coordination_created:oh_coordination:${coord3Id}:${ohUserId}`;
+      await executor.execute(
+        `INSERT INTO in_app_notifications (
+           recipient_user_id, event_type, title_key, message_key,
+           entity_type, entity_id, entity_reference,
+           is_read, created_at, read_at, idempotency_key
+         ) VALUES (?, 'oh_coordination_created', 'notification.ohCoordinationCreated.title', 'notification.ohCoordinationCreated.message',
+                   'oh_coordination', ?, 'AES-2026-DEMO-03',
+                   1, '2026-11-05T09:35:00Z', '2026-11-05T10:30:00Z', ?)
+         ON CONFLICT(idempotency_key) DO NOTHING`,
+        [ohUserId, coord3Id, key3],
+      );
+
+      // ── Notification 4: capa_created → quality_staff (read) ──
+      const key4 = `notif:capa_created:prevention_action:${capa1Id}:${qualityUserId}`;
+      await executor.execute(
+        `INSERT INTO in_app_notifications (
+           recipient_user_id, event_type, title_key, message_key,
+           entity_type, entity_id, entity_reference,
+           is_read, created_at, read_at, idempotency_key
+         ) VALUES (?, 'capa_created', 'notification.capaCreated.title', 'notification.capaCreated.message',
+                   'prevention_action', ?, 'CAPA-2026-00001',
+                   1, '2026-11-12T19:17:00Z', '2026-11-12T20:00:00Z', ?)
+         ON CONFLICT(idempotency_key) DO NOTHING`,
+        [qualityUserId, capa1Id, key4],
+      );
+    }
+
+    const finalDecl = await executor.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM aes_declarations`,
+    );
+    const finalCapa = await executor.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM prevention_actions`,
+    );
+
+    return {
+      seeded: declCount < 4 || capaCount < 5,
+      declarationsCount: finalDecl.rows[0]?.count ?? 0,
+      preventionActionsCount: finalCapa.rows[0]?.count ?? 0,
+    };
+  }
+
+  /**
+   * Public standalone scenario seeding method on the database instance.
+   * Opens exactly one transaction and executes the baseline demonstration scenario.
+   */
+  async seedStandardScenario(): Promise<SeedResult> {
+    return this.db.transaction(async (tx) => {
+      return this.seedStandardScenarioInternal(tx);
+    });
+  }
+
+  async resetDemoScenario(userId: number): Promise<ResetDemoScenarioResult> {
+    const user = await this.getDemoUser(userId);
+    if (!user || user.role !== 'tech_admin') {
+      throw new Error(
+        `Unauthorized: only tech_admin can reset demonstration scenario. User ${userId} has role ${user?.role ?? 'unknown'}.`,
+      );
+    }
+
+    const resetTimestamp = new Date().toISOString();
+
+    await this.db.transaction(async (tx) => {
+      // 1. Delete in-app notifications
+      await tx.execute(`DELETE FROM in_app_notifications;`);
+      // 2. Delete dependent follow-up events
+      await tx.execute(`DELETE FROM oh_follow_up_events;`);
+      // 3. Delete coordinations
+      await tx.execute(`DELETE FROM oh_coordinations;`);
+      // 4. Delete correction responses
+      await tx.execute(`DELETE FROM correction_responses;`);
+      // 5. Delete administrative reviews
+      await tx.execute(`DELETE FROM administrative_reviews;`);
+      // 6. Delete declarations
+      await tx.execute(`DELETE FROM aes_declarations;`);
+      // 7. Delete prevention actions
+      await tx.execute(`DELETE FROM prevention_actions;`);
+      // 8. Delete audit events
+      await tx.execute(`DELETE FROM audit_events;`);
+
+      // 9. Reseed standard demonstration dataset within this transaction
+      await this.seedStandardScenarioInternal(tx);
+
+      // 10. Record the demonstration reset audit event
+      await tx.execute(
+        `INSERT INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
+         VALUES ('DEMO_DATA_RESET', ?, 'system', NULL, ?, ?)`,
+        [
+          userId,
+          "Réinitialisation du jeu de données de démonstration et réensemencement étalon exécutés par l'administrateur technique.",
+          resetTimestamp,
+        ],
+      );
+    });
+
+    // Verification of resulting dataset
+    const declCount =
+      (await this.db.query<{ count: number }>(`SELECT COUNT(*) as count FROM aes_declarations`))
+        .rows[0]?.count ?? 0;
+    const capaCount =
+      (await this.db.query<{ count: number }>(`SELECT COUNT(*) as count FROM prevention_actions`))
+        .rows[0]?.count ?? 0;
+    const auditCount =
+      (await this.db.query<{ count: number }>(`SELECT COUNT(*) as count FROM audit_events`))
+        .rows[0]?.count ?? 0;
+
+    return {
+      success: true,
+      declarationsCount: declCount,
+      preventionActionsCount: capaCount,
+      auditEventsCount: auditCount,
+      resetAt: resetTimestamp,
     };
   }
 }

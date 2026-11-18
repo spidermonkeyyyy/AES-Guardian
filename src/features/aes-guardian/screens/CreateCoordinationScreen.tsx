@@ -1,37 +1,51 @@
 /**
- * AES Guardian — Create OH Coordination Screen (Phase 2C.4)
+ * AES Guardian — Create OH Coordination Screen
  *
- * Allows an admin_reviewer to create an occupational-health coordination
- * record linked to an existing AES declaration.
+ * Phase 2E.1.6.1 — Batch 6: Occupational Health Coordination UI Transformation
  *
- * PROTOTYPE DISCLAIMER: This creates a local demonstration coordination
- * record only. It does NOT transmit an official referral to any medical
- * service, hospital department, or occupational-health unit.
- *
- * Authorization: admin_reviewer only.
- * Clinical safety: No clinical fields, no diagnoses, no PEP, no lab values.
+ * Strictly enforces:
+ * - Restricted to `admin_reviewer` role via `canCoordinate()`.
+ * - Links to an existing AES declaration record via route params.
+ * - 4 Canonical coordination reasons:
+ *     1. 'routine_followup'
+ *     2. 'serology_monitoring'
+ *     3. 'specialized_evaluation'
+ *     4. 'other_coordination'
+ * - Duplicate active coordination guard: preserves repository rejection and user feedback.
+ * - Prototype disclaimer and clinical safety notices.
+ * - Synchronous submission guard preventing duplicate submits.
+ * - Standard AES Guardian design system (AesScreenContainer, AesScreenHeader, AesOptionCard, AesButton).
  */
 
 import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import {
+  aesColors,
+  aesTypography,
+  aesSpacing,
+  aesRadii,
+  aesShadows,
+} from '../../../theme/tokens';
+import {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesOptionCard,
+  AesButton,
+} from '../components';
 import {
   getDatabase,
   canCoordinate,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
+  useDemoRoleStore,
   OH_COORDINATION_REASONS,
-  OhCoordinationReason,
+  type OhCoordinationReason,
   logAuditEvent,
 } from '../../../core';
 import { t } from '../../../localization';
@@ -41,19 +55,21 @@ type ParamList = {
 };
 
 export const CreateCoordinationScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'createCoordination'>>();
   const { declarationId } = route.params;
 
-  const authContext = SYNTHETIC_ADMIN_REVIEWER_CONTEXT;
+  const { activeContext } = useDemoRoleStore();
+  const authContext = activeContext;
   const isAuthorized = canCoordinate(authContext);
 
-  const [selectedReason, setSelectedReason] = useState<OhCoordinationReason>('routine_followup');
-  const [submitting, setSubmitting] = useState(false);
+  const [selectedReason, setSelectedReason] = useState<OhCoordinationReason>(
+    'routine_followup'
+  );
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   const handleCreate = useCallback(async () => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || submitting) return;
 
     Alert.alert(
       t('oh.create.confirm'),
@@ -63,6 +79,7 @@ export const CreateCoordinationScreen: React.FC = () => {
         {
           text: t('review.confirmButton'),
           onPress: async () => {
+            if (submitting) return;
             setSubmitting(true);
             try {
               const db = getDatabase();
@@ -85,7 +102,7 @@ export const CreateCoordinationScreen: React.FC = () => {
                 },
               ]);
             } catch (err: any) {
-              const msg: string = err?.message ?? '';
+              const msg: string = err?.message || '';
               if (msg.includes('active coordination already exists')) {
                 Alert.alert(t('error.generic'), t('oh.error.alreadyActive'));
               } else {
@@ -96,120 +113,164 @@ export const CreateCoordinationScreen: React.FC = () => {
             }
           },
         },
-      ],
+      ]
     );
-  }, [isAuthorized, declarationId, selectedReason, authContext, navigation]);
+  }, [isAuthorized, submitting, declarationId, selectedReason, authContext, navigation]);
 
   if (!isAuthorized) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.unauthorizedBox, { backgroundColor: colors.card, borderColor: colors.destructive }]}>
-          <Text style={[styles.unauthorizedText, { color: colors.destructive }]}>{t('oh.error.unauthorized')}</Text>
+      <AesScreenContainer testID="create-coordination-unauthorized">
+        <AesScreenHeader
+          title={t('oh.create.title')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centerContainer}>
+          <View style={styles.unauthorizedCard} testID="create-oh-unauthorized-card">
+            <Text style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</Text>
+            <Text style={styles.unauthorizedText}>
+              {t('oh.detail.unauthorizedMessage')}
+            </Text>
+          </View>
         </View>
-      </View>
+      </AesScreenContainer>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Prototype disclaimer */}
-        <View style={[styles.disclaimerBox, { backgroundColor: colors.card, borderColor: colors.accent }]}>
-          <Text style={[styles.disclaimerText, { color: colors.mutedForeground }]}>{t('oh.create.disclaimer')}</Text>
+    <AesScreenContainer scrollable testID="create-coordination-screen">
+      <AesScreenHeader
+        title={t('oh.create.title')}
+        subtitle={`Décl. #${declarationId}`}
+        onBack={() => navigation.goBack()}
+      />
+
+      <View style={styles.formContainer}>
+        {/* Prototype Disclaimer Banner */}
+        <View style={styles.disclaimerCard} testID="create-oh-disclaimer">
+          <Text style={styles.disclaimerTitle}>{t('oh.create.disclaimer')}</Text>
+          <Text style={styles.disclaimerBody}>{t('oh.create.disclaimerDetail')}</Text>
         </View>
 
-        {/* Reason picker */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.create.reason')}</Text>
-        {OH_COORDINATION_REASONS.map(reason => {
-          const isSelected = selectedReason === reason;
-          return (
-            <TouchableOpacity
-              key={reason}
-              style={[
-                styles.reasonCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => setSelectedReason(reason)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.reasonLabel,
-                  { color: isSelected ? colors.primary : colors.foreground, fontWeight: isSelected ? '700' : '400' },
-                ]}
-              >
-                {t(`oh.reason.${reason}` as any)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Submit */}
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            { backgroundColor: submitting ? colors.muted : colors.primary },
-          ]}
-          onPress={handleCreate}
-          disabled={submitting}
-          activeOpacity={0.8}
-        >
-          {submitting ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <Text style={[styles.submitLabel, { color: colors.primaryForeground }]}>{t('oh.create.button')}</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Clinical safety note */}
-        <View style={[styles.clinicalNote, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.clinicalNoteText, { color: colors.mutedForeground }]}>{t('oh.disclaimer.clinical')}</Text>
+        {/* Reason Picker Section */}
+        <Text style={styles.sectionLabel}>{t('oh.create.reasonHelp')}</Text>
+        <View style={styles.optionsGroup} testID="create-oh-reason-options">
+          {OH_COORDINATION_REASONS.map((reason) => {
+            const isSelected = selectedReason === reason;
+            return (
+              <AesOptionCard
+                key={reason}
+                title={t(`oh.reason.${reason}` as any)}
+                selected={isSelected}
+                onPress={() => setSelectedReason(reason)}
+                variant="radio"
+                testID={`create-oh-reason-${reason}`}
+                style={styles.optionCard}
+              />
+            );
+          })}
         </View>
-      </ScrollView>
-    </View>
+
+        {/* Clinical Safety Disclaimer */}
+        <View style={styles.clinicalNoticeCard} testID="create-oh-clinical-notice">
+          <Text style={styles.clinicalNoticeText}>
+            {t('oh.disclaimer.clinical')}
+          </Text>
+        </View>
+
+        {/* Primary Action Button */}
+        <View style={styles.actionContainer}>
+          <AesButton
+            title={t('oh.create.button')}
+            onPress={handleCreate}
+            loading={submitting}
+            disabled={submitting}
+            variant="primary"
+            testID="create-oh-submit-button"
+          />
+        </View>
+      </View>
+    </AesScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { padding: spacing.screenPadding },
-  unauthorizedBox: {
-    margin: spacing.md,
-    padding: spacing.md,
-    borderRadius: shapes.md,
-    borderWidth: 1,
+  formContainer: {
+    paddingHorizontal: aesSpacing.lg,
+    paddingBottom: aesSpacing.xl,
   },
-  unauthorizedText: { fontSize: typography.fontSize.bodyMedium, textAlign: 'center' },
-  sectionTitle: { fontSize: typography.fontSize.bodySmall, fontWeight: '700', marginBottom: spacing.xs },
-  disclaimerBox: {
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-    borderLeftWidth: 4,
-  },
-  disclaimerText: { fontSize: typography.fontSize.xs },
-  reasonCard: {
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    marginBottom: spacing.xs,
-    borderWidth: 1.5,
-  },
-  reasonLabel: { fontSize: typography.fontSize.bodySmall },
-  submitButton: {
-    borderRadius: shapes.md,
-    padding: spacing.md,
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.md,
+    padding: aesSpacing.lg,
   },
-  submitLabel: { fontSize: typography.fontSize.bodyMedium, fontWeight: '700' },
-  clinicalNote: {
-    marginTop: spacing.md,
-    padding: spacing.sm,
-    borderRadius: shapes.md,
+  disclaimerCard: {
+    backgroundColor: aesColors.accentGreenMuted,
+    borderRadius: aesRadii.card,
     borderWidth: 1,
+    borderColor: aesColors.status.ohCoordination.completed.border,
+    padding: aesSpacing.md,
+    marginBottom: aesSpacing.md,
   },
-  clinicalNoteText: { fontSize: typography.fontSize.xs },
+  disclaimerTitle: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.accentGreen,
+    marginBottom: 4,
+  },
+  disclaimerBody: {
+    fontSize: aesTypography.bodySmall.fontSize,
+    color: aesColors.textPrimary,
+    lineHeight: 18,
+  },
+  sectionLabel: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.textPrimary,
+    marginBottom: aesSpacing.sm,
+  },
+  optionsGroup: {
+    gap: aesSpacing.xs,
+    marginBottom: aesSpacing.md,
+  },
+  optionCard: {
+    marginBottom: 0,
+  },
+  clinicalNoticeCard: {
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.md,
+    marginBottom: aesSpacing.lg,
+  },
+  clinicalNoticeText: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.textSecondary,
+    lineHeight: 16,
+  },
+  actionContainer: {
+    marginBottom: aesSpacing.xl,
+  },
+  unauthorizedCard: {
+    backgroundColor: aesColors.surface,
+    padding: aesSpacing.lg,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.banners.error.border,
+    width: '100%',
+    maxWidth: 360,
+  },
+  unauthorizedTitle: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.banners.error.text,
+    marginBottom: aesSpacing.xs,
+    textAlign: 'center',
+  },
+  unauthorizedText: {
+    fontSize: aesTypography.body.fontSize,
+    color: aesColors.textSecondary,
+    textAlign: 'center',
+  },
 });

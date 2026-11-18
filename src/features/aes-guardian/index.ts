@@ -20,7 +20,43 @@ export const AES_GUARDIAN_FEATURES = {
   surveillanceDashboard: true, // Phase 2C.5: Implemented
   preventionCapa: true,        // Phase 2C.6: Implemented
   workspaceIntegration: true,  // Phase 2C.7: Implemented
+  onboardingDemoEntry: true,   // Phase 2E.1.2: Implemented
 } as const;
+
+// Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Screens
+export { SplashScreen } from './screens/SplashScreen';
+export { LanguageSelectionScreen } from './screens/LanguageSelectionScreen';
+export { WelcomeCarouselScreen } from './screens/WelcomeCarouselScreen';
+export { PrototypeDisclaimerScreen } from './screens/PrototypeDisclaimerScreen';
+export { DemoAccountPickerScreen } from './screens/DemoAccountPickerScreen';
+
+// Phase 2E.1.2: Reusable Presentation Components
+export {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesCard,
+  AesButton,
+  AesRoundArrowButton,
+  AesOptionCard,
+} from './components';
+export type {
+  AesScreenContainerProps,
+  AesScreenHeaderProps,
+  AesCardProps,
+  AesButtonProps,
+  AesButtonVariant,
+  AesRoundArrowButtonProps,
+  AesRoundArrowButtonVariant,
+  AesOptionCardProps,
+  AesOptionCardVariant,
+} from './components';
+
+// Phase 2E.1.2: First-launch storage utility
+export {
+  isFirstLaunchCompleted,
+  setFirstLaunchCompleted,
+  resetFirstLaunchState,
+} from './utils/onboardingStorage';
 
 // Phase 2C.7: Central demonstration workspace
 export { AesGuardianWorkspaceScreen } from './screens/AesGuardianWorkspaceScreen';
@@ -45,3 +81,18 @@ export { PreventionOverviewScreen } from './screens/PreventionOverviewScreen';
 export { PreventionActionRegisterScreen } from './screens/PreventionActionRegisterScreen';
 export { PreventionActionCreateScreen } from './screens/PreventionActionCreateScreen';
 export { PreventionActionDetailScreen } from './screens/PreventionActionDetailScreen';
+// Phase 2D.1: Help Centre, Glossary, Profile & Settings
+export { HelpGlossaryScreen } from './screens/HelpGlossaryScreen';
+export { AesGuardianProfileScreen } from './screens/AesGuardianProfileScreen';
+// Phase 2D.2F: Notification navigation resolver
+export { resolveNotificationNavigation } from './navigation/notification-navigation-resolver';
+export type {
+  NotificationDestinationRoute,
+  NotificationNavigationResult,
+  NotificationNavigationSuccess,
+  NotificationNavigationUnauthorized,
+  NotificationNavigationNotFound,
+  NotificationNavigationInvalidEvent,
+} from './navigation/notification-navigation-resolver';
+// Phase 2D.2G: Notification Centre
+export { NotificationCentreScreen } from './screens/NotificationCentreScreen';

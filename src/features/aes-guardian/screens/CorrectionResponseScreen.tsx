@@ -1,17 +1,19 @@
 /**
- * AES Guardian — Phase 2C.3.1
- * CorrectionResponseScreen
+ * AES Guardian — Correction Response Screen
+ *
+ * Phase 2E.1.5.1 — Batch 5: Administrative Review Queue & Actions
  *
  * Allows an exposed_professional to review an administrative correction request
  * and submit a structured clarification/response.
  *
  * Strictly enforces:
- * - Author role: exposed_professional only.
+ * - Author role: exposed_professional only via canRespondToCorrection().
  * - Ownership: user must be the declaring professional.
  * - Non-destructive: original declaration remains completely immutable.
  * - Audit logging: CORRECTION_RESPONSE_SUBMITTED event logged.
  * - Tri-lingual support (FR/EN/AR).
- * - Synthetic demonstration context banner.
+ * - Standard AES Guardian design system (AesScreenContainer, AesScreenHeader, AesCard, AesButton).
+ * - Live character counter and structured quotation-style request card.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,20 +21,30 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import {
+  aesColors,
+  aesBannerColors,
+  aesTypography,
+  aesSpacing,
+  aesRadii,
+  aesShadows,
+} from '../../../theme/tokens';
+import {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesCard,
+  AesButton,
+} from '../components';
 import {
   getDatabase,
   canRespondToCorrection,
-  SYNTHETIC_DEMO_CONTEXT,
+  useDemoRoleStore,
   logAuditEvent,
   AdministrativeReview,
 } from '../../../core';
@@ -43,12 +55,12 @@ type ParamList = {
 };
 
 export const CorrectionResponseScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'correctionResponse'>>();
   const { declarationId, reviewId } = route.params;
 
-  const userContext = SYNTHETIC_DEMO_CONTEXT;
+  const { activeContext } = useDemoRoleStore();
+  const userContext = activeContext;
   const isAuthorized = canRespondToCorrection(userContext);
 
   const [correctionRequest, setCorrectionRequest] = useState<AdministrativeReview | null>(null);
@@ -61,7 +73,7 @@ export const CorrectionResponseScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      if (!isAuthorized) {
+      if (!isAuthorized || !userContext.userId) {
         setError(t('correction.unauthorized'));
         return;
       }
@@ -69,8 +81,8 @@ export const CorrectionResponseScreen: React.FC = () => {
       const request = await db.getLatestPendingCorrectionRequest(declarationId, userContext.userId!);
       if (!request) {
         // Fallback: load specific review by ID from history
-        const history = await db.getDeclarationReviewHistory(declarationId);
-        const match = history.find(r => r.id === reviewId);
+        const history = await db.getDeclarationReviewHistory(declarationId, userContext.userId!);
+        const match = history.find((r) => r.id === reviewId);
         if (match && match.outcome === 'correction_requested') {
           setCorrectionRequest(match);
         } else {
@@ -141,207 +153,236 @@ export const CorrectionResponseScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <AesScreenContainer testID="correction-response-loading">
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={aesColors.accentGreen} />
+        </View>
+      </AesScreenContainer>
     );
   }
 
   if (error && !correctionRequest) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
-        <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: colors.primary }]}
-          onPress={loadCorrectionRequest}
-        >
-          <Text style={styles.retryButtonText}>{t('reviewQueue.refresh')}</Text>
-        </TouchableOpacity>
-      </View>
+      <AesScreenContainer testID="correction-response-error">
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <AesButton
+            title={t('reviewQueue.refresh')}
+            onPress={loadCorrectionRequest}
+            variant="outline"
+            fullWidth={false}
+          />
+        </View>
+      </AesScreenContainer>
     );
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* SYNTHETIC DEMO BANNER */}
-      <View style={styles.demoBanner}>
-        <Text style={styles.demoBannerText}>
-          ⚠ DEMO — Contexte synthétique : {userContext.displayName} ({userContext.role})
-        </Text>
-      </View>
+    <AesScreenContainer scrollable testID="correction-response-screen">
+      <AesScreenHeader
+        title={t('correction.screenTitle')}
+        onBack={() => navigation.goBack()}
+      />
 
-      <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-        {t('correction.screenTitle')}
-      </Text>
-
-      {/* Reviewer's Request Card */}
-      {correctionRequest && (
-        <View style={[styles.requestCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={styles.sectionHeader}>{t('correction.requestHeader')}</Text>
-
-          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-            {t('correction.reasonLabel')}
+      <View style={styles.contentContainer}>
+        {/* SYNTHETIC DEMO BANNER */}
+        <View style={styles.demoBanner}>
+          <Text style={styles.demoBannerText}>
+            ⚠ DEMO — Contexte synthétique : {userContext.displayName} ({userContext.role})
           </Text>
-          <Text style={[styles.fieldValue, { color: colors.foreground }]}>
-            {correctionRequest.correction_reason || '—'}
-          </Text>
-
-          {correctionRequest.comments ? (
-            <>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-                {t('correction.commentsLabel')}
-              </Text>
-              <Text style={[styles.fieldValue, { color: colors.foreground }]}>
-                {correctionRequest.comments}
-              </Text>
-            </>
-          ) : null}
         </View>
-      )}
 
-      {/* Response Input */}
-      <View style={[styles.inputSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
-          {t('correction.inputLabel')}
-        </Text>
-        <TextInput
-          style={[
-            styles.textInput,
-            {
-              backgroundColor: colors.background,
-              borderColor: colors.border,
-              color: colors.foreground,
-            },
-          ]}
-          multiline
-          numberOfLines={6}
-          placeholder={t('correction.inputPlaceholder')}
-          placeholderTextColor={colors.mutedForeground}
-          value={responseText}
-          onChangeText={setResponseText}
-          editable={!submitting}
-          textAlignVertical="top"
-        />
-      </View>
+        {/* Reviewer's Request Card */}
+        {correctionRequest && (
+          <View style={styles.requestCard}>
+            <Text style={styles.sectionHeader}>
+              {t('correction.requestHeader')}
+            </Text>
 
-      {error ? (
-        <Text style={[styles.inlineError, { color: colors.destructive }]}>{error}</Text>
-      ) : null}
+            <Text style={styles.fieldLabel}>
+              {t('correction.reasonLabel')}
+            </Text>
+            <Text style={styles.fieldValue}>
+              {correctionRequest.correction_reason || '—'}
+            </Text>
 
-      <TouchableOpacity
-        style={[
-          styles.submitButton,
-          { backgroundColor: colors.primary },
-          submitting && styles.submitButtonDisabled,
-        ]}
-        onPress={handleSubmit}
-        disabled={submitting}
-      >
-        {submitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.submitButtonText}>{t('correction.submitButton')}</Text>
+            {correctionRequest.comments ? (
+              <>
+                <Text style={styles.fieldLabel}>
+                  {t('correction.commentsLabel')}
+                </Text>
+                <Text style={styles.fieldValue}>
+                  {correctionRequest.comments}
+                </Text>
+              </>
+            ) : null}
+
+            <View style={styles.separationNoticeBox}>
+              <Text style={styles.separationNoticeText}>
+                {t('review.readOnlyNotice')}
+              </Text>
+            </View>
+          </View>
         )}
-      </TouchableOpacity>
-    </ScrollView>
+
+        {/* Response Input */}
+        <AesCard style={styles.inputSection}>
+          <View style={styles.inputLabelRow}>
+            <Text style={styles.inputLabel}>
+              {t('correction.inputLabel')}
+            </Text>
+            <Text style={styles.characterCount}>
+              {responseText.length} caractères
+            </Text>
+          </View>
+          <TextInput
+            style={styles.textInput}
+            multiline
+            numberOfLines={6}
+            placeholder={t('correction.inputPlaceholder')}
+            placeholderTextColor={aesColors.textTertiary}
+            value={responseText}
+            onChangeText={setResponseText}
+            editable={!submitting}
+            textAlignVertical="top"
+            accessibilityLabel={t('correction.inputLabel')}
+          />
+        </AesCard>
+
+        {error ? (
+          <Text style={styles.inlineError}>{error}</Text>
+        ) : null}
+
+        <View style={styles.submitContainer}>
+          <AesButton
+            title={t('correction.submitButton')}
+            onPress={handleSubmit}
+            loading={submitting}
+            disabled={submitting}
+          />
+        </View>
+      </View>
+    </AesScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  contentContainer: { padding: spacing.md, paddingBottom: 40 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
+  contentContainer: {
+    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingBottom: aesSpacing['5xl'],
+    gap: aesSpacing.md,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: aesSpacing.xl,
+  },
   demoBanner: {
-    backgroundColor: '#fef3c7',
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
+    backgroundColor: aesBannerColors.warning.bg,
+    borderRadius: aesRadii.card,
+    padding: aesSpacing.sm,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: aesBannerColors.warning.border,
   },
   demoBannerText: {
-    color: '#92400e',
-    fontSize: typography.fontSize.xs,
+    color: aesBannerColors.warning.text,
+    ...aesTypography.labelSmall,
+    fontSize: 12,
     textAlign: 'center',
-    fontWeight: typography.fontWeight.medium,
-  },
-  screenTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.md,
+    fontWeight: '600',
   },
   requestCard: {
-    borderRadius: shapes.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
+    backgroundColor: aesBannerColors.warning.bg,
+    borderRadius: aesRadii.card,
+    padding: aesSpacing.cardPadding,
     borderWidth: 1,
+    borderColor: aesBannerColors.warning.border,
+    borderLeftWidth: 4,
+    borderLeftColor: aesBannerColors.warning.text,
+    gap: aesSpacing.xs,
+    ...aesShadows.card,
   },
   sectionHeader: {
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.semibold,
-    color: '#d97706',
-    marginBottom: spacing.sm,
+    ...aesTypography.heading2,
+    fontSize: 16,
+    color: aesBannerColors.warning.text,
+    marginBottom: aesSpacing.xs,
   },
   fieldLabel: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.xs,
+    ...aesTypography.labelSmall,
+    fontSize: 11,
+    fontWeight: '700',
+    color: aesBannerColors.warning.text,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   fieldValue: {
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.md,
+    ...aesTypography.body,
+    color: aesColors.textPrimary,
+    marginBottom: aesSpacing.xs,
     lineHeight: 20,
   },
+  separationNoticeBox: {
+    marginTop: aesSpacing.xs,
+    paddingTop: aesSpacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: aesBannerColors.warning.border,
+  },
+  separationNoticeText: {
+    ...aesTypography.bodySmall,
+    color: aesBannerColors.warning.text,
+    fontStyle: 'italic',
+    fontSize: 11,
+  },
   inputSection: {
-    borderRadius: shapes.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
     borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.cardPadding,
+    gap: aesSpacing.xs,
+    ...aesShadows.card,
+  },
+  inputLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: aesSpacing.xs,
+  },
+  inputLabel: {
+    ...aesTypography.label,
+    color: aesColors.textPrimary,
+    fontWeight: '700',
+  },
+  characterCount: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textSecondary,
+    fontSize: 11,
   },
   textInput: {
     borderWidth: 1,
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    fontSize: typography.fontSize.sm,
+    borderColor: aesColors.borderSubdued,
+    borderRadius: aesRadii.card,
+    padding: aesSpacing.sm,
+    fontSize: 14,
+    color: aesColors.textPrimary,
+    backgroundColor: aesColors.surfaceSubdued,
     minHeight: 120,
   },
   inlineError: {
-    fontSize: typography.fontSize.sm,
+    ...aesTypography.bodySmall,
+    color: aesColors.banners.error.text,
     textAlign: 'center',
-    marginBottom: spacing.md,
   },
-  submitButton: {
-    borderRadius: shapes.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: { opacity: 0.6 },
-  submitButtonText: {
-    color: '#ffffff',
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.semibold,
+  submitContainer: {
+    marginTop: aesSpacing.xs,
   },
   errorText: {
-    fontSize: typography.fontSize.md,
+    ...aesTypography.body,
+    color: aesColors.banners.error.text,
     textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  retryButton: {
-    borderRadius: shapes.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    marginBottom: aesSpacing.md,
   },
 });
 

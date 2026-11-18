@@ -9,7 +9,7 @@
  * Does not perform clinical analysis or risk scoring.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,8 +19,12 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import {
+  aesColors,
+  aesSpacing,
+  aesRadii,
+  aesTypography,
+} from '../../../theme/tokens';
 import {
   getDatabase,
   canManagePreventionActions,
@@ -33,10 +37,17 @@ import {
   AuthContext,
   PreventionOverview,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale, isRTL } from '../../../localization';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/routes';
+import {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesCard,
+  AesStatusBadge,
+  AesButton,
+} from '../components';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -49,22 +60,28 @@ const DEMO_ROLES: Array<{ key: string; label: string; context: AuthContext }> = 
 ];
 
 export const PreventionOverviewScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NavProp>();
-  const styles = createStyles(colors);
+  const locale = useLocale();
+  const rtl = isRTL(locale);
+  const styles = createStyles(rtl);
+  const DEMO_ROLES_LOCALIZED = useMemo(() => DEMO_ROLES, [locale]);
 
   const [activeRoleContext, setActiveRoleContext] = useState<AuthContext>(SYNTHETIC_QUALITY_STAFF_CONTEXT);
   const isAuthorized = canViewPreventionActions(activeRoleContext);
   const canManage   = canManagePreventionActions(activeRoleContext);
 
   const [overview, setOverview] = useState<PreventionOverview | null>(null);
-  const [loading,  setLoading]  = useState(false);
+  const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
 
   const loadOverview = useCallback(async () => {
-    if (!isAuthorized || !activeRoleContext.userId) { setOverview(null); return; }
-    setLoading(true);
+    setOverview(null);
     setError(null);
+    if (!isAuthorized || !activeRoleContext.userId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
       const db = await getDatabase();
       const data = await db.getPreventionOverview(activeRoleContext.userId);
@@ -78,195 +95,318 @@ export const PreventionOverviewScreen: React.FC = () => {
 
   useEffect(() => { loadOverview(); }, [loadOverview]);
 
-  const StatCard: React.FC<{ label: string; value: number; color?: string }> = ({ label, value, color }) => (
-    <View style={[styles.statCard, { borderLeftColor: color ?? colors.primary }]}>
-      <Text style={[styles.statValue, { color: color ?? colors.primary }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-
-  return (
-    <ScrollView
-      style={styles.root}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={loadOverview} />}
-    >
-      {/* Disclaimer */}
-      <View style={styles.disclaimerBanner}>
-        <Text style={styles.disclaimerText}>{t('prevention.disclaimer')}</Text>
-      </View>
-
-      {/* Role switcher */}
-      <View style={styles.roleBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {DEMO_ROLES.map(r => (
+  const renderRoleSwitcher = () => (
+    <View style={styles.roleSwitcherContainer} testID="prevention-role-switcher">
+      <Text style={styles.roleSwitcherLabel}>{activeRoleContext.displayName}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.roleSwitcherContent}
+      >
+          {DEMO_ROLES_LOCALIZED.map(r => (
             <TouchableOpacity
               key={r.key}
               style={[
                 styles.roleChip,
-                activeRoleContext.userId === r.context.userId && styles.roleChipActive,
+                activeRoleContext.role === r.context.role
+                  ? styles.roleChipActive
+                  : styles.roleChipInactive,
               ]}
               onPress={() => setActiveRoleContext(r.context)}
+              testID={`prevention-role-${r.key}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${r.context.displayName}${canViewPreventionActions(r.context) ? '' : ` (${t('prevention.unauthorized')})`}`}
+              accessibilityState={{ selected: activeRoleContext.role === r.context.role }}
             >
               <Text style={[
                 styles.roleChipText,
-                activeRoleContext.userId === r.context.userId && styles.roleChipTextActive,
-              ]}>{r.label}</Text>
+                activeRoleContext.role === r.context.role
+                  ? styles.roleChipTextActive
+                  : styles.roleChipTextInactive,
+              ]}>{r.context.displayName}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+      </ScrollView>
+    </View>
+  );
+
+  if (!isAuthorized) {
+    return (
+      <AesScreenContainer scrollable testID="prevention-overview-unauthorized">
+        <AesScreenHeader
+          title={t('prevention.overview.title')}
+          subtitle={t('prevention.title')}
+          overline={t('prevention.title')}
+          testID="prevention-overview-header"
+        />
+        {renderRoleSwitcher()}
+        <AesCard
+          elevated
+          accentBorderColor={aesColors.banners.error.border}
+          testID="prevention-overview-unauthorized-card"
+        >
+          <Text style={styles.unauthorizedText}>{t('prevention.unauthorized')}</Text>
+          <Text style={styles.unauthorizedDetail}>
+            {activeRoleContext.displayName} ({activeRoleContext.role})
+          </Text>
+        </AesCard>
+      </AesScreenContainer>
+    );
+  }
+
+  if (loading) {
+    return (
+      <AesScreenContainer scrollable testID="prevention-overview-loading">
+        <AesScreenHeader
+          title={t('prevention.overview.title')}
+          subtitle={t('prevention.title')}
+          testID="prevention-overview-header"
+        />
+        {renderRoleSwitcher()}
+        <View style={styles.centeredState} testID="prevention-overview-loading-state">
+          <ActivityIndicator size="large" color={aesColors.accentGreen} />
+          <Text style={styles.loadingText}>{t('app.loading')}</Text>
+        </View>
+      </AesScreenContainer>
+    );
+  }
+
+  if (error || !overview) {
+    return (
+      <AesScreenContainer scrollable testID="prevention-overview-error">
+        <AesScreenHeader
+          title={t('prevention.overview.title')}
+          subtitle={t('prevention.title')}
+          testID="prevention-overview-header"
+        />
+        {renderRoleSwitcher()}
+        <AesCard
+          elevated
+          accentBorderColor={aesColors.banners.error.border}
+          testID="prevention-overview-error-card"
+        >
+          <Text style={styles.errorText}>{error ?? t('error.generic')}</Text>
+        </AesCard>
+      </AesScreenContainer>
+    );
+  }
+
+  const statusCards: Array<{ status: 'proposed' | 'in_progress' | 'completed' | 'cancelled'; value: number; labelKey: 'prevention.overview.proposed' | 'prevention.overview.in_progress' | 'prevention.overview.completed' | 'prevention.overview.cancelled' }> = [
+    { status: 'proposed', value: overview.proposed, labelKey: 'prevention.overview.proposed' },
+    { status: 'in_progress', value: overview.in_progress, labelKey: 'prevention.overview.in_progress' },
+    { status: 'completed', value: overview.completed, labelKey: 'prevention.overview.completed' },
+    { status: 'cancelled', value: overview.cancelled, labelKey: 'prevention.overview.cancelled' },
+  ];
+
+  return (
+    <AesScreenContainer
+      scrollable
+      testID="prevention-overview"
+      contentContainerStyle={styles.containerContent}
+    >
+      <AesScreenHeader
+        title={t('prevention.overview.title')}
+        subtitle={t('prevention.title')}
+        overline={t('prevention.title')}
+        testID="prevention-overview-header"
+      />
+      {renderRoleSwitcher()}
+
+      <View style={styles.disclaimerBanner} testID="prevention-overview-disclaimer">
+        <Text style={[styles.disclaimerText, { textAlign: rtl ? 'right' : 'left' }]}>
+          {t('prevention.disclaimer')}
+        </Text>
       </View>
 
-      {/* Not authorized */}
-      {!isAuthorized && (
-        <View style={styles.unauthorizedBox}>
-          <Text style={styles.unauthorizedText}>{t('prevention.unauthorized')}</Text>
+      {overview.total === 0 ? (
+        <AesCard elevated testID="prevention-overview-empty">
+          <Text style={[styles.emptyText, { textAlign: rtl ? 'right' : 'left' }]}>
+            {t('prevention.register.empty')}
+          </Text>
+        </AesCard>
+      ) : (
+        <View style={styles.metricsContainer} testID="prevention-overview-metrics">
+          <AesCard elevated testID="prevention-overview-total">
+            <Text style={styles.metricLabel}>{t('prevention.overview.total')}</Text>
+            <Text style={styles.totalValue}>{overview.total}</Text>
+          </AesCard>
+
+          {statusCards.map(({ status, value, labelKey }) => (
+            <AesCard
+              key={status}
+              elevated
+              testID={`prevention-overview-status-${status}`}
+              accentBorderColor={aesColors.status.capa[status].border}
+            >
+              <View style={styles.statusCardHeader}>
+                <AesStatusBadge
+                  status={status}
+                  domain="capa"
+                  testID={`prevention-overview-badge-${status}`}
+                />
+                <Text
+                  style={styles.statusValue}
+                  testID={`prevention-overview-count-${status}`}
+                >
+                  {value}
+                </Text>
+              </View>
+              <Text style={[styles.statusLabel, { textAlign: rtl ? 'right' : 'left' }]}>
+                {t(labelKey)}
+              </Text>
+            </AesCard>
+          ))}
         </View>
       )}
 
-      {isAuthorized && (
-        <>
-          <Text style={styles.sectionTitle}>{t('prevention.overview.title')}</Text>
-
-          {loading && !overview && (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-          )}
-
-          {error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          {overview && (
-            <View style={styles.statsGrid}>
-              <StatCard label={t('prevention.overview.total')}       value={overview.total}       color={colors.primary} />
-              <StatCard label={t('prevention.overview.proposed')}    value={overview.proposed}    color="#6366F1" />
-              <StatCard label={t('prevention.overview.in_progress')} value={overview.in_progress} color="#F59E0B" />
-              <StatCard label={t('prevention.overview.completed')}   value={overview.completed}   color="#10B981" />
-              <StatCard label={t('prevention.overview.cancelled')}   value={overview.cancelled}   color="#EF4444" />
-            </View>
-          )}
-
-          {/* Action buttons */}
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.navigate('preventionRegister')}
-            >
-              <Text style={styles.actionBtnText}>{t('prevention.overview.viewRegister')}</Text>
-            </TouchableOpacity>
-            {canManage && (
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#10B981' }]}
-                onPress={() => navigation.navigate('preventionCreate')}
-              >
-                <Text style={styles.actionBtnText}>{t('prevention.overview.newAction')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </>
-      )}
-    </ScrollView>
+      <View style={styles.actionRow}>
+        <AesButton
+          title={t('prevention.overview.viewRegister')}
+          onPress={() => navigation.navigate('preventionRegister')}
+          variant="outline"
+          fullWidth
+          testID="prevention-overview-view-register"
+        />
+        {canManage && (
+          <AesButton
+            title={t('prevention.overview.newAction')}
+            onPress={() => navigation.navigate('preventionCreate')}
+            variant="green"
+            fullWidth
+            testID="prevention-overview-create-action"
+          />
+        )}
+      </View>
+    </AesScreenContainer>
   );
 };
 
-function createStyles(colors: any) {
+function createStyles(rtl: boolean) {
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: colors.background },
-    disclaimerBanner: {
-      backgroundColor: '#FEF3C7',
-      borderLeftWidth: 4,
-      borderLeftColor: '#F59E0B',
-      margin: spacing.md,
-      padding: spacing.sm,
-      borderRadius: shapes.sm,
+    containerContent: {
+      flexGrow: 1,
     },
-    disclaimerText: {
-      fontSize: typography.fontSize.xs,
-      color: '#92400E',
-      fontFamily: typography.fontFamily.openSans,
+    roleSwitcherContainer: {
+      flexDirection: rtl ? 'column' : 'column',
+      marginHorizontal: aesSpacing.screenHorizontal,
+      marginBottom: aesSpacing.sm,
     },
-    roleBar: {
-      paddingHorizontal: spacing.md,
-      paddingBottom: spacing.sm,
+    roleSwitcherLabel: {
+      ...aesTypography.caption,
+      color: aesColors.textSecondary,
+      marginBottom: aesSpacing.xs,
+      textAlign: rtl ? 'right' : 'left',
+    },
+    roleSwitcherContent: {
+      flexDirection: rtl ? 'row-reverse' : 'row',
     },
     roleChip: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      borderRadius: shapes.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginRight: spacing.xs,
-      backgroundColor: colors.card,
-    },
-    roleChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    roleChipText: { fontSize: typography.fontSize.xs, color: colors.text },
-    roleChipTextActive: { color: '#fff', fontWeight: typography.fontWeight.bold },
-    unauthorizedBox: {
-      margin: spacing.md,
-      padding: spacing.md,
-      backgroundColor: '#FEE2E2',
-      borderRadius: shapes.md,
-    },
-    unauthorizedText: { color: '#991B1B', textAlign: 'center' },
-    sectionTitle: {
-      fontSize: typography.fontSize.lg,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.text,
-      marginHorizontal: spacing.md,
-      marginTop: spacing.md,
-      marginBottom: spacing.sm,
-      fontFamily: typography.fontFamily.urbanist,
-    },
-    statsGrid: {
-      paddingHorizontal: spacing.md,
-      gap: spacing.sm,
-    },
-    statCard: {
-      backgroundColor: colors.card,
-      borderRadius: shapes.md,
-      padding: spacing.md,
-      borderLeftWidth: 4,
-      marginBottom: spacing.sm,
-      flexDirection: 'row',
+      minHeight: 48,
+      justifyContent: 'center',
       alignItems: 'center',
-      gap: spacing.md,
+      paddingHorizontal: aesSpacing.md,
+      borderRadius: aesRadii.pill,
+      borderWidth: 1,
+      marginRight: rtl ? 0 : aesSpacing.xs,
+      marginLeft: rtl ? aesSpacing.xs : 0,
     },
-    statValue: {
-      fontSize: typography.fontSize['2xl'],
-      fontWeight: typography.fontWeight.bold,
-      minWidth: 50,
+    roleChipActive: {
+      backgroundColor: aesColors.primaryAction,
+      borderColor: aesColors.primaryAction,
+    },
+    roleChipInactive: {
+      backgroundColor: aesColors.surfaceSubdued,
+      borderColor: aesColors.borderMedium,
+    },
+    roleChipText: {
+      ...aesTypography.labelSmall,
+    },
+    roleChipTextActive: {
+      color: aesColors.textInverse,
+    },
+    roleChipTextInactive: {
+      color: aesColors.textPrimary,
+    },
+    disclaimerBanner: {
+      backgroundColor: aesColors.banners.warning.bg,
+      borderLeftWidth: 4,
+      borderLeftColor: aesColors.banners.warning.border,
+      marginHorizontal: aesSpacing.screenHorizontal,
+      marginTop: aesSpacing.sm,
+      padding: aesSpacing.sm,
+      borderRadius: aesRadii.badge,
+    },
+    disclaimerText: {
+      ...aesTypography.bodySmall,
+      color: aesColors.banners.warning.text,
+    },
+    unauthorizedText: {
+      ...aesTypography.heading2,
+      color: aesColors.banners.error.text,
       textAlign: 'center',
     },
-    statLabel: {
-      fontSize: typography.fontSize.sm,
-      color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
-      flexShrink: 1,
+    unauthorizedDetail: {
+      ...aesTypography.bodySmall,
+      color: aesColors.textSecondary,
+      textAlign: 'center',
+      marginTop: aesSpacing.sm,
+    },
+    centeredState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 160,
+      marginHorizontal: aesSpacing.screenHorizontal,
+    },
+    loadingText: {
+      ...aesTypography.body,
+      color: aesColors.textSecondary,
+      marginTop: aesSpacing.md,
+      textAlign: 'center',
+    },
+    errorText: {
+      ...aesTypography.body,
+      color: aesColors.banners.error.text,
+      textAlign: 'center',
+    },
+    emptyText: {
+      ...aesTypography.body,
+      color: aesColors.textSecondary,
+    },
+    metricsContainer: {
+      marginHorizontal: aesSpacing.screenHorizontal,
+      marginTop: aesSpacing.sm,
+    },
+    metricLabel: {
+      ...aesTypography.label,
+      color: aesColors.textSecondary,
+      textAlign: rtl ? 'right' : 'left',
+    },
+    totalValue: {
+      ...aesTypography.statValueLarge,
+      color: aesColors.accentGreen,
+      textAlign: rtl ? 'right' : 'left',
+      marginTop: aesSpacing.xs,
+    },
+    statusCardHeader: {
+      flexDirection: rtl ? 'row-reverse' : 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    statusValue: {
+      ...aesTypography.statValue,
+      color: aesColors.textPrimary,
+    },
+    statusLabel: {
+      ...aesTypography.bodySmall,
+      color: aesColors.textSecondary,
+      marginTop: aesSpacing.xs,
     },
     actionRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
-      marginHorizontal: spacing.md,
-      marginVertical: spacing.lg,
+      flexWrap: 'wrap',
+      gap: aesSpacing.sm,
+      marginHorizontal: aesSpacing.screenHorizontal,
+      marginVertical: aesSpacing.lg,
     },
-    actionBtn: {
-      flex: 1,
-      paddingVertical: spacing.sm,
-      borderRadius: shapes.md,
-      alignItems: 'center',
-    },
-    actionBtnText: {
-      color: '#fff',
-      fontWeight: typography.fontWeight.bold,
-      fontSize: typography.fontSize.sm,
-    },
-    errorBox: {
-      margin: spacing.md,
-      padding: spacing.md,
-      backgroundColor: '#FEE2E2',
-      borderRadius: shapes.md,
-    },
-    errorText: { color: '#991B1B' },
   });
 }

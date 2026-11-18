@@ -8,7 +8,12 @@
 // Use require to safely load node:sqlite
 const { DatabaseSync } = require('node:sqlite');
 
-import type { MutationResult, QueryResult, QueryRow } from './types';
+import {
+  type MutationResult,
+  type QueryResult,
+  type QueryRow,
+  type TransactionExecutor,
+} from './types';
 
 export class NativeSQLiteAdapter {
   private db: any;
@@ -37,19 +42,34 @@ export class NativeSQLiteAdapter {
     return { rows };
   }
 
-  async transaction<T>(
-    fn: (tx: { execute: (sql: string, params?: unknown[]) => Promise<MutationResult> }) => Promise<T>,
-  ): Promise<T> {
+  async transaction<T>(fn: (tx: TransactionExecutor) => Promise<T>): Promise<T> {
     this.db.exec('BEGIN TRANSACTION;');
+    let completed = false;
     try {
-      const tx = {
+      const tx: TransactionExecutor = {
+        isCompleted: () => completed,
         execute: async (sql: string, params: unknown[] = []): Promise<MutationResult> => {
+          if (completed) {
+            throw new Error(
+              'TransactionContextError: Cannot execute statement on completed or rolled back transaction.',
+            );
+          }
           const stmt = this.db.prepare(sql);
           const result = stmt.run(...params);
           return {
             rowsAffected: Number(result.changes),
             insertId: Number(result.lastInsertRowid),
           };
+        },
+        query: async <R = QueryRow>(sql: string, params: unknown[] = []): Promise<QueryResult<R>> => {
+          if (completed) {
+            throw new Error(
+              'TransactionContextError: Cannot execute query on completed or rolled back transaction.',
+            );
+          }
+          const stmt = this.db.prepare(sql);
+          const rows = stmt.all(...params) as R[];
+          return { rows };
         },
       };
       const res = await fn(tx);
@@ -62,6 +82,8 @@ export class NativeSQLiteAdapter {
         // Rollback may fail if transaction was aborted
       }
       throw err;
+    } finally {
+      completed = true;
     }
   }
 

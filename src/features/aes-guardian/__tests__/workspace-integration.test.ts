@@ -191,6 +191,7 @@ describe('Phase 2C.7 — End-to-End Workflow Integration & Demonstration Readine
           description: 'Should fail',
           action_type: 'corrective',
           contributing_factor: 'other_factor',
+          rationale: 'Test rationale',
         }),
       ).rejects.toThrow();
 
@@ -270,15 +271,15 @@ describe('Phase 2C.7 — End-to-End Workflow Integration & Demonstration Readine
       });
       expect(draftId).toBeGreaterThan(0);
 
-      const draftDecl = await db.getDeclarationById(draftId);
+      const draftDecl = await db.getDeclarationById(draftId, exposedUserId);
       expect(draftDecl!.status).toBe('draft');
 
       await db.submitDeclaration(draftId);
-      const submittedDecl = await db.getDeclarationById(draftId);
+      const submittedDecl = await db.getDeclarationById(draftId, exposedUserId);
       expect(submittedDecl!.status).toBe('submitted');
 
       // ── Step 2: Administrative Reviewer discovers in queue and requests correction
-      const queue = await db.getReviewQueue();
+      const queue = await db.getReviewQueue({ requestingUserId: adminUserId });
       const foundInQueue = queue.find((q) => q.id === draftId);
       expect(foundInQueue).toBeDefined();
 
@@ -290,7 +291,7 @@ describe('Phase 2C.7 — End-to-End Workflow Integration & Demonstration Readine
       });
       expect(reviewReq.declarationStatus).toBe('correction_requested');
 
-      const declAfterReview = await db.getDeclarationById(draftId);
+      const declAfterReview = await db.getDeclarationById(draftId, adminUserId);
       expect(declAfterReview!.status).toBe('correction_requested');
 
       // ── Step 3: Exposed Professional submits correction response

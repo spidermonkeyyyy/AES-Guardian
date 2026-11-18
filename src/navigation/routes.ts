@@ -12,6 +12,12 @@ export type RootStackParamList = {
   designSystem: undefined;
 
   // AES Guardian routes
+  // Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry
+  aesSplash: { replay?: boolean } | undefined;
+  aesLanguageSelect: undefined;
+  aesWelcomeCarousel: undefined;
+  aesDisclaimer: undefined;
+  aesDemoPicker: undefined;
   aesGuardianWorkspace: undefined;
   declarations: undefined;
   newDeclaration: { declarationId?: number } | undefined;
@@ -33,6 +39,11 @@ export type RootStackParamList = {
   preventionRegister: undefined;
   preventionCreate: undefined;
   preventionActionDetail: { actionId: number };
+  // Phase 2D.1: Help Centre, Glossary, Profile & Settings
+  helpGlossary: { initialSection?: 'help' | 'glossary' } | undefined;
+  aesGuardianProfile: undefined;
+  // Phase 2D.2G: Notification Centre
+  notificationCentre: undefined;
 };
 
 export type PatientTabParamList = {

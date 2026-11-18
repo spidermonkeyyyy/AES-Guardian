@@ -1,22 +1,22 @@
 /**
  * AES Guardian Administrative Review Action Screen
  *
- * Phase 2C.3: Review decision recording for submitted AES declarations.
+ * Phase 2E.1.5.1 — Batch 5: Administrative Review Queue & Actions
  *
  * Strictly enforces:
  * - Reviewer role: admin_reviewer only.
  * - Non-destructive review: original declaration data is read-only and immutable.
  * - Review outcomes: acknowledged, transmission_verified, correction_requested.
  * - Mandatory correction reason when outcome is correction_requested.
- * - Full audit event logging: ADMIN_REVIEW_RECORDED / CORRECTION_REQUESTED.
- * - Audit disclaimer: local records are not legally binding.
+ * - Full audit event logging: ADMIN_REVIEW_RECORDED / CORRECTION_REQUESTED / ADMIN_REREVIEW_RECORDED.
+ * - Design system: AesScreenContainer, AesScreenHeader, AesCard, AesButton.
+ * - Accessibility: decision options with >= 48dp touch target, accessibilityRole="radio", accessibilityState={{ checked }}.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   StyleSheet,
@@ -25,8 +25,21 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import {
+  aesColors,
+  aesDeclarationStatusColors,
+  aesBannerColors,
+  aesTypography,
+  aesSpacing,
+  aesRadii,
+  aesShadows,
+} from '../../../theme/tokens';
+import {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesCard,
+  AesButton,
+} from '../components';
 import {
   getDatabase,
   AesDeclaration,
@@ -35,7 +48,7 @@ import {
   ReviewOutcome,
   logAuditEvent,
   canReview,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
+  useDemoRoleStore,
 } from '../../../core';
 import { t } from '../../../localization';
 
@@ -44,12 +57,12 @@ type ParamList = {
 };
 
 export const AdminReviewActionScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'adminReviewAction'>>();
   const { declarationId } = route.params;
 
-  const reviewerContext = SYNTHETIC_ADMIN_REVIEWER_CONTEXT;
+  const { activeContext } = useDemoRoleStore();
+  const reviewerContext = activeContext;
   const isAuthorized = canReview(reviewerContext);
 
   const [declaration, setDeclaration] = useState<AesDeclaration | null>(null);
@@ -72,9 +85,9 @@ export const AdminReviewActionScreen: React.FC = () => {
     try {
       const db = getDatabase();
       const [decl, history, responses] = await Promise.all([
-        db.getDeclarationById(declarationId),
-        db.getDeclarationReviewHistory(declarationId),
-        db.getCorrectionResponses(declarationId),
+        db.getDeclarationById(declarationId, reviewerContext.userId),
+        db.getDeclarationReviewHistory(declarationId, reviewerContext.userId),
+        db.getCorrectionResponses(declarationId, reviewerContext.userId),
       ]);
       setDeclaration(decl);
       setReviewHistory(history);
@@ -84,7 +97,7 @@ export const AdminReviewActionScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [declarationId, isAuthorized]);
+  }, [declarationId, isAuthorized, reviewerContext.userId]);
 
   useEffect(() => {
     loadData();
@@ -179,385 +192,375 @@ export const AdminReviewActionScreen: React.FC = () => {
 
   if (!isAuthorized) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>
-          {t('review.unauthorized')}
-        </Text>
-      </View>
+      <AesScreenContainer testID="admin-review-action-unauthorized">
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>
+            {t('review.unauthorized')}
+          </Text>
+        </View>
+      </AesScreenContainer>
     );
   }
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <AesScreenContainer testID="admin-review-action-loading">
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={aesColors.accentGreen} />
+        </View>
+      </AesScreenContainer>
     );
   }
 
   if (!declaration) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>
-          {t('error.loadFailed')}
-        </Text>
-      </View>
+      <AesScreenContainer testID="admin-review-action-error">
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>
+            {t('error.loadFailed')}
+          </Text>
+        </View>
+      </AesScreenContainer>
     );
   }
 
-  const outcomes: Array<{ key: ReviewOutcome; titleKey: any; descKey: any }> = [
+  const outcomes: Array<{
+    key: ReviewOutcome;
+    titleKey: any;
+    descKey: any;
+    statusEffect: string;
+  }> = [
     {
       key: 'acknowledged',
       titleKey: 'review.outcome.acknowledged',
       descKey: 'review.outcome.acknowledgedDesc',
+      statusEffect: t('reviewAction.outcome.approvedEffect'),
     },
     {
       key: 'transmission_verified',
       titleKey: 'review.outcome.transmission_verified',
       descKey: 'review.outcome.transmission_verifiedDesc',
+      statusEffect: t('reviewAction.outcome.approvedEffect'),
     },
     {
       key: 'correction_requested',
       titleKey: 'review.outcome.correction_requested',
       descKey: 'review.outcome.correction_requestedDesc',
+      statusEffect: t('reviewAction.outcome.correctionEffect'),
     },
   ];
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('review.title')}
-        </Text>
-        <Text style={[styles.refNumber, { color: colors.primary }]}>
-          {declaration.reference_number}
-        </Text>
-      </View>
+    <AesScreenContainer scrollable testID="admin-review-action-screen">
+      <AesScreenHeader
+        title={t('review.title')}
+        subtitle={declaration.reference_number ?? `#${declaration.id}`}
+        onBack={() => navigation.goBack()}
+      />
 
-      {/* Read-only Notice */}
-      <View style={[styles.noticeBanner, { backgroundColor: colors.muted }]}>
-        <Text style={[styles.noticeText, { color: colors.mutedForeground }]}>
-          {t('review.readOnlyNotice')}
-        </Text>
-      </View>
-
-      {/* Declaration Summary (Read-Only) */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionHeading, { color: colors.foreground }]}>
-          Résumé de la déclaration (Lecture seule)
-        </Text>
-
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-            {t('details.incidentDate')} :
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.foreground }]}>
-            {declaration.incident_date}
+      <View style={styles.content}>
+        {/* Read-only Notice Banner */}
+        <View style={styles.noticeBanner}>
+          <Text style={styles.noticeText}>
+            {t('review.readOnlyNotice')}
           </Text>
         </View>
 
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-            {t('details.incidentType')} :
+        {/* Declaration Summary (Read-Only) */}
+        <AesCard style={styles.card}>
+          <Text style={styles.sectionHeading}>
+            {t('reviewAction.declarationSummaryTitle')}
           </Text>
-          <Text style={[styles.detailValue, { color: colors.foreground }]}>
-            {declaration.incident_type}
-          </Text>
-        </View>
 
-        {declaration.department_code && (
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.departmentCode')} :
+            <Text style={styles.detailLabel}>
+              {t('details.incidentDate')} :
             </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.department_code}
+            <Text style={styles.detailValue}>
+              {declaration.incident_date}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>
+              {t('details.incidentType')} :
+            </Text>
+            <Text style={styles.detailValue}>
+              {declaration.incident_type}
+            </Text>
+          </View>
+
+          {declaration.department_code && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>
+                {t('details.departmentCode')} :
+              </Text>
+              <Text style={styles.detailValue}>
+                {declaration.department_code}
+              </Text>
+            </View>
+          )}
+
+          {declaration.exposure_description && (
+            <View style={styles.detailBlock}>
+              <Text style={styles.detailLabel}>
+                {t('details.exposureDescription')} :
+              </Text>
+              <Text style={styles.detailValue}>
+                {declaration.exposure_description}
+              </Text>
+            </View>
+          )}
+
+          {declaration.circumstances && (
+            <View style={styles.detailBlock}>
+              <Text style={styles.detailLabel}>
+                {t('details.circumstances')} :
+              </Text>
+              <Text style={styles.detailValue}>
+                {declaration.circumstances}
+              </Text>
+            </View>
+          )}
+        </AesCard>
+
+        {/* Declarant Response for Re-Review (if resubmitted / existing responses) */}
+        {correctionResponses.length > 0 && (
+          <View style={styles.responseHighlightCard}>
+            <Text style={styles.responseHighlightHeader}>
+              ★ {t('review.declarantResponseHeader')}
+            </Text>
+            <Text style={styles.responseHighlightText}>
+              {correctionResponses[0].response_text}
+            </Text>
+            <Text style={styles.responseHighlightDate}>
+              {t('reviewQueue.submittedAt')}{' '}
+              {new Date(correctionResponses[0].responded_at).toLocaleString()}
             </Text>
           </View>
         )}
 
-        {declaration.exposure_description && (
-          <View style={styles.detailBlock}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.exposureDescription')} :
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.exposure_description}
-            </Text>
-          </View>
-        )}
-
-        {declaration.circumstances && (
-          <View style={styles.detailBlock}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.circumstances')} :
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.circumstances}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Review History */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionHeading, { color: colors.foreground }]}>
-          {t('review.historyTitle')} ({reviewHistory.length})
-        </Text>
-
-        {reviewHistory.length === 0 ? (
-          <Text style={[styles.emptyHistoryText, { color: colors.mutedForeground }]}>
-            {t('review.noHistory')}
+        {/* Review History */}
+        <AesCard style={styles.card}>
+          <Text style={styles.sectionHeading}>
+            {t('review.historyTitle')} ({reviewHistory.length})
           </Text>
-        ) : (
-          reviewHistory.map((rev) => (
-            <View
-              key={rev.id}
-              style={[styles.historyItem, { borderLeftColor: colors.primary, backgroundColor: colors.muted }]}
-            >
-              <View style={styles.historyItemHeader}>
-                <Text style={[styles.historyOutcome, { color: colors.foreground }]}>
-                  {t(`review.outcome.${rev.outcome}` as any)}
-                </Text>
-                <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>
-                  {rev.reviewed_at ? new Date(rev.reviewed_at).toLocaleDateString() : ''}
-                </Text>
+
+          {reviewHistory.length === 0 ? (
+            <Text style={styles.emptyHistoryText}>
+              {t('review.noHistory')}
+            </Text>
+          ) : (
+            reviewHistory.map((rev) => (
+              <View key={rev.id} style={styles.historyItem}>
+                <View style={styles.historyItemHeader}>
+                  <Text style={styles.historyOutcome}>
+                    {t(`review.outcome.${rev.outcome}` as any)}
+                  </Text>
+                  <Text style={styles.historyDate}>
+                    {rev.reviewed_at ? new Date(rev.reviewed_at).toLocaleDateString() : ''}
+                  </Text>
+                </View>
+
+                {rev.correction_reason && (
+                  <Text style={styles.historyReason}>
+                    {t('reviewAction.correctionReasonLabel')}{rev.correction_reason}
+                  </Text>
+                )}
+
+                {rev.comments && (
+                  <Text style={styles.historyComments}>
+                    {t('reviewAction.commentsLabel')}{rev.comments}
+                  </Text>
+                )}
               </View>
+            ))
+          )}
+        </AesCard>
 
-              {rev.correction_reason && (
-                <Text style={[styles.historyReason, { color: colors.destructive }]}>
-                  Motif : {rev.correction_reason}
-                </Text>
-              )}
+        {/* Review Decision Form */}
+        <AesCard style={styles.card}>
+          <Text style={styles.sectionHeading}>
+            {t('review.selectOutcome')}
+          </Text>
 
-              {rev.comments && (
-                <Text style={[styles.historyComments, { color: colors.mutedForeground }]}>
-                  Notes : {rev.comments}
-                </Text>
+          {outcomes.map((item) => {
+            const isSelected = selectedOutcome === item.key;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={[
+                  styles.outcomeOption,
+                  isSelected ? styles.outcomeOptionSelected : styles.outcomeOptionUnselected,
+                ]}
+                onPress={() => {
+                  setSelectedOutcome(item.key);
+                  setValidationError(null);
+                }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: isSelected }}
+                activeOpacity={0.85}
+              >
+                <View style={styles.radioRow}>
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      isSelected ? styles.radioOuterSelected : styles.radioOuterUnselected,
+                    ]}
+                  >
+                    {isSelected && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={styles.outcomeTextContainer}>
+                    <Text style={styles.outcomeTitle}>
+                      {t(item.titleKey)}
+                    </Text>
+                    <Text style={styles.outcomeDesc}>
+                      {t(item.descKey)}
+                    </Text>
+                    <Text style={styles.statusEffectText}>
+                      {item.statusEffect}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+
+          {/* Correction reason input (mandatory when correction_requested) */}
+          {selectedOutcome === 'correction_requested' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>
+                {t('review.correctionReason')}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  validationError ? styles.textAreaError : null,
+                ]}
+                multiline
+                numberOfLines={3}
+                placeholder={t('review.correctionReasonPlaceholder')}
+                placeholderTextColor={aesColors.textTertiary}
+                value={correctionReason}
+                onChangeText={(text) => {
+                  setCorrectionReason(text);
+                  if (validationError) setValidationError(null);
+                }}
+                accessibilityLabel={t('review.correctionReason')}
+              />
+              {validationError && (
+                <Text style={styles.errorSubtext}>{validationError}</Text>
               )}
             </View>
-          ))
-        )}
-      </View>
+          )}
 
-      {/* Declarant Response for Re-Review */}
-      {correctionResponses.length > 0 && (
-        <View style={[styles.card, styles.responseHighlightCard, { backgroundColor: '#f5f3ff', borderColor: '#8b5cf6' }]}>
-          <Text style={[styles.sectionHeading, { color: '#6d28d9' }]}>
-            ★ {t('review.declarantResponseHeader')}
-          </Text>
-          <Text style={[styles.responseHighlightText, { color: '#1e293b' }]}>
-            {correctionResponses[0].response_text}
-          </Text>
-          <Text style={[styles.responseHighlightDate, { color: '#64748b' }]}>
-            {t('reviewQueue.submittedAt')} {new Date(correctionResponses[0].responded_at).toLocaleString()}
-          </Text>
-        </View>
-      )}
-
-      {/* Review Decision Form */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionHeading, { color: colors.foreground }]}>
-          {t('review.selectOutcome')}
-        </Text>
-
-        {outcomes.map((item) => {
-          const isSelected = selectedOutcome === item.key;
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={[
-                styles.outcomeOption,
-                {
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  backgroundColor: isSelected ? colors.primary + '15' : colors.card,
-                },
-              ]}
-              onPress={() => {
-                setSelectedOutcome(item.key);
-                setValidationError(null);
-              }}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: isSelected }}
-            >
-              <View style={styles.radioRow}>
-                <View
-                  style={[
-                    styles.radioOuter,
-                    { borderColor: isSelected ? colors.primary : colors.mutedForeground },
-                  ]}
-                >
-                  {isSelected && (
-                    <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
-                  )}
-                </View>
-                <View style={styles.outcomeTextContainer}>
-                  <Text style={[styles.outcomeTitle, { color: colors.foreground }]}>
-                    {t(item.titleKey)}
-                  </Text>
-                  <Text style={[styles.outcomeDesc, { color: colors.mutedForeground }]}>
-                    {t(item.descKey)}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Correction reason input (mandatory when correction_requested) */}
-        {selectedOutcome === 'correction_requested' && (
+          {/* Optional general comments */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.foreground }]}>
-              {t('review.correctionReason')}
+            <Text style={styles.inputLabel}>
+              {t('review.comments')}
             </Text>
             <TextInput
-              style={[
-                styles.textArea,
-                {
-                  color: colors.foreground,
-                  borderColor: validationError ? colors.destructive : colors.border,
-                  backgroundColor: colors.background,
-                },
-              ]}
+              style={styles.textArea}
               multiline
-              numberOfLines={3}
-              placeholder={t('review.correctionReasonPlaceholder')}
-              placeholderTextColor={colors.mutedForeground}
-              value={correctionReason}
-              onChangeText={(text) => {
-                setCorrectionReason(text);
-                if (validationError) setValidationError(null);
-              }}
-              accessibilityLabel={t('review.correctionReason')}
+              numberOfLines={2}
+              placeholder={t('review.commentsPlaceholder')}
+              placeholderTextColor={aesColors.textTertiary}
+              value={comments}
+              onChangeText={setComments}
+              accessibilityLabel={t('review.comments')}
             />
-            {validationError && (
-              <Text style={[styles.errorSubtext, { color: colors.destructive }]}>
-                {validationError}
-              </Text>
-            )}
           </View>
-        )}
 
-        {/* Optional general comments */}
-        <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, { color: colors.foreground }]}>
-            {t('review.comments')}
-          </Text>
-          <TextInput
-            style={[
-              styles.textArea,
-              {
-                color: colors.foreground,
-                borderColor: colors.border,
-                backgroundColor: colors.background,
-              },
-            ]}
-            multiline
-            numberOfLines={2}
-            placeholder={t('review.commentsPlaceholder')}
-            placeholderTextColor={colors.mutedForeground}
-            value={comments}
-            onChangeText={setComments}
-            accessibilityLabel={t('review.comments')}
-          />
-        </View>
-
-        {/* Submit Review Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, { backgroundColor: colors.primary }]}
-          onPress={handleSubmitReview}
-          disabled={submitting}
-          accessibilityRole="button"
-        >
-          {submitting ? (
-            <ActivityIndicator size="small" color={colors.primaryForeground} />
-          ) : (
-            <Text style={[styles.submitButtonText, { color: colors.primaryForeground }]}>
-              {declaration?.status === 'resubmitted'
-                ? t('review.rereviewButton')
-                : t('review.submitButton')}
-            </Text>
-          )}
-        </TouchableOpacity>
+          {/* Submit Review Button */}
+          <View style={styles.submitContainer}>
+            <AesButton
+              title={
+                declaration?.status === 'resubmitted'
+                  ? t('review.rereviewButton')
+                  : t('review.submitButton')
+              }
+              onPress={handleSubmitReview}
+              loading={submitting}
+              disabled={submitting}
+            />
+          </View>
+        </AesCard>
       </View>
-    </ScrollView>
+    </AesScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   content: {
-    padding: spacing.screenPadding,
-    paddingBottom: spacing.huge,
-    gap: spacing.md,
+    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingBottom: aesSpacing['5xl'],
+    gap: aesSpacing.md,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
-  },
-  header: {
-    marginBottom: spacing.xs,
-  },
-  title: {
-    fontSize: typography.fontSize.titleLarge,
-    fontWeight: '700',
-  },
-  refNumber: {
-    fontSize: typography.fontSize.bodyMedium,
-    fontWeight: '600',
-    marginTop: 2,
+    padding: aesSpacing.lg,
   },
   noticeBanner: {
-    padding: spacing.sm,
-    borderRadius: shapes.sm,
+    padding: aesSpacing.md,
+    borderRadius: aesRadii.card,
+    backgroundColor: aesColors.banners.info.bg,
+    borderWidth: 1,
+    borderColor: aesColors.banners.info.border,
   },
   noticeText: {
-    fontSize: typography.fontSize.bodySmall,
+    ...aesTypography.bodySmall,
+    color: aesColors.banners.info.text,
     fontStyle: 'italic',
+    lineHeight: 18,
   },
   card: {
-    borderRadius: shapes.md,
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
     borderWidth: 1,
-    padding: spacing.cardPadding,
-    gap: spacing.sm,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.cardPadding,
+    gap: aesSpacing.sm,
+    ...aesShadows.card,
   },
   sectionHeading: {
-    fontSize: typography.fontSize.bodyMedium,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
+    ...aesTypography.heading2,
+    fontSize: 16,
+    color: aesColors.textPrimary,
+    marginBottom: aesSpacing.xs,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: aesSpacing.xs,
   },
   detailBlock: {
     gap: 2,
+    marginTop: aesSpacing.xs,
   },
   detailLabel: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
     fontWeight: '600',
+    color: aesColors.textSecondary,
   },
   detailValue: {
-    fontSize: typography.fontSize.bodySmall,
+    ...aesTypography.bodySmall,
+    color: aesColors.textPrimary,
   },
   emptyHistoryText: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
     fontStyle: 'italic',
   },
   historyItem: {
     borderLeftWidth: 3,
-    borderRadius: shapes.sm,
-    padding: spacing.xs,
+    borderLeftColor: aesColors.accentGreen,
+    borderRadius: aesRadii.badge,
+    backgroundColor: aesColors.surfaceSubdued,
+    padding: aesSpacing.xs,
     gap: 2,
+    marginVertical: aesSpacing.xs,
   },
   historyItemHeader: {
     flexDirection: 'row',
@@ -565,99 +568,145 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   historyOutcome: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.labelSmall,
     fontWeight: '700',
+    color: aesColors.textPrimary,
   },
   historyDate: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.labelSmall,
+    color: aesColors.textSecondary,
   },
   historyReason: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
+    color: aesColors.banners.error.text,
     fontWeight: '500',
   },
   historyComments: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
+  },
+  responseHighlightCard: {
+    backgroundColor: aesDeclarationStatusColors.resubmitted.bg,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesDeclarationStatusColors.resubmitted.border,
+    borderLeftWidth: 4,
+    borderLeftColor: aesDeclarationStatusColors.resubmitted.text,
+    padding: aesSpacing.cardPadding,
+    gap: aesSpacing.xs,
+    ...aesShadows.card,
+  },
+  responseHighlightHeader: {
+    ...aesTypography.label,
+    color: aesDeclarationStatusColors.resubmitted.text,
+    fontWeight: '700',
+  },
+  responseHighlightText: {
+    ...aesTypography.body,
+    color: aesColors.textPrimary,
+    lineHeight: 20,
+  },
+  responseHighlightDate: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textSecondary,
   },
   outcomeOption: {
-    borderRadius: shapes.md,
+    borderRadius: aesRadii.card,
     borderWidth: 1.5,
-    padding: spacing.sm,
+    padding: aesSpacing.md,
+    minHeight: 56, // >= 48dp touch target
+    marginVertical: aesSpacing.xs,
+  },
+  outcomeOptionSelected: {
+    borderColor: aesColors.accentGreen,
+    backgroundColor: '#FAFDF9',
+  },
+  outcomeOptionUnselected: {
+    borderColor: aesColors.borderSubdued,
+    backgroundColor: aesColors.surface,
   },
   radioRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    gap: aesSpacing.sm,
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 2,
   },
+  radioOuterUnselected: {
+    borderColor: aesColors.borderStrong,
+  },
+  radioOuterSelected: {
+    borderColor: aesColors.accentGreen,
+  },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
+    backgroundColor: aesColors.accentGreen,
   },
   outcomeTextContainer: {
     flex: 1,
     gap: 2,
   },
   outcomeTitle: {
-    fontSize: typography.fontSize.bodySmall,
+    ...aesTypography.label,
+    color: aesColors.textPrimary,
     fontWeight: '700',
   },
   outcomeDesc: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
+    lineHeight: 18,
+  },
+  statusEffectText: {
+    ...aesTypography.labelSmall,
+    color: aesColors.accentGreen,
+    fontWeight: '600',
+    marginTop: 2,
   },
   inputGroup: {
-    marginTop: spacing.xs,
-    gap: 4,
+    marginTop: aesSpacing.sm,
+    gap: aesSpacing.xs,
   },
   inputLabel: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.label,
+    color: aesColors.textPrimary,
     fontWeight: '600',
   },
   textArea: {
     borderWidth: 1,
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    fontSize: typography.fontSize.bodySmall,
+    borderColor: aesColors.borderSubdued,
+    borderRadius: aesRadii.card,
+    padding: aesSpacing.sm,
+    fontSize: 14,
+    color: aesColors.textPrimary,
+    backgroundColor: aesColors.surfaceSubdued,
     textAlignVertical: 'top',
+    minHeight: 80,
+  },
+  textAreaError: {
+    borderColor: aesColors.banners.error.border,
+    backgroundColor: aesColors.banners.error.bg,
   },
   errorSubtext: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '500',
+    ...aesTypography.labelSmall,
+    color: aesColors.banners.error.text,
+    fontWeight: '600',
   },
-  submitButton: {
-    borderRadius: shapes.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  submitButtonText: {
-    fontSize: typography.fontSize.bodyMedium,
-    fontWeight: '700',
+  submitContainer: {
+    marginTop: aesSpacing.md,
   },
   errorText: {
-    fontSize: typography.fontSize.bodyMedium,
+    ...aesTypography.body,
+    color: aesColors.banners.error.text,
     textAlign: 'center',
-  },
-  responseHighlightCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#8b5cf6',
-  },
-  responseHighlightText: {
-    fontSize: typography.fontSize.bodySmall,
-    marginVertical: spacing.xs,
-    lineHeight: 20,
-  },
-  responseHighlightDate: {
-    fontSize: typography.fontSize.xs,
   },
 });
 

@@ -21,8 +21,9 @@ import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 import {
   getDatabase,
-  SYNTHETIC_DEMO_CONTEXT,
+  useDemoRoleStore,
   OhCoordination,
+  ExposedOhCoordinationSummary,
 } from '../../../core';
 import { t } from '../../../localization';
 
@@ -35,9 +36,12 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
   const route = useRoute<RouteProp<ParamList, 'declarationCoordinationStatus'>>();
   const { declarationId } = route.params;
 
-  const authContext = SYNTHETIC_DEMO_CONTEXT;
+  const { activeContext } = useDemoRoleStore();
+  const authContext = activeContext;
 
-  const [coordination, setCoordination] = useState<OhCoordination | null | undefined>(undefined);
+  const [coordination, setCoordination] = useState<
+    OhCoordination | ExposedOhCoordinationSummary | null | undefined
+  >(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

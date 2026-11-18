@@ -1,12 +1,21 @@
 /**
- * AES Guardian — OH Coordination Detail Screen (Phase 2C.4)
+ * AES Guardian — OH Coordination Detail Screen
  *
- * Shows full detail for a coordination record and allows the oh_professional
- * to acknowledge, record follow-up events, or complete the follow-up.
- * admin_reviewer sees a read-only status view.
+ * Phase 2E.1.6.1 — Batch 6: Occupational Health Coordination UI Transformation
  *
- * Authorization: oh_professional (write), admin_reviewer (read-only).
- * Clinical safety: No clinical fields, no diagnoses.
+ * Strictly enforces:
+ * - Role-specific projections:
+ *     * `oh_professional`: full details, follow-up events, acknowledge / complete actions.
+ *     * `admin_reviewer`: limited read-only summary (declaration ref, status, reason, created_at).
+ *     * `exposed_professional`: exact 5-field status-only projection (no reason, no notes, no events).
+ *     * `quality_staff` & `tech_admin`: denied access.
+ * - Internal user-ID fallback REMOVED: display names used, or neutral localized wording.
+ *   Never exposes `User #${id}` database IDs.
+ * - Workflow actions strictly guarded by role and valid status:
+ *     * 'pending_acknowledgement': Acknowledge button.
+ *     * 'acknowledged': Add follow-up event + Complete follow-up buttons.
+ *     * 'completed' / 'cancelled': No action buttons.
+ * - Standard AES Guardian design system (AesScreenContainer, AesScreenHeader, AesCard, AesStatusBadge, AesButton).
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,23 +23,36 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import {
+  aesColors,
+  aesTypography,
+  aesSpacing,
+  aesRadii,
+  aesShadows,
+} from '../../../theme/tokens';
+import {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesStatusBadge,
+  AesButton,
+  AesCard,
+} from '../components';
 import {
   getDatabase,
   canFollowUp,
   canCoordinate,
-  SYNTHETIC_OH_PROFESSIONAL_CONTEXT,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
-  OhCoordination,
-  OhFollowUpEvent,
+  canDeclare,
+  useDemoRoleStore,
+  type OhCoordination,
+  type OhFollowUpEvent,
+  type AdminOhCoordinationSummary,
+  type ExposedOhCoordinationSummary,
   logAuditEvent,
 } from '../../../core';
 import { t } from '../../../localization';
@@ -40,46 +62,55 @@ type ParamList = {
 };
 
 export const OhCoordinationDetailScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'ohCoordinationDetail'>>();
   const { coordinationId } = route.params;
 
-  const authContext = SYNTHETIC_OH_PROFESSIONAL_CONTEXT;
+  const { activeContext } = useDemoRoleStore();
+  const authContext = activeContext;
   const isOhProfessional = canFollowUp(authContext);
-  const isAdminReviewer = canCoordinate(SYNTHETIC_ADMIN_REVIEWER_CONTEXT);
-  const isAuthorized = isOhProfessional || isAdminReviewer;
+  const isAdminReviewer = canCoordinate(authContext);
+  const isExposedProfessional = canDeclare(authContext);
+  const isAuthorized = isOhProfessional || isAdminReviewer || isExposedProfessional;
 
-  const [coordination, setCoordination] = useState<OhCoordination | null>(null);
+  const [coordination, setCoordination] = useState<
+    OhCoordination | AdminOhCoordinationSummary | ExposedOhCoordinationSummary | null
+  >(null);
   const [events, setEvents] = useState<OhFollowUpEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    if (!isAuthorized || !authContext.userId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setError(null);
     try {
       const db = getDatabase();
-      const coord = await db.getOhCoordinationById(coordinationId, authContext.userId!);
+      const coord = await db.getOhCoordinationById(coordinationId, authContext.userId);
       setCoordination(coord);
+
+      // Only oh_professional is authorized to query private follow-up events
       if (coord && isOhProfessional) {
-        const evts = await db.getOhFollowUpEvents(coordinationId, authContext.userId!);
+        const evts = await db.getOhFollowUpEvents(coordinationId, authContext.userId);
         setEvents(evts);
       }
-      setError(null);
     } catch (err: any) {
-      setError(err?.message ?? t('error.loadFailed'));
+      setError(err?.message || t('error.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [coordinationId, authContext, isOhProfessional]);
+  }, [coordinationId, authContext.userId, isAuthorized, isOhProfessional]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const handleAcknowledge = useCallback(async () => {
-    if (!isOhProfessional || !coordination) return;
+    if (!isOhProfessional || !coordination || actionLoading) return;
     setActionLoading(true);
     try {
       const db = getDatabase();
@@ -93,14 +124,14 @@ export const OhCoordinationDetailScreen: React.FC = () => {
       });
       await loadData();
     } catch (err: any) {
-      Alert.alert(t('error.generic'), err?.message ?? t('error.saveFailed'));
+      Alert.alert(t('error.generic'), err?.message || t('error.saveFailed'));
     } finally {
       setActionLoading(false);
     }
-  }, [isOhProfessional, coordination, coordinationId, authContext, loadData]);
+  }, [isOhProfessional, coordination, actionLoading, coordinationId, authContext, loadData]);
 
   const handleComplete = useCallback(async () => {
-    if (!isOhProfessional || !coordination) return;
+    if (!isOhProfessional || !coordination || actionLoading) return;
 
     Alert.alert(
       t('oh.detail.completeConfirm'),
@@ -124,203 +155,470 @@ export const OhCoordinationDetailScreen: React.FC = () => {
               });
               await loadData();
             } catch (err: any) {
-              Alert.alert(t('error.generic'), err?.message ?? t('error.saveFailed'));
+              Alert.alert(t('error.generic'), err?.message || t('error.saveFailed'));
             } finally {
               setActionLoading(false);
             }
           },
         },
-      ],
+      ]
     );
-  }, [isOhProfessional, coordination, coordinationId, authContext, loadData]);
-
-  const getStatusColor = (status?: OhCoordination['status']): string => {
-    switch (status) {
-      case 'pending_acknowledgement': return colors.accent;
-      case 'acknowledged': return colors.primary;
-      case 'completed': return colors.secondary;
-      case 'cancelled': return colors.mutedForeground;
-      default: return colors.mutedForeground;
-    }
-  };
+  }, [isOhProfessional, coordination, actionLoading, coordinationId, authContext, loadData]);
 
   if (!isAuthorized) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>{t('oh.error.unauthorized')}</Text>
-      </View>
+      <AesScreenContainer testID="oh-coordination-detail-unauthorized">
+        <AesScreenHeader
+          title={t('oh.detail.title')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centerContainer}>
+          <View style={styles.unauthorizedCard} testID="oh-detail-unauthorized-card">
+            <Text style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</Text>
+            <Text style={styles.unauthorizedText}>
+              {t('oh.detail.unauthorizedMessage')}
+            </Text>
+          </View>
+        </View>
+      </AesScreenContainer>
     );
   }
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <AesScreenContainer testID="oh-coordination-detail-loading">
+        <AesScreenHeader
+          title={t('oh.detail.title')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={aesColors.accentGreen} />
+        </View>
+      </AesScreenContainer>
     );
   }
 
   if (error || !coordination) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>{error ?? t('error.loadFailed')}</Text>
-      </View>
+      <AesScreenContainer testID="oh-coordination-detail-error">
+        <AesScreenHeader
+          title={t('oh.detail.title')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centerContainer}>
+          <View style={styles.errorCard}>
+            <Text style={styles.errorTitle}>{t('error.generic')}</Text>
+            <Text style={styles.errorText}>{error || t('error.loadFailed')}</Text>
+            <AesButton
+              title={t('oh.queue.refresh')}
+              onPress={loadData}
+              variant="outline"
+              style={styles.retryButton}
+            />
+          </View>
+        </View>
+      </AesScreenContainer>
     );
   }
 
-  const isActive = coordination.status === 'pending_acknowledgement' || coordination.status === 'acknowledged';
+  // Derive reference label
+  const declRef =
+    'declaration_reference' in coordination && coordination.declaration_reference
+      ? coordination.declaration_reference
+      : `Décl. #${coordination.declaration_id}`;
+
+  const isActive =
+    coordination.status === 'pending_acknowledgement' ||
+    coordination.status === 'acknowledged';
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView style={styles.scroll}>
-        {/* Coordination summary card */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.metaLabel, { color: colors.mutedForeground, flex: 1 }]}>
-              {coordination.declaration_reference ?? `Décl. #${coordination.declaration_id}`}
-            </Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(coordination.status) }]}>
-              <Text style={styles.statusText}>{t(`oh.status.${coordination.status}` as any)}</Text>
-            </View>
-          </View>
-          <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>{t('oh.detail.reason')}</Text>
-          <Text style={[styles.metaValue, { color: colors.foreground }]}>{t(`oh.reason.${coordination.coordination_reason}` as any)}</Text>
+    <AesScreenContainer scrollable testID="oh-coordination-detail-screen">
+      <AesScreenHeader
+        title={t('oh.detail.title')}
+        onBack={() => navigation.goBack()}
+      />
 
-          {coordination.creator_name && (
-            <>
-              <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>{t('oh.detail.coordinator')}</Text>
-              <Text style={[styles.metaValue, { color: colors.foreground }]}>{coordination.creator_name}</Text>
-            </>
-          )}
-          {coordination.acknowledged_by_user_id && (
-            <>
-              <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>{t('oh.detail.acknowledgedBy')}</Text>
-              <Text style={[styles.metaValue, { color: colors.foreground }]}>{coordination.acknowledger_name ?? `User #${coordination.acknowledged_by_user_id}`}</Text>
-            </>
-          )}
-          {coordination.completed_by_user_id && (
-            <>
-              <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>{t('oh.detail.completedBy')}</Text>
-              <Text style={[styles.metaValue, { color: colors.foreground }]}>{coordination.completer_name ?? `User #${coordination.completed_by_user_id}`}</Text>
-            </>
-          )}
+      <View style={styles.contentContainer}>
+        {/* Role-specific Notice Banner */}
+        {isExposedProfessional && (
+          <View style={styles.infoBanner} testID="oh-exposed-notice">
+            <Text style={styles.infoBannerText}>
+              {t('oh.detail.exposedNotice')}
+            </Text>
+          </View>
+        )}
+
+        {isAdminReviewer && !isOhProfessional && (
+          <View style={styles.infoBanner} testID="oh-admin-notice">
+            <Text style={styles.infoBannerText}>
+              {t('oh.detail.adminNotice')}
+            </Text>
+          </View>
+        )}
+
+        {/* Primary Coordination Card */}
+        <View style={styles.card} testID="oh-detail-card">
+          <View style={styles.cardHeader}>
+            <Text style={styles.refNumber} numberOfLines={1}>
+              {declRef}
+            </Text>
+            <AesStatusBadge
+              status={coordination.status}
+              domain="ohCoordination"
+              testID="oh-detail-status-badge"
+            />
+          </View>
+
+          <View style={styles.cardBody}>
+            {/* Reason: available to OH Professional and Admin Reviewer only */}
+            {(isOhProfessional || isAdminReviewer) &&
+              'coordination_reason' in coordination &&
+              coordination.coordination_reason && (
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>{t('oh.detail.reason')}</Text>
+                  <Text style={styles.metaValue}>
+                    {t(`oh.reason.${coordination.coordination_reason}` as any)}
+                  </Text>
+                </View>
+              )}
+
+            {/* Created date */}
+            {coordination.created_at && (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>{t('oh.detail.createdAt')}</Text>
+                <Text style={styles.metaValue}>
+                  {coordination.created_at.slice(0, 10)}
+                </Text>
+              </View>
+            )}
+
+            {/* OH-Professional authorized identity projections */}
+            {isOhProfessional && (
+              <>
+                {(coordination as OhCoordination).creator_name && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>{t('oh.detail.coordinator')}</Text>
+                    <Text style={styles.metaValue}>
+                      {(coordination as OhCoordination).creator_name}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Acknowledged by: uses display name if available, neutral wording if absent. Never User #${id} */}
+                {(coordination as OhCoordination).acknowledged_by_user_id ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>
+                      {t('oh.detail.acknowledgedBy')}
+                    </Text>
+                    <Text style={styles.metaValue}>
+                      {(coordination as OhCoordination).acknowledger_name ||
+                        t('oh.detail.acknowledgedStatus')}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Completed by: uses display name if available, neutral wording if absent. Never User #${id} */}
+                {(coordination as OhCoordination).completed_by_user_id ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>{t('oh.detail.completedBy')}</Text>
+                    <Text style={styles.metaValue}>
+                      {(coordination as OhCoordination).completer_name ||
+                        t('oh.detail.completedStatus')}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            )}
+          </View>
         </View>
 
-        {/* OH Professional actions */}
+        {/* OH Professional Actions — only shown when status allows action */}
         {isOhProfessional && isActive && (
-          <>
+          <View style={styles.actionsSection} testID="oh-actions-section">
             {coordination.status === 'pending_acknowledgement' && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: colors.primary }]}
+              <AesButton
+                title={t('oh.detail.acknowledge')}
                 onPress={handleAcknowledge}
+                loading={actionLoading}
                 disabled={actionLoading}
-                activeOpacity={0.8}
-              >
-                {actionLoading ? (
-                  <ActivityIndicator color={colors.primaryForeground} />
-                ) : (
-                  <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>{t('oh.detail.acknowledge')}</Text>
-                )}
-              </TouchableOpacity>
+                variant="green"
+                testID="oh-acknowledge-button"
+              />
             )}
 
             {coordination.status === 'acknowledged' && (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.primary }]}
-                  onPress={() => navigation.navigate('recordFollowUpEvent', { coordinationId })}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.actionButtonText, { color: colors.primary }]}>{t('oh.detail.addEvent')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: colors.accent }]}
+              <View style={styles.actionButtonGroup}>
+                <AesButton
+                  title={t('oh.detail.addEvent')}
+                  onPress={() =>
+                    navigation.navigate('recordFollowUpEvent', { coordinationId })
+                  }
+                  variant="outline"
+                  testID="oh-add-event-button"
+                />
+                <AesButton
+                  title={t('oh.detail.complete')}
                   onPress={handleComplete}
+                  loading={actionLoading}
                   disabled={actionLoading}
-                  activeOpacity={0.8}
-                >
-                  {actionLoading ? (
-                    <ActivityIndicator color={colors.accentForeground} />
-                  ) : (
-                    <Text style={[styles.actionButtonText, { color: colors.accentForeground }]}>{t('oh.detail.complete')}</Text>
-                  )}
-                </TouchableOpacity>
-              </>
+                  variant="primary"
+                  style={{ marginTop: aesSpacing.sm }}
+                  testID="oh-complete-button"
+                />
+              </View>
             )}
-          </>
+          </View>
         )}
 
-        {/* Follow-up events */}
+        {/* Follow-Up Event Timeline — strictly for oh_professional only */}
         {isOhProfessional && (
-          <>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.detail.events')}</Text>
+          <View style={styles.eventsSection} testID="oh-events-section">
+            <Text style={styles.sectionHeader}>{t('oh.detail.events')}</Text>
+
             {events.length === 0 ? (
-              <Text style={[styles.noEventsText, { color: colors.mutedForeground }]}>{t('oh.detail.noEvents')}</Text>
+              <View style={styles.noEventsBox} testID="oh-no-events">
+                <Text style={styles.noEventsText}>{t('oh.detail.noEvents')}</Text>
+              </View>
             ) : (
-              events.map(evt => (
-                <View key={evt.id} style={[styles.eventItem, { backgroundColor: colors.card, borderLeftColor: colors.primary }]}>
-                  <Text style={[styles.eventCategory, { color: colors.foreground }]}>{t(`oh.event.${evt.event_category}` as any)}</Text>
-                  <Text style={[styles.eventMeta, { color: colors.mutedForeground }]}>
-                    {evt.event_date.slice(0, 10)}
-                    {evt.recorder_name ? ` — ${evt.recorder_name}` : ''}
-                  </Text>
-                  {evt.administrative_note ? (
-                    <Text style={[styles.eventNote, { color: colors.foreground }]}>{evt.administrative_note}</Text>
-                  ) : null}
+              events.map((evt) => (
+                <View
+                  key={evt.id}
+                  style={styles.eventCard}
+                  testID={`oh-event-item-${evt.id}`}
+                >
+                  <View style={styles.eventHeader}>
+                    <Text style={styles.eventCategory}>
+                      {t(`oh.event.${evt.event_category}` as any)}
+                    </Text>
+                    <Text style={styles.eventDate}>
+                      {evt.event_date.slice(0, 10)}
+                    </Text>
+                  </View>
+
+                  {evt.recorder_name && (
+                    <Text style={styles.eventRecorder}>
+                      {evt.recorder_name}
+                    </Text>
+                  )}
+
+                  {evt.administrative_note && (
+                    <View style={styles.eventNoteBox}>
+                      <Text style={styles.eventNoteText}>
+                        {evt.administrative_note}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ))
             )}
-          </>
+          </View>
         )}
 
-        {/* Prototype disclaimer */}
-        <View style={[styles.disclaimerBox, { backgroundColor: colors.card, borderLeftColor: colors.accent }]}>
-          <Text style={[styles.disclaimerText, { color: colors.mutedForeground }]}>{t('oh.detail.disclaimer')}</Text>
+        {/* Prototype Disclaimer Notice */}
+        <View style={styles.disclaimerBox} testID="oh-detail-disclaimer">
+          <Text style={styles.disclaimerText}>{t('oh.detail.disclaimer')}</Text>
         </View>
-      </ScrollView>
-    </View>
+      </View>
+    </AesScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { padding: spacing.screenPadding },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  errorText: { fontSize: typography.fontSize.bodyMedium, textAlign: 'center', margin: spacing.md },
-  card: {
-    borderRadius: shapes.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
+  contentContainer: {
+    paddingHorizontal: aesSpacing.lg,
+    paddingBottom: aesSpacing.xl,
   },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
-  statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: shapes.xs },
-  statusText: { fontSize: typography.fontSize.xs, color: '#fff', fontWeight: '600' },
-  metaLabel: { fontSize: typography.fontSize.xs, marginBottom: 2 },
-  metaValue: { fontSize: typography.fontSize.bodySmall, fontWeight: '600', marginBottom: spacing.xs },
-  sectionTitle: { fontSize: typography.fontSize.bodySmall, fontWeight: '700', marginBottom: spacing.xs },
-  eventItem: {
-    borderRadius: shapes.sm,
-    padding: spacing.sm,
-    marginBottom: spacing.xs,
-    borderLeftWidth: 3,
-  },
-  eventCategory: { fontSize: typography.fontSize.bodySmall, fontWeight: '700' },
-  eventMeta: { fontSize: typography.fontSize.xs },
-  eventNote: { fontSize: typography.fontSize.xs, marginTop: spacing.xxs },
-  noEventsText: { fontSize: typography.fontSize.bodySmall, fontStyle: 'italic', marginBottom: spacing.md },
-  actionButton: {
-    borderRadius: shapes.md,
-    padding: spacing.sm,
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    padding: aesSpacing.lg,
   },
-  actionButtonText: { fontSize: typography.fontSize.bodySmall, fontWeight: '700' },
+  infoBanner: {
+    backgroundColor: aesColors.accentGreenMuted,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.status.ohCoordination.completed.border,
+    padding: aesSpacing.md,
+    marginBottom: aesSpacing.md,
+  },
+  infoBannerText: {
+    fontSize: aesTypography.bodySmall.fontSize,
+    color: aesColors.accentGreen,
+    lineHeight: 18,
+  },
+  card: {
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.md,
+    marginBottom: aesSpacing.md,
+    ...aesShadows.card,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: aesSpacing.sm,
+    paddingBottom: aesSpacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: aesColors.borderSubdued,
+  },
+  refNumber: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.textPrimary,
+    flex: 1,
+    marginRight: aesSpacing.sm,
+  },
+  cardBody: {
+    gap: aesSpacing.xs,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  metaLabel: {
+    fontSize: aesTypography.bodySmall.fontSize,
+    color: aesColors.textSecondary,
+  },
+  metaValue: {
+    fontSize: aesTypography.bodySmall.fontSize,
+    fontWeight: '600',
+    color: aesColors.textPrimary,
+  },
+  actionsSection: {
+    marginBottom: aesSpacing.md,
+  },
+  actionButtonGroup: {
+    gap: aesSpacing.xs,
+  },
+  eventsSection: {
+    marginBottom: aesSpacing.md,
+  },
+  sectionHeader: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.textPrimary,
+    marginBottom: aesSpacing.sm,
+  },
+  noEventsBox: {
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.md,
+    alignItems: 'center',
+  },
+  noEventsText: {
+    fontSize: aesTypography.bodySmall.fontSize,
+    color: aesColors.textSecondary,
+    fontStyle: 'italic',
+  },
+  eventCard: {
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    borderLeftWidth: 4,
+    borderLeftColor: aesColors.accentGreen,
+    padding: aesSpacing.md,
+    marginBottom: aesSpacing.sm,
+    ...aesShadows.card,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  eventCategory: {
+    fontSize: aesTypography.bodySmall.fontSize,
+    fontWeight: '700',
+    color: aesColors.textPrimary,
+    flex: 1,
+  },
+  eventDate: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.textSecondary,
+    fontWeight: '500',
+  },
+  eventRecorder: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.textTertiary,
+    marginBottom: 4,
+  },
+  eventNoteBox: {
+    backgroundColor: aesColors.surfaceSubdued,
+    borderRadius: aesRadii.badge,
+    padding: aesSpacing.xs + 2,
+    marginTop: aesSpacing.xs,
+  },
+  eventNoteText: {
+    fontSize: aesTypography.bodySmall.fontSize,
+    color: aesColors.textPrimary,
+    lineHeight: 18,
+  },
   disclaimerBox: {
-    borderRadius: shapes.md,
-    padding: spacing.sm,
-    marginTop: spacing.md,
-    borderLeftWidth: 3,
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.md,
+    marginTop: aesSpacing.sm,
   },
-  disclaimerText: { fontSize: typography.fontSize.xs },
+  disclaimerText: {
+    fontSize: aesTypography.labelSmall.fontSize,
+    color: aesColors.textSecondary,
+    lineHeight: 16,
+  },
+  unauthorizedCard: {
+    backgroundColor: aesColors.surface,
+    padding: aesSpacing.lg,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.banners.error.border,
+    width: '100%',
+    maxWidth: 360,
+  },
+  unauthorizedTitle: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.banners.error.text,
+    marginBottom: aesSpacing.xs,
+    textAlign: 'center',
+  },
+  unauthorizedText: {
+    fontSize: aesTypography.body.fontSize,
+    color: aesColors.textSecondary,
+    textAlign: 'center',
+  },
+  errorCard: {
+    backgroundColor: aesColors.surface,
+    padding: aesSpacing.lg,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.banners.error.border,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+  },
+  errorTitle: {
+    fontSize: aesTypography.subheading.fontSize,
+    fontWeight: '700',
+    color: aesColors.banners.error.text,
+    marginBottom: aesSpacing.xs,
+  },
+  errorText: {
+    fontSize: aesTypography.body.fontSize,
+    color: aesColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: aesSpacing.md,
+  },
+  retryButton: {
+    minWidth: 140,
+  },
 });

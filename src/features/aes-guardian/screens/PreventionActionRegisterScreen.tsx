@@ -1,402 +1,518 @@
 /**
- * AES Guardian — Prevention Action Register Screen (Phase 2C.6)
+ * AES Guardian — Prevention Action Register Screen
  *
- * Filterable list of prevention actions.
- * Access: quality_staff (full CRUD), admin_reviewer, oh_professional (read-only).
- * Strictly prohibited: exposed_professional, tech_admin.
- *
- * Displays synthetic demonstration data only.
+ * Read-only register access for quality_staff, admin_reviewer, and
+ * oh_professional. Only quality_staff receives the create action.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
-  RefreshControl,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import {
-  getDatabase,
+  CONTRIBUTING_FACTOR_CATEGORIES,
   canManagePreventionActions,
   canViewPreventionActions,
-  SYNTHETIC_QUALITY_STAFF_CONTEXT,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
-  SYNTHETIC_OH_PROFESSIONAL_CONTEXT,
-  SYNTHETIC_DEMO_CONTEXT,
-  SYNTHETIC_TECH_ADMIN_CONTEXT,
-  AuthContext,
+  getDatabase,
+  PREVENTION_ACTION_STATUSES,
+  PREVENTION_ACTION_TYPES,
   PreventionAction,
   PreventionActionStatus,
   PreventionActionType,
-  PREVENTION_ACTION_STATUSES,
-  PREVENTION_ACTION_TYPES,
+  ContributingFactorCategory,
+  useDemoRoleStore,
 } from '../../../core';
-import { t } from '../../../localization';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { isRTL, t, useLocale, type TranslationKey } from '../../../localization';
 import { RootStackParamList } from '../../../navigation/routes';
+import {
+  aesColors,
+  aesRadii,
+  aesSpacing,
+  aesTypography,
+} from '../../../theme/tokens';
+import {
+  AesButton,
+  AesCard,
+  AesRoundArrowButton,
+  AesScreenContainer,
+  AesScreenHeader,
+  AesStatusBadge,
+} from '../components';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
-const DEMO_ROLES: Array<{ key: string; label: string; context: AuthContext }> = [
-  { key: 'quality_staff',       label: 'Qualité',   context: SYNTHETIC_QUALITY_STAFF_CONTEXT },
-  { key: 'admin_reviewer',      label: 'Admin RH',  context: SYNTHETIC_ADMIN_REVIEWER_CONTEXT },
-  { key: 'oh_professional',     label: 'SST',       context: SYNTHETIC_OH_PROFESSIONAL_CONTEXT },
-  { key: 'exposed_professional',label: 'Exposé ✗',  context: SYNTHETIC_DEMO_CONTEXT },
-  { key: 'tech_admin',          label: 'Tech ✗',    context: SYNTHETIC_TECH_ADMIN_CONTEXT },
-];
-
-const STATUS_COLORS: Record<PreventionActionStatus, string> = {
-  proposed:    '#6366F1',
-  in_progress: '#F59E0B',
-  completed:   '#10B981',
-  cancelled:   '#EF4444',
+const STATUS_TRANSLATION_KEYS: Record<PreventionActionStatus, TranslationKey> = {
+  proposed: 'prevention.detail.status.proposed',
+  in_progress: 'prevention.detail.status.in_progress',
+  completed: 'prevention.detail.status.completed',
+  cancelled: 'prevention.detail.status.cancelled',
 };
 
-const STATUS_LABELS: Record<PreventionActionStatus, string> = {
-  proposed:    t('prevention.detail.status.proposed'),
-  in_progress: t('prevention.detail.status.in_progress'),
-  completed:   t('prevention.detail.status.completed'),
-  cancelled:   t('prevention.detail.status.cancelled'),
+const FACTOR_TRANSLATION_KEYS: Record<ContributingFactorCategory, TranslationKey> = {
+  device_safety_design: 'prevention.factor.device_safety_design',
+  procedure_compliance: 'prevention.factor.procedure_compliance',
+  workload_fatigue: 'prevention.factor.workload_fatigue',
+  waste_disposal_container: 'prevention.factor.waste_disposal_container',
+  protective_equipment: 'prevention.factor.protective_equipment',
+  training_supervision: 'prevention.factor.training_supervision',
+  environment_workspace: 'prevention.factor.environment_workspace',
+  other_factor: 'prevention.factor.other_factor',
 };
+
+interface FilterChipProps {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  testID: string;
+  rtl: boolean;
+}
+
+const FilterChip: React.FC<FilterChipProps> = ({
+  label,
+  selected,
+  onPress,
+  testID,
+  rtl,
+}) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={label}
+    accessibilityState={{ selected }}
+    onPress={onPress}
+    style={[styles.filterChip, selected && styles.filterChipSelected]}
+    testID={testID}
+  >
+    <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected, { textAlign: rtl ? 'right' : 'left' }]}>
+      {label}
+    </Text>
+  </Pressable>
+);
 
 export const PreventionActionRegisterScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NavProp>();
-  const styles = createStyles(colors);
+  const locale = useLocale();
+  const rtl = isRTL(locale);
+  const activeContext = useDemoRoleStore(state => state.activeContext);
+  const userId = activeContext.userId;
+  const isAuthorized = canViewPreventionActions(activeContext);
+  const canManage = canManagePreventionActions(activeContext);
+  const requestVersion = useRef(0);
 
-  const [activeRoleContext, setActiveRoleContext] = useState<AuthContext>(SYNTHETIC_QUALITY_STAFF_CONTEXT);
-  const isAuthorized = canViewPreventionActions(activeRoleContext);
-  const canManage   = canManagePreventionActions(activeRoleContext);
-
-  const [actions,   setActions]   = useState<PreventionAction[]>([]);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<PreventionActionStatus | undefined>(undefined);
-  const [filterType,   setFilterType]   = useState<PreventionActionType | undefined>(undefined);
+  const [actions, setActions] = useState<PreventionAction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<PreventionActionStatus | undefined>();
+  const [filterType, setFilterType] = useState<PreventionActionType | undefined>();
+  const [filterFactor, setFilterFactor] = useState<ContributingFactorCategory | undefined>();
 
   const loadActions = useCallback(async () => {
-    if (!isAuthorized || !activeRoleContext.userId) { setActions([]); return; }
+    const request = ++requestVersion.current;
+    if (!isAuthorized || !userId) {
+      setActions([]);
+      setError(false);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    setError(null);
+    setError(false);
     try {
-      const db = await getDatabase();
-      const data = await db.listPreventionActions(activeRoleContext.userId, {
+      const result = await getDatabase().listPreventionActions(userId, {
         status: filterStatus,
         action_type: filterType,
+        contributing_factor: filterFactor,
       });
-      setActions(data);
-    } catch (e: any) {
-      setError(e?.message ?? 'Erreur de chargement');
+      if (request === requestVersion.current) {
+        setActions(result);
+      }
+    } catch {
+      if (request === requestVersion.current) {
+        setError(true);
+        setActions([]);
+      }
     } finally {
-      setLoading(false);
+      if (request === requestVersion.current) {
+        setLoading(false);
+      }
     }
-  }, [activeRoleContext, isAuthorized, filterStatus, filterType]);
+  }, [filterFactor, filterStatus, filterType, isAuthorized, userId]);
 
-  useEffect(() => { loadActions(); }, [loadActions]);
+  useEffect(() => {
+    void loadActions();
+    return () => {
+      requestVersion.current += 1;
+    };
+  }, [loadActions]);
 
-  const renderItem = ({ item }: { item: PreventionAction }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('preventionActionDetail', { actionId: item.id })}
+  const filterLabel = (label: string, testID: string) => (
+    <Text
+      style={[styles.filterLabel, { textAlign: rtl ? 'right' : 'left' }]}
+      testID={`${testID}-label`}
     >
-      <View style={styles.cardHeader}>
-        <Text style={styles.refCode}>{item.reference_code}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] }]}>
-          <Text style={styles.statusBadgeText}>{STATUS_LABELS[item.status]}</Text>
-        </View>
-      </View>
-      <Text style={styles.cardTitle}>{item.title}</Text>
-      <View style={styles.cardMeta}>
-        <View style={[styles.typeBadge, { borderColor: colors.border }]}>
-          <Text style={styles.typeBadgeText}>
-            {item.action_type === 'corrective'
-              ? t('prevention.detail.type.corrective')
-              : t('prevention.detail.type.preventive')}
-          </Text>
-        </View>
-        {item.contributing_factor && (
-          <Text style={styles.factorText} numberOfLines={1}>
-            {t(`prevention.factor.${item.contributing_factor}` as any)}
-          </Text>
-        )}
-      </View>
-      {item.target_date && (
-        <Text style={styles.dateText}>Cible : {item.target_date}</Text>
-      )}
-    </TouchableOpacity>
+      {label}
+    </Text>
   );
 
-  const FilterChip: React.FC<{
-    label: string;
-    active: boolean;
-    onPress: () => void;
-  }> = ({ label, active, onPress }) => (
-    <TouchableOpacity
-      style={[styles.filterChip, active && styles.filterChipActive]}
-      onPress={onPress}
+  const renderFilterGroup = (
+    title: string,
+    testID: string,
+    chips: React.ReactNode,
+  ) => (
+    <View
+      style={[styles.filterGroup, rtl && styles.filterGroupRtl]}
+      testID={`${testID}-group`}
     >
-      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  return (
-    <View style={styles.root}>
-      {/* Role switcher */}
-      <View style={styles.roleBar}>
-        <FlatList
-          data={DEMO_ROLES}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={r => r.key}
-          renderItem={({ item: r }) => (
-            <TouchableOpacity
-              style={[
-                styles.roleChip,
-                activeRoleContext.userId === r.context.userId && styles.roleChipActive,
-              ]}
-              onPress={() => { setActiveRoleContext(r.context); }}
-            >
-              <Text style={[
-                styles.roleChipText,
-                activeRoleContext.userId === r.context.userId && styles.roleChipTextActive,
-              ]}>{r.label}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-
-      {/* Not authorized */}
-      {!isAuthorized && (
-        <View style={styles.unauthorizedBox}>
-          <Text style={styles.unauthorizedText}>{t('prevention.unauthorized')}</Text>
+      {filterLabel(title, testID)}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterScrollContent}
+      >
+        <View
+          style={[styles.filterOptions, rtl && styles.filterOptionsRtl]}
+          testID={`${testID}-options`}
+        >
+          {chips}
         </View>
-      )}
-
-      {isAuthorized && (
-        <>
-          {/* Status filters */}
-          <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>{t('prevention.register.filterStatus')} :</Text>
-            <ScrollViewHorizontal>
-              <FilterChip
-                label={t('prevention.register.all')}
-                active={!filterStatus}
-                onPress={() => setFilterStatus(undefined)}
-              />
-              {PREVENTION_ACTION_STATUSES.map(s => (
-                <FilterChip
-                  key={s}
-                  label={STATUS_LABELS[s]}
-                  active={filterStatus === s}
-                  onPress={() => setFilterStatus(filterStatus === s ? undefined : s)}
-                />
-              ))}
-            </ScrollViewHorizontal>
-          </View>
-
-          {/* Type filters */}
-          <View style={styles.filterSection}>
-            <Text style={styles.filterLabel}>{t('prevention.register.filterType')} :</Text>
-            <ScrollViewHorizontal>
-              <FilterChip
-                label={t('prevention.register.all')}
-                active={!filterType}
-                onPress={() => setFilterType(undefined)}
-              />
-              {PREVENTION_ACTION_TYPES.map(tp => (
-                <FilterChip
-                  key={tp}
-                  label={tp === 'corrective' ? t('prevention.detail.type.corrective') : t('prevention.detail.type.preventive')}
-                  active={filterType === tp}
-                  onPress={() => setFilterType(filterType === tp ? undefined : tp)}
-                />
-              ))}
-            </ScrollViewHorizontal>
-          </View>
-
-          {loading && (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.lg }} />
-          )}
-
-          {error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          <FlatList
-            data={actions}
-            keyExtractor={item => String(item.id)}
-            renderItem={renderItem}
-            contentContainerStyle={styles.list}
-            refreshControl={<RefreshControl refreshing={loading} onRefresh={loadActions} />}
-            ListEmptyComponent={
-              !loading ? (
-                <Text style={styles.emptyText}>{t('prevention.register.empty')}</Text>
-              ) : null
-            }
-          />
-
-          {canManage && (
-            <TouchableOpacity
-              style={[styles.fab, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.navigate('preventionCreate')}
-            >
-              <Text style={styles.fabText}>+</Text>
-            </TouchableOpacity>
-          )}
-        </>
-      )}
+      </ScrollView>
     </View>
   );
-};
 
-// Minimal inline horizontal scroll wrapper
-const ScrollViewHorizontal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  if (!isAuthorized) {
+    return (
+      <AesScreenContainer scrollable testID="prevention-register-unauthorized">
+        <AesScreenHeader
+          title={t('prevention.register.title')}
+          subtitle={t('prevention.title')}
+          overline={t('prevention.nav.title')}
+          testID="prevention-register-header"
+        />
+        <AesCard
+          elevated
+          accentBorderColor={aesColors.banners.error.border}
+          testID="prevention-register-unauthorized-card"
+        >
+          <Text style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
+            {t('prevention.unauthorized')}
+          </Text>
+        </AesCard>
+      </AesScreenContainer>
+    );
+  }
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={{ flexDirection: 'row', flexWrap: 'nowrap' }}>
-        {children}
-      </View>
-    </ScrollView>
+    <AesScreenContainer
+      scrollable
+      testID="prevention-register"
+      contentContainerStyle={styles.content}
+    >
+      <AesScreenHeader
+        title={t('prevention.register.title')}
+        subtitle={t('prevention.title')}
+        overline={t('prevention.nav.title')}
+        testID="prevention-register-header"
+      />
+
+      <AesCard elevated testID="prevention-register-filters">
+        {renderFilterGroup(
+          t('prevention.register.filterStatus'),
+          'prevention-register-filter-status',
+          <>
+            <FilterChip
+              label={t('prevention.register.all')}
+              selected={!filterStatus}
+              onPress={() => setFilterStatus(undefined)}
+              testID="prevention-register-filter-status-all"
+              rtl={rtl}
+            />
+            {PREVENTION_ACTION_STATUSES.map(status => (
+              <FilterChip
+                key={status}
+                label={t(STATUS_TRANSLATION_KEYS[status])}
+                selected={filterStatus === status}
+                onPress={() => setFilterStatus(filterStatus === status ? undefined : status)}
+                testID={`prevention-register-filter-status-${status}`}
+                rtl={rtl}
+              />
+            ))}
+          </>,
+        )}
+        {renderFilterGroup(
+          t('prevention.register.filterType'),
+          'prevention-register-filter-type',
+          <>
+            <FilterChip
+              label={t('prevention.register.all')}
+              selected={!filterType}
+              onPress={() => setFilterType(undefined)}
+              testID="prevention-register-filter-type-all"
+              rtl={rtl}
+            />
+            {PREVENTION_ACTION_TYPES.map(type => (
+              <FilterChip
+                key={type}
+                label={t(type === 'corrective' ? 'prevention.detail.type.corrective' : 'prevention.detail.type.preventive')}
+                selected={filterType === type}
+                onPress={() => setFilterType(filterType === type ? undefined : type)}
+                testID={`prevention-register-filter-type-${type}`}
+                rtl={rtl}
+              />
+            ))}
+          </>,
+        )}
+        {renderFilterGroup(
+          t('prevention.register.filterFactor'),
+          'prevention-register-filter-factor',
+          <>
+            <FilterChip
+              label={t('prevention.register.all')}
+              selected={!filterFactor}
+              onPress={() => setFilterFactor(undefined)}
+              testID="prevention-register-filter-factor-all"
+              rtl={rtl}
+            />
+            {CONTRIBUTING_FACTOR_CATEGORIES.map(factor => (
+              <FilterChip
+                key={factor}
+                label={t(FACTOR_TRANSLATION_KEYS[factor])}
+                selected={filterFactor === factor}
+                onPress={() => setFilterFactor(filterFactor === factor ? undefined : factor)}
+                testID={`prevention-register-filter-factor-${factor}`}
+                rtl={rtl}
+              />
+            ))}
+          </>,
+        )}
+      </AesCard>
+
+      {loading && (
+        <View style={styles.centeredState} testID="prevention-register-loading">
+          <ActivityIndicator size="large" color={aesColors.accentGreen} />
+          <Text style={styles.stateText}>{t('app.loading')}</Text>
+        </View>
+      )}
+
+      {!loading && error && (
+        <AesCard
+          elevated
+          accentBorderColor={aesColors.banners.error.border}
+          testID="prevention-register-error"
+        >
+          <Text style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
+            {t('error.generic')}
+          </Text>
+          <AesButton
+            title={t('prevention.register.retry')}
+            onPress={() => void loadActions()}
+            variant="outline"
+            style={styles.retryButton}
+            testID="prevention-register-retry"
+          />
+        </AesCard>
+      )}
+
+      {!loading && !error && actions.length === 0 && (
+        <AesCard elevated testID="prevention-register-empty">
+          <Text style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
+            {t('prevention.register.empty')}
+          </Text>
+        </AesCard>
+      )}
+
+      {!loading && !error && actions.map(action => (
+        <AesCard
+          key={action.id}
+          elevated
+          testID={`prevention-register-action-${action.id}`}
+        >
+          <View style={[styles.actionHeader, rtl && styles.actionHeaderRtl]}>
+            <Text style={[styles.reference, { textAlign: rtl ? 'right' : 'left' }]}>
+              {action.reference_code}
+            </Text>
+            <AesStatusBadge
+              status={action.status}
+              domain="capa"
+              testID={`prevention-register-status-${action.id}`}
+            />
+          </View>
+          <Text style={[styles.actionTitle, { textAlign: rtl ? 'right' : 'left' }]}>
+            {action.title}
+          </Text>
+          <Text
+            numberOfLines={3}
+            style={[styles.description, { textAlign: rtl ? 'right' : 'left' }]}
+          >
+            {action.description}
+          </Text>
+          <View style={[styles.actionContext, rtl && styles.actionContextRtl]}>
+            <Text
+              style={styles.contextText}
+              testID={`prevention-register-action-type-${action.id}`}
+            >
+              {t(action.action_type === 'corrective'
+                ? 'prevention.detail.type.corrective'
+                : 'prevention.detail.type.preventive')}
+            </Text>
+            <Text
+              style={styles.contextText}
+              testID={`prevention-register-action-factor-${action.id}`}
+            >
+              {t(FACTOR_TRANSLATION_KEYS[action.contributing_factor])}
+            </Text>
+          </View>
+          {action.target_date ? (
+            <Text
+              style={[styles.targetDate, { textAlign: rtl ? 'right' : 'left' }]}
+              testID={`prevention-register-action-target-date-${action.id}`}
+            >
+              {t('prevention.detail.targetDate')}: {action.target_date}
+            </Text>
+          ) : null}
+          <View style={[styles.detailAction, rtl && styles.detailActionRtl]}>
+            <AesRoundArrowButton
+              onPress={() => navigation.navigate('preventionActionDetail', { actionId: action.id })}
+              variant="green"
+              accessibilityLabel={t('prevention.register.viewDetails')}
+              testID={`prevention-register-detail-${action.id}`}
+            />
+          </View>
+        </AesCard>
+      ))}
+
+      {canManage && (
+        <AesButton
+          title={t('prevention.overview.newAction')}
+          onPress={() => navigation.navigate('preventionCreate')}
+          variant="green"
+          style={styles.createButton}
+          testID="prevention-register-create"
+        />
+      )}
+    </AesScreenContainer>
   );
 };
 
-function createStyles(colors: any) {
-  return StyleSheet.create({
-    root: { flex: 1, backgroundColor: colors.background },
-    roleBar: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    roleChip: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: shapes.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginRight: spacing.xs,
-      backgroundColor: colors.background,
-    },
-    roleChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    roleChipText: { fontSize: typography.fontSize.xs, color: colors.text },
-    roleChipTextActive: { color: '#fff' },
-    unauthorizedBox: {
-      margin: spacing.md,
-      padding: spacing.md,
-      backgroundColor: '#FEE2E2',
-      borderRadius: shapes.md,
-    },
-    unauthorizedText: { color: '#991B1B', textAlign: 'center' },
-    filterSection: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      flexDirection: 'row',
-      alignItems: 'center',
-      flexWrap: 'nowrap',
-      gap: spacing.xs,
-    },
-    filterLabel: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-      minWidth: 50,
-    },
-    filterChip: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: shapes.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginRight: spacing.xs,
-      backgroundColor: colors.card,
-    },
-    filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    filterChipText: { fontSize: typography.fontSize.xs, color: colors.text },
-    filterChipTextActive: { color: '#fff' },
-    list: { padding: spacing.md, paddingBottom: spacing.xl * 3 },
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: shapes.md,
-      padding: spacing.md,
-      marginBottom: spacing.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 4,
-    },
-    refCode: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
-    },
-    statusBadge: {
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 2,
-      borderRadius: shapes.full,
-    },
-    statusBadgeText: { color: '#fff', fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.bold },
-    cardTitle: {
-      fontSize: typography.fontSize.md,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.text,
-      marginBottom: 4,
-    },
-    cardMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
-    typeBadge: {
-      borderWidth: 1,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 2,
-      borderRadius: shapes.sm,
-    },
-    typeBadgeText: { fontSize: typography.fontSize.xs, color: colors.text },
-    factorText: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-      flexShrink: 1,
-    },
-    dateText: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-      marginTop: 4,
-    },
-    fab: {
-      position: 'absolute',
-      right: spacing.lg,
-      bottom: spacing.lg,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
-      elevation: 4,
-    },
-    fabText: { color: '#fff', fontSize: 28, fontWeight: 'bold', lineHeight: 32 },
-    errorBox: {
-      margin: spacing.md,
-      padding: spacing.md,
-      backgroundColor: '#FEE2E2',
-      borderRadius: shapes.md,
-    },
-    errorText: { color: '#991B1B' },
-    emptyText: {
-      textAlign: 'center',
-      color: colors.mutedForeground,
-      marginTop: spacing.xl,
-      fontFamily: typography.fontFamily.openSans,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  content: {
+    paddingBottom: aesSpacing.xl,
+  },
+  filterGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 48,
+    gap: aesSpacing.xs,
+  },
+  filterGroupRtl: {
+    flexDirection: 'row-reverse',
+  },
+  filterLabel: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textSecondary,
+    minWidth: 58,
+  },
+  filterScrollContent: {
+    flexGrow: 1,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterOptionsRtl: {
+    flexDirection: 'row-reverse',
+  },
+  filterChip: {
+    minHeight: 48,
+    paddingHorizontal: aesSpacing.md,
+    borderRadius: aesRadii.pill,
+    borderWidth: 1,
+    borderColor: aesColors.borderMedium,
+    backgroundColor: aesColors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginEnd: aesSpacing.xs,
+  },
+  filterChipSelected: {
+    borderColor: aesColors.accentGreen,
+    backgroundColor: aesColors.accentGreenMuted,
+  },
+  filterChipText: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textPrimary,
+  },
+  filterChipTextSelected: {
+    color: aesColors.accentGreen,
+  },
+  centeredState: {
+    minHeight: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: aesSpacing.sm,
+  },
+  stateText: {
+    ...aesTypography.body,
+    color: aesColors.textSecondary,
+  },
+  retryButton: {
+    marginTop: aesSpacing.sm,
+  },
+  actionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: aesSpacing.sm,
+    marginBottom: aesSpacing.xs,
+  },
+  actionHeaderRtl: {
+    flexDirection: 'row-reverse',
+  },
+  reference: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textSecondary,
+    flexShrink: 1,
+  },
+  actionTitle: {
+    ...aesTypography.heading2,
+    color: aesColors.textPrimary,
+    marginBottom: aesSpacing.xs,
+  },
+  description: {
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
+  },
+  actionContext: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: aesSpacing.sm,
+    marginTop: aesSpacing.sm,
+  },
+  actionContextRtl: {
+    flexDirection: 'row-reverse',
+  },
+  contextText: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textSecondary,
+  },
+  targetDate: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textSecondary,
+    marginTop: aesSpacing.sm,
+  },
+  detailAction: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: aesSpacing.sm,
+  },
+  detailActionRtl: {
+    flexDirection: 'row-reverse',
+  },
+  createButton: {
+    marginTop: aesSpacing.md,
+  },
+});

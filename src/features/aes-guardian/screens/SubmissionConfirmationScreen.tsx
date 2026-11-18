@@ -1,145 +1,257 @@
-import React from 'react';
+/**
+ * AES Guardian — Screen 4.2: Submission Confirmation Screen (Redesign)
+ *
+ * Implements the post-submission confirmation canvas per UI Blueprint Section 4.2
+ * and Reference Mapping: Neo Financial iOS Closing an account 7.png.
+ *
+ * Critical Boundaries:
+ * - Displays the actual declaration reference number from navigation params.
+ * - Localized confirmation message (confirm.message) and prototype disclaimer (confirm.disclaimer).
+ * - Monospace reference box with interactive copy action.
+ * - Primary bottom action: Retour à mes déclarations (navigates to 'declarations').
+ * - Role boundary: exposed_professional. Zero clinical milestone prescriptions.
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
-import { t } from '../../../localization';
+import Icon from 'react-native-vector-icons/Feather';
+import {
+  aesColors,
+  aesTypography,
+  aesSpacing,
+  aesRadii,
+  aesShadows,
+} from '../../../theme/tokens';
+import { useLocale, t, isRTL } from '../../../localization';
+import { AesScreenContainer, AesButton, AesCard } from '../components';
+import { RootStackParamList } from '../../../navigation/routes';
 
 type ParamList = {
   submissionConfirmation: { referenceNumber: string };
 };
 
 export const SubmissionConfirmationScreen: React.FC = () => {
-  const { colors } = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<ParamList, 'submissionConfirmation'>>();
   const referenceNumber = route.params?.referenceNumber || 'AES-REF';
+  const locale = useLocale();
+  const rtl = isRTL(locale);
+
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopyReference = () => {
+    setCopied(true);
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopied(false);
+    }, 2500);
+  };
+
+  const handleReturnToDeclarations = () => {
+    navigation.navigate('declarations' as any);
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.iconCircle, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.checkmark, { color: colors.primaryForeground }]}>✓</Text>
-        </View>
+    <AesScreenContainer testID="aes-submission-confirmation-screen">
+      <View style={styles.content}>
+        {/* Top spacer to center hero card */}
+        <View style={styles.topSpacer} />
 
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {t('confirm.title')}
-        </Text>
+        {/* Central Confirmation Card */}
+        <AesCard style={styles.confirmationCard}>
+          {/* Hero Success Icon Circle */}
+          <View style={styles.heroCircle} testID="confirmation-hero-circle">
+            <Icon name="check" size={36} color={aesColors.textInverse} />
+          </View>
 
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {t('confirm.subtitle')}
-        </Text>
+          {/* Title & Subtitle */}
+          <Text style={styles.titleText}>{t('confirm.title', locale)}</Text>
+          <Text style={styles.subtitleText}>{t('confirm.subtitle', locale)}</Text>
 
-        <View style={[styles.refBox, { backgroundColor: colors.muted }]}>
-          <Text style={[styles.refLabel, { color: colors.mutedForeground }]}>
-            {t('confirm.refNumber')}
+          {/* Monospace Reference Code Box */}
+          <View style={styles.referenceContainer}>
+            <Text style={styles.referenceLabel}>{t('confirm.refNumber', locale)}</Text>
+            <Text style={styles.referenceValue} testID="confirmation-reference-number">
+              {referenceNumber}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.copyButton}
+              onPress={handleCopyReference}
+              accessibilityRole="button"
+              accessibilityLabel={t('confirm.copy', locale)}
+              testID="confirmation-copy-button"
+            >
+              <Icon
+                name={copied ? 'check' : 'copy'}
+                size={14}
+                color={copied ? aesColors.accentGreen : aesColors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.copyButtonText,
+                  copied && styles.copyButtonTextCopied,
+                ]}
+              >
+                {copied ? t('confirm.copied', locale) : t('confirm.copy', locale)}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Formal Confirmation Notice */}
+          <Text
+            style={[
+              styles.messageText,
+              { textAlign: rtl ? 'right' : 'center' },
+            ]}
+          >
+            {t('confirm.message', locale)}
           </Text>
-          <Text style={[styles.refValue, { color: colors.foreground }]}>
-            {referenceNumber}
+
+          {/* Localized Prototype Disclaimer */}
+          <Text
+            style={[
+              styles.disclaimerText,
+              { textAlign: rtl ? 'right' : 'center' },
+            ]}
+          >
+            {t('confirm.disclaimer', locale)}
           </Text>
+        </AesCard>
+
+        {/* Bottom Navigation Action */}
+        <View style={styles.bottomBar}>
+          <AesButton
+            title={t('confirm.backToList', locale)}
+            onPress={handleReturnToDeclarations}
+            variant="primary"
+            testID="confirmation-back-button"
+          />
         </View>
-
-        <Text style={[styles.message, { color: colors.foreground }]}>
-          {t('confirm.message')}
-        </Text>
-
-        <Text style={[styles.disclaimer, { color: colors.mutedForeground }]}>
-          {t('confirm.disclaimer')}
-        </Text>
       </View>
-
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: colors.primary }]}
-        onPress={() => navigation.navigate('declarations')}
-        accessibilityRole="button"
-        accessibilityLabel={t('confirm.backToList')}
-      >
-        <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-          {t('confirm.backToList')}
-        </Text>
-      </TouchableOpacity>
-    </View>
+    </AesScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  content: {
     flex: 1,
-    padding: spacing.screenPadding,
-    justifyContent: 'center',
+    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingVertical: aesSpacing.screenVertical,
+    justifyContent: 'space-between',
   },
-  card: {
-    borderWidth: 1,
-    borderRadius: shapes.lg,
-    padding: spacing.xl,
+  topSpacer: {
+    flex: 0.1,
+  },
+  confirmationCard: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    padding: aesSpacing.lg,
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
+    ...aesShadows.card,
   },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
+  heroCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: aesColors.primaryAction,
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    alignItems: 'center',
+    marginBottom: aesSpacing.md,
   },
-  checkmark: {
-    fontSize: 32,
-    fontWeight: '700',
-  },
-  title: {
-    fontSize: typography.fontSize.headlineSmall,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
+  titleText: {
+    ...aesTypography.heading2,
+    color: aesColors.textPrimary,
     textAlign: 'center',
+    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: typography.fontSize.bodyMedium,
-    marginBottom: spacing.lg,
+  subtitleText: {
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
     textAlign: 'center',
+    marginBottom: aesSpacing.md,
+    lineHeight: 18,
   },
-  refBox: {
+  referenceContainer: {
     width: '100%',
-    padding: spacing.md,
-    borderRadius: shapes.md,
+    backgroundColor: aesColors.surfaceSubdued,
+    borderRadius: aesRadii.card,
+    paddingVertical: aesSpacing.md,
+    paddingHorizontal: aesSpacing.md,
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: aesSpacing.md,
+    borderWidth: 1,
+    borderColor: aesColors.borderMedium,
+    gap: 4,
   },
-  refLabel: {
-    fontSize: typography.fontSize.bodySmall,
-    marginBottom: spacing.xxs,
-  },
-  refValue: {
-    fontSize: typography.fontSize.titleLarge,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  message: {
-    fontSize: typography.fontSize.bodyMedium,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: 20,
-  },
-  disclaimer: {
-    fontSize: typography.fontSize.xs,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    lineHeight: 16,
-  },
-  button: {
-    paddingVertical: spacing.md,
-    borderRadius: shapes.md,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontSize: typography.fontSize.bodyMedium,
+  referenceLabel: {
+    ...aesTypography.labelSmall,
+    color: aesColors.textTertiary,
     fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  referenceValue: {
+    ...aesTypography.code,
+    fontSize: 22,
+    fontWeight: '700',
+    color: aesColors.primaryAction,
+    letterSpacing: 1.5,
+    marginVertical: 4,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: aesRadii.chip,
+    backgroundColor: aesColors.surface,
+    borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    marginTop: 2,
+  },
+  copyButtonText: {
+    ...aesTypography.caption,
+    color: aesColors.textSecondary,
+    fontWeight: '500',
+  },
+  copyButtonTextCopied: {
+    color: aesColors.accentGreen,
+    fontWeight: '600',
+  },
+  messageText: {
+    ...aesTypography.bodySmall,
+    color: aesColors.textPrimary,
+    lineHeight: 18,
+    marginBottom: aesSpacing.md,
+  },
+  disclaimerText: {
+    ...aesTypography.caption,
+    color: aesColors.textTertiary,
+    fontStyle: 'italic',
+    lineHeight: 15,
+  },
+  bottomBar: {
+    paddingTop: aesSpacing.sm,
+    paddingBottom: aesSpacing.xs,
   },
 });
 

@@ -22,6 +22,7 @@ import {
   initializeDatabase,
   resetDatabaseForTesting,
   getDatabase,
+  useDemoRoleStore,
 } from '../../../core';
 import { ThemeProvider } from '../../../theme/ThemeContext';
 
@@ -174,10 +175,10 @@ describe('Phase 2C.3.1: Correction Response Workflow', () => {
 
       await waitFor(async () => {
         const db = getDatabase();
-        const decl = await db.getDeclarationById(declId);
+        const decl = await db.getDeclarationById(declId, 1);
         expect(decl!.status).toBe('resubmitted');
 
-        const responses = await db.getCorrectionResponses(declId);
+        const responses = await db.getCorrectionResponses(declId, 1);
         expect(responses.length).toBe(1);
         expect(responses[0].response_text).toContain('Aiguille à prélèvement 21G');
       });
@@ -255,6 +256,14 @@ describe('Phase 2C.3.1: Correction Response Workflow', () => {
   });
 
   describe('AdminReviewQueueScreen — Correction tabs & badges', () => {
+    beforeEach(() => {
+      useDemoRoleStore.getState().setRole('admin_reviewer');
+    });
+
+    afterEach(() => {
+      useDemoRoleStore.getState().setRole('exposed_professional');
+    });
+
     it('shows filter pills for correction_requested and resubmitted', async () => {
       const component = render(
         <ThemeProvider>
@@ -305,6 +314,14 @@ describe('Phase 2C.3.1: Correction Response Workflow', () => {
   });
 
   describe('AdminReviewActionScreen — Re-reviewing resubmitted declarations', () => {
+    beforeEach(() => {
+      useDemoRoleStore.getState().setRole('admin_reviewer');
+    });
+
+    afterEach(() => {
+      useDemoRoleStore.getState().setRole('exposed_professional');
+    });
+
     it('displays declarant response panel and re-review button', async () => {
       const db = getDatabase();
       const declId = await db.createDraft({

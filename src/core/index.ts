@@ -12,9 +12,10 @@ export {
   isValidTransition,
   isValidPreventionTransition,
   seedDemoScenarioIfEmpty,
+  seedStandardScenario,
 } from './database';
 
-export type { SeedResult } from './database';
+export type { SeedResult, ResetDemoScenarioResult } from './database';
 
 export type {
   DatabaseOptions,
@@ -32,6 +33,8 @@ export type {
   AdministrativeReview,
   CorrectionResponse,
   OhCoordination,
+  ExposedOhCoordinationSummary,
+  AdminOhCoordinationSummary,
   OhCoordinationReason,
   OhCoordinationStatus,
   OhFollowUpEvent,
@@ -46,6 +49,11 @@ export type {
   PreventionActionFilters,
   PreventionOverview,
   PreventionActionDetail,
+  NotificationEventType,
+  NotificationEntityType,
+  InAppNotification,
+  CreateNotificationInput,
+  NotificationFilters,
 } from './database';
 
 export {
@@ -59,6 +67,9 @@ export {
   PREVENTION_ACTION_STATUSES,
   PREVENTION_ACTION_TYPES,
   CONTRIBUTING_FACTOR_CATEGORIES,
+  NOTIFICATION_EVENT_TYPES,
+  NOTIFICATION_ENTITY_TYPES,
+  EVENT_RECIPIENT_ROLE,
 } from './database';
 
 // Authentication boundaries & demonstration role store

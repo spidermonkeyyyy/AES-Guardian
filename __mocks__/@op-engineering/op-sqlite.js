@@ -20,6 +20,18 @@ function nowIso() {
   return new Date().toISOString().replace(/\.\d+Z$/, 'Z');
 }
 
+function cloneTables(tables) {
+  const newMap = new Map();
+  for (const [k, rows] of tables.entries()) {
+    newMap.set(k, rows.map(r => ({ ...r })));
+  }
+  return newMap;
+}
+
+function cloneSequences(sequences) {
+  return new Map(sequences);
+}
+
 function makeRows(arr) {
   return { length: arr.length, item: (i) => arr[i] };
 }
@@ -94,8 +106,32 @@ function executeOnStore(store, sql, params = []) {
   const compact = trimmed.replace(/\s+/g, ' ');
   const upper = compact.toUpperCase();
 
-  // ── PRAGMA / BEGIN / COMMIT / ROLLBACK ─────────────────────
-  if (upper.startsWith('PRAGMA') || /^(BEGIN|COMMIT|ROLLBACK);?$/.test(upper)) {
+  // ── PRAGMA ──────────────────────────────────────────────────
+  if (upper.startsWith('PRAGMA')) {
+    return { rowsAffected: 0, rows: makeRows([]) };
+  }
+
+  // ── BEGIN / COMMIT / ROLLBACK ───────────────────────────────
+  if (/^BEGIN(\s+TRANSACTION)?;?$/i.test(upper)) {
+    if (!store.snapshots) store.snapshots = [];
+    store.snapshots.push({
+      tables: cloneTables(store.tables),
+      sequences: cloneSequences(store.sequences),
+    });
+    return { rowsAffected: 0, rows: makeRows([]) };
+  }
+  if (/^COMMIT(\s+TRANSACTION)?;?$/i.test(upper)) {
+    if (store.snapshots && store.snapshots.length > 0) {
+      store.snapshots.pop();
+    }
+    return { rowsAffected: 0, rows: makeRows([]) };
+  }
+  if (/^ROLLBACK(\s+TRANSACTION)?;?$/i.test(upper)) {
+    if (store.snapshots && store.snapshots.length > 0) {
+      const snap = store.snapshots.pop();
+      store.tables = snap.tables;
+      store.sequences = snap.sequences;
+    }
     return { rowsAffected: 0, rows: makeRows([]) };
   }
 
@@ -158,7 +194,10 @@ function executeOnStore(store, sql, params = []) {
       return { rowsAffected: 0, rows: makeRows([]) };
     }
 
-    const isOrIgnore = /INSERT\s+OR\s+IGNORE/i.test(compact);
+    const conflictMatch = compact.match(/ON\s+CONFLICT\s*\(([^)]+)\)\s*DO\s+NOTHING/i);
+    const hasOnConflictDoNothing = Boolean(conflictMatch);
+    const conflictCol = conflictMatch ? conflictMatch[1].trim() : null;
+    const isOrIgnore = /INSERT\s+OR\s+IGNORE/i.test(compact) || hasOnConflictDoNothing;
 
     // Parse: INSERT [OR IGNORE] INTO table (cols) VALUES ...
     const headerMatch = compact.match(
@@ -168,7 +207,10 @@ function executeOnStore(store, sql, params = []) {
 
     const tableName = headerMatch[1];
     const cols = headerMatch[2].split(',').map(c => c.trim());
-    const valuesClause = headerMatch[3];
+    let valuesClause = headerMatch[3];
+    if (hasOnConflictDoNothing) {
+      valuesClause = valuesClause.replace(/ON\s+CONFLICT\s*\([^)]+\)\s*DO\s+NOTHING\s*;?/i, '').trim();
+    }
 
     if (!store.tables.has(tableName)) {
       store.tables.set(tableName, []);
@@ -195,12 +237,21 @@ function executeOnStore(store, sql, params = []) {
 
       const rows = store.tables.get(tableName);
 
-      // UNIQUE constraint check for OR IGNORE
+      // UNIQUE constraint check for OR IGNORE / ON CONFLICT DO NOTHING
       if (isOrIgnore) {
         let dup = false;
-        if (row.username !== undefined && rows.some(r => r.username === row.username)) dup = true;
-        if (row.reference_number !== undefined && rows.some(r => r.reference_number === row.reference_number)) dup = true;
+        if (conflictCol && row[conflictCol] !== undefined && row[conflictCol] !== null) {
+          if (rows.some(r => r[conflictCol] === row[conflictCol])) dup = true;
+        } else {
+          if (row.username !== undefined && rows.some(r => r.username === row.username)) dup = true;
+          if (row.reference_number !== undefined && rows.some(r => r.reference_number === row.reference_number)) dup = true;
+          if (row.idempotency_key !== undefined && row.idempotency_key !== null && rows.some(r => r.idempotency_key === row.idempotency_key)) dup = true;
+        }
         if (dup) continue;
+      } else {
+        if (row.idempotency_key !== undefined && row.idempotency_key !== null && rows.some(r => r.idempotency_key === row.idempotency_key)) {
+          throw new Error('UNIQUE constraint failed: in_app_notifications.idempotency_key');
+        }
       }
 
       // Auto ID
@@ -224,6 +275,15 @@ function executeOnStore(store, sql, params = []) {
         }
       }
 
+      if (tableName === 'in_app_notifications') {
+        if (row.is_read === undefined || row.is_read === null) {
+          row.is_read = 0;
+        }
+        if (row.created_at === undefined || row.created_at === null) {
+          row.created_at = now;
+        }
+      }
+
       rows.push(row);
       lastInsertId = typeof row.id === 'number' ? row.id : undefined;
       inserted++;
@@ -234,7 +294,7 @@ function executeOnStore(store, sql, params = []) {
 
   // ── UPDATE ──────────────────────────────────────────────────
   if (upper.startsWith('UPDATE')) {
-    // UPDATE table SET ... WHERE col = ?
+    // UPDATE table SET ... WHERE ...
     const m = compact.match(/UPDATE\s+(\w+)\s+SET\s+(.+?)\s+WHERE\s+(.+)/is);
     if (!m) return { rowsAffected: 0, rows: makeRows([]) };
     const tableName = m[1];
@@ -251,15 +311,29 @@ function executeOnStore(store, sql, params = []) {
       updates[col] = val === '?' ? (params[paramIdx++] ?? null) : literalValue(val);
     }
 
-    // WHERE: single col = ?
-    const whereM = m[3].trim().match(/^(\w+)\s*=\s*\?$/i);
-    if (!whereM) return { rowsAffected: 0, rows: makeRows([]) };
-    const whereVal = params[paramIdx];
-    const whereCol = whereM[1];
+    // Parse WHERE clauses (supports col = ? AND col2 = ? AND col3 = literal)
+    const whereClause = m[3].trim();
+    const parts = whereClause.split(/\s+AND\s+/i);
+    const conditions = [];
+    for (const part of parts) {
+      const colMatch = part.trim().match(/(?:(\w+)\.)?(\w+)\s*=\s*(\?|[0-9]+|'[^']*')/i);
+      if (colMatch) {
+        const colName = colMatch[2];
+        const valRaw = colMatch[3];
+        let expectedVal;
+        if (valRaw === '?') {
+          expectedVal = params[paramIdx++];
+        } else {
+          expectedVal = literalValue(valRaw);
+        }
+        conditions.push({ col: colName, val: expectedVal });
+      }
+    }
 
     let rowsAffected = 0;
     for (const row of store.tables.get(tableName)) {
-      if (String(row[whereCol]) === String(whereVal)) {
+      const matches = conditions.length > 0 && conditions.every(c => String(row[c.col]) === String(c.val));
+      if (matches) {
         Object.assign(row, updates);
         rowsAffected++;
       }
@@ -295,23 +369,19 @@ function executeOnStore(store, sql, params = []) {
     let joinMatch;
     while ((joinMatch = joinRe.exec(compact)) !== null) {
       const joinTable = joinMatch[1];
-      // const joinAlias = joinMatch[2]; // alias not used directly
+      const joinAlias = joinMatch[2];
       // ON lAlias.lCol = rAlias.rCol — figure out which side is the base table
       const lAlias = joinMatch[3];
       const lCol = joinMatch[4];
       const rAlias = joinMatch[5];
       const rCol = joinMatch[6];
 
-      // Determine which is the join table (the one that is not the FROM table alias)
-      // In our queries, base alias is the first letter of the FROM table or its full name
       const joinRows = store.tables.has(joinTable) ? [...store.tables.get(joinTable)] : [];
 
-      // Determine which side references the join table
-      // The ON clause: base.foreignKey = joinTable.primaryKey
-      // We'll check which alias maps to the FROM table vs join table
-      // Simple heuristic: the join table's alias is what LEFT JOIN declared
-      const baseCol = lAlias !== joinTable[0] && lAlias !== joinTable ? lCol : rCol;
-      const joinKeyCol = lAlias !== joinTable[0] && lAlias !== joinTable ? rCol : lCol;
+      // Determine which side references the join table using joinAlias / joinTable
+      const isLeftJoinTable = lAlias === joinAlias || lAlias === joinTable;
+      const baseCol = isLeftJoinTable ? rCol : lCol;
+      const joinKeyCol = isLeftJoinTable ? lCol : rCol;
 
       rows = rows.map(r => {
         const fkVal = r[baseCol] ?? r[lCol] ?? r[rCol];
@@ -321,6 +391,9 @@ function executeOnStore(store, sql, params = []) {
           const extra = {};
           for (const k of Object.keys(matched)) {
             if (!(k in r)) extra[k] = matched[k];
+          }
+          if (matched.reference_number && !('declaration_reference' in r)) {
+            extra.declaration_reference = matched.reference_number;
           }
           return { ...r, ...extra };
         }
@@ -336,21 +409,23 @@ function executeOnStore(store, sql, params = []) {
       let pIdx = 0;
       for (const part of parts) {
         const trimmedPart = part.trim();
+        if (/^1\s*=\s*1$/i.test(trimmedPart)) continue;
         // table.col = ? or alias.col = ? or plain col = ?
-        const eqM = trimmedPart.match(/^(?:\w+\.)?(\w+)\s*=\s*\?$/i);
+        const eqM = trimmedPart.match(/^(?:\w+\.)?([a-zA-Z_]\w*)\s*=\s*\?$/i);
         if (eqM) {
           const val = params[pIdx++];
           rows = rows.filter(r => String(r[eqM[1]]) === String(val));
           continue;
         }
-        // col = 'literal'
-        const eqLit = trimmedPart.match(/^(?:\w+\.)?(\w+)\s*=\s*['"]([^'"]+)['"]$/i);
+        // col = 'literal' or col = 0 / 123
+        const eqLit = trimmedPart.match(/^(?:\w+\.)?([a-zA-Z_]\w*)\s*=\s*(?:['"]([^'"]*)['"]|([0-9]+))$/i);
         if (eqLit) {
-          rows = rows.filter(r => String(r[eqLit[1]]) === String(eqLit[2]));
+          const val = eqLit[2] !== undefined ? eqLit[2] : eqLit[3];
+          rows = rows.filter(r => String(r[eqLit[1]]) === String(val));
           continue;
         }
         // col IN ('a','b',...)
-        const inM = trimmedPart.match(/^(?:\w+\.)?(\w+)\s+IN\s*\(([^)]+)\)/i);
+        const inM = trimmedPart.match(/^(?:\w+\.)?([a-zA-Z_]\w*)\s+IN\s*\(([^)]+)\)/i);
         if (inM) {
           const vals = inM[2].split(',').map(v => v.trim().replace(/^'|'$/g, ''));
           rows = rows.filter(r => vals.includes(String(r[inM[1]])));

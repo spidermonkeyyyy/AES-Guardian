@@ -35,10 +35,10 @@ describe('Schema initialization', () => {
     await expect(initializeDatabase()).resolves.toBeDefined();
   });
 
-  it('applies all migrations (versions 1, 2, 3, 4, 5, 6, 7)', async () => {
+  it('applies all migrations (versions 1..8)', async () => {
     const db = await initializeDatabase();
     const versions = await db.getAppliedVersions();
-    expect(versions.map(v => v.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(versions.map(v => v.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it('is idempotent — re-initialization does not duplicate versions', async () => {
@@ -46,7 +46,7 @@ describe('Schema initialization', () => {
     resetDatabaseForTesting();
     const db = await initializeDatabase();
     const versions = await db.getAppliedVersions();
-    expect(versions.length).toBe(7);
+    expect(versions.length).toBe(8);
   });
 
   it('seeds synthetic demo users during migration 2', async () => {
@@ -270,7 +270,7 @@ describe('Declaration workflow repository', () => {
       incident_date: '2024-03-15',
       incident_type: 'percutaneous_exposure',
     });
-    const decl = await db.getDeclarationById(id);
+    const decl = await db.getDeclarationById(id, userId);
     expect(decl).not.toBeNull();
     expect(decl!.reference_number).toMatch(/^AES-\d{4}-\d{6}$/);
   });
@@ -281,7 +281,7 @@ describe('Declaration workflow repository', () => {
       incident_date: '2024-03-15',
       incident_type: 'mucocutaneous_exposure',
     });
-    const decl = await db.getDeclarationById(id);
+    const decl = await db.getDeclarationById(id, userId);
     expect(decl!.status).toBe('draft');
   });
 
@@ -297,7 +297,7 @@ describe('Declaration workflow repository', () => {
       exposure_description: 'Blood contact on broken skin',
     });
     expect(result.rowsAffected).toBe(1);
-    const updated = await db.getDeclarationById(id);
+    const updated = await db.getDeclarationById(id, userId);
     expect(updated!.circumstances).toBe('Updated circumstances');
     expect(updated!.exposure_description).toBe('Blood contact on broken skin');
   });
@@ -322,7 +322,7 @@ describe('Declaration workflow repository', () => {
     });
     const result = await db.submitDeclaration(id);
     expect(result.rowsAffected).toBe(1);
-    const submitted = await db.getDeclarationById(id);
+    const submitted = await db.getDeclarationById(id, userId);
     expect(submitted!.status).toBe('submitted');
     expect(submitted!.submitted_at).not.toBeNull();
   });
@@ -340,7 +340,7 @@ describe('Declaration workflow repository', () => {
   it('getDeclarations returns declarations for a user', async () => {
     await db.createDraft({ declared_by_user_id: userId, incident_date: '2024-01-01', incident_type: 'other' });
     await db.createDraft({ declared_by_user_id: userId, incident_date: '2024-02-01', incident_type: 'other' });
-    const list = await db.getDeclarations({ userId });
+    const list = await db.getDeclarations({ userId, requestingUserId: userId });
     expect(list.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -349,8 +349,8 @@ describe('Declaration workflow repository', () => {
     const id2 = await db.createDraft({ declared_by_user_id: userId, incident_date: '2024-02-01', incident_type: 'other' });
     await db.submitDeclaration(id2);
 
-    const drafts = await db.getDeclarationsByStatus('draft');
-    const submitted = await db.getDeclarationsByStatus('submitted');
+    const drafts = await db.getDeclarationsByStatus('draft', userId);
+    const submitted = await db.getDeclarationsByStatus('submitted', userId);
 
     expect(drafts.map(d => d.id)).toContain(id1);
     expect(submitted.map(d => d.id)).toContain(id2);
@@ -369,7 +369,7 @@ describe('Declaration workflow repository', () => {
 
   it('getDeclarationsByStatus rejects invalid status', async () => {
     await expect(
-      db.getDeclarationsByStatus('invalid_status' as never)
+      db.getDeclarationsByStatus('invalid_status' as never, userId)
     ).rejects.toThrow('invalid status');
   });
 });
@@ -431,7 +431,7 @@ describe('Persistence simulation', () => {
     expect(user).not.toBeNull();
     expect(user!.username).toBe('persist.ep');
 
-    const decl = await db.getDeclarationById(declId);
+    const decl = await db.getDeclarationById(declId, userId);
     expect(decl).not.toBeNull();
     expect(decl!.status).toBe('submitted');
     expect(decl!.submitted_at).not.toBeNull();
@@ -513,7 +513,7 @@ describe('Phase 2C.3: Administrative Review Repository', () => {
       });
       await db.submitDeclaration(submittedId);
 
-      const queue = await db.getReviewQueue();
+      const queue = await db.getReviewQueue({ requestingUserId: adminReviewerId });
       const ids = queue.map(d => d.id);
       expect(ids).toContain(submittedId);
       expect(ids).not.toContain(draftId);
@@ -534,7 +534,7 @@ describe('Phase 2C.3: Administrative Review Repository', () => {
       });
       await db.submitDeclaration(q2);
 
-      const queue = await db.getReviewQueue({ limit: 1 });
+      const queue = await db.getReviewQueue({ limit: 1, requestingUserId: adminReviewerId });
       expect(queue.length).toBe(1);
     });
   });
@@ -564,7 +564,7 @@ describe('Phase 2C.3: Administrative Review Repository', () => {
       expect(result.reviewId).toBeGreaterThan(0);
       expect(result.declarationStatus).toBe('under_review');
 
-      const decl = await db.getDeclarationById(submittedDeclId);
+      const decl = await db.getDeclarationById(submittedDeclId, adminReviewerId);
       expect(decl!.status).toBe('under_review');
       // Original data must remain strictly intact
       expect(decl!.incident_type).toBe('percutaneous_exposure');
@@ -581,7 +581,7 @@ describe('Phase 2C.3: Administrative Review Repository', () => {
       });
 
       expect(result.reviewId).toBeGreaterThan(0);
-      const history = await db.getDeclarationReviewHistory(submittedDeclId);
+      const history = await db.getDeclarationReviewHistory(submittedDeclId, adminReviewerId);
       expect(history.length).toBe(1);
       expect(history[0].outcome).toBe('transmission_verified');
     });
@@ -598,10 +598,10 @@ describe('Phase 2C.3: Administrative Review Repository', () => {
       expect(result.reviewId).toBeGreaterThan(0);
       expect(result.declarationStatus).toBe('correction_requested');
 
-      const decl = await db.getDeclarationById(submittedDeclId);
+      const decl = await db.getDeclarationById(submittedDeclId, adminReviewerId);
       expect(decl!.status).toBe('correction_requested');
 
-      const history = await db.getDeclarationReviewHistory(submittedDeclId);
+      const history = await db.getDeclarationReviewHistory(submittedDeclId, adminReviewerId);
       expect(history[0].outcome).toBe('correction_requested');
       expect(history[0].correction_reason).toContain('Préciser la localisation');
     });
@@ -695,7 +695,7 @@ describe('Phase 2C.3: Administrative Review Repository', () => {
         correction_reason: 'Manque l heure exacte',
       });
 
-      const history = await db.getDeclarationReviewHistory(declId);
+      const history = await db.getDeclarationReviewHistory(declId, adminReviewerId);
       expect(history.length).toBe(2);
       expect(history[0].outcome).toBe('correction_requested');
       expect(history[1].outcome).toBe('acknowledged');
@@ -820,14 +820,14 @@ describe('Phase 2C.3.1 — Correction Response Workflow', () => {
     expect(result.declarationStatus).toBe('resubmitted');
 
     // Verify declaration state
-    const decl = await db.getDeclarationById(declId);
+    const decl = await db.getDeclarationById(declId, declarerId);
     expect(decl!.status).toBe('resubmitted');
     // Original narrative strictly preserved and untouched
     expect(decl!.exposure_description).toBe('Needlestick during disposal');
     expect(decl!.circumstances).toBe('Safety shield failure');
 
     // Verify stored response
-    const responses = await db.getCorrectionResponses(declId);
+    const responses = await db.getCorrectionResponses(declId, declarerId);
     expect(responses.length).toBe(1);
     expect(responses[0].response_text).toContain('aiguille vacutainer');
     expect(responses[0].review_id).toBe(reviewId);
@@ -885,7 +885,7 @@ describe('Phase 2C.3.1 — Correction Response Workflow', () => {
       response_text: 'Réponse avec détails du matériel.',
     });
 
-    const history = await db.getDeclarationReviewHistory(declId);
+    const history = await db.getDeclarationReviewHistory(declId, declarerId);
     expect(history.length).toBe(1);
     expect(history[0].response).toBeDefined();
     expect(history[0].response!.response_text).toContain('détails du matériel');
@@ -911,10 +911,10 @@ describe('Phase 2C.3.1 — Correction Response Workflow', () => {
     expect(reReviewRes.reviewId).toBeGreaterThan(0);
     expect(reReviewRes.declarationStatus).toBe('under_review');
 
-    const decl = await db.getDeclarationById(declId);
+    const decl = await db.getDeclarationById(declId, adminId);
     expect(decl!.status).toBe('under_review');
 
-    const history = await db.getDeclarationReviewHistory(declId);
+    const history = await db.getDeclarationReviewHistory(declId, adminId);
     expect(history.length).toBe(2);
     expect(history[0].outcome).toBe('acknowledged');
   });
@@ -1033,7 +1033,7 @@ describe('Phase 2C.3.1 — Correction Response Workflow', () => {
       expect(review4.declarationStatus).toBe('under_review');
 
       // Verify deterministic chronological timeline (DESC)
-      const historyDesc = await db.getDeclarationReviewHistory(declId, { order: 'DESC' });
+      const historyDesc = await db.getDeclarationReviewHistory(declId, { order: 'DESC', requestingUserId: adminId });
       expect(historyDesc.length).toBe(4);
       expect(historyDesc[0].id).toBe(review4.reviewId);
       expect(historyDesc[1].id).toBe(review3.reviewId);
@@ -1046,7 +1046,7 @@ describe('Phase 2C.3.1 — Correction Response Workflow', () => {
       expect(historyDesc[3].response?.response_text).toBe('Response 1 details.');
 
       // Also verify ASC chronological order
-      const historyAsc = await db.getDeclarationReviewHistory(declId, { order: 'ASC' });
+      const historyAsc = await db.getDeclarationReviewHistory(declId, { order: 'ASC', requestingUserId: adminId });
       expect(historyAsc.length).toBe(4);
       expect(historyAsc[0].id).toBe(reviewId);
       expect(historyAsc[3].id).toBe(review4.reviewId);

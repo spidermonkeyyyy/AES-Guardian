@@ -22,6 +22,8 @@ export type {
   AdministrativeReview,
   CorrectionResponse,
   OhCoordination,
+  ExposedOhCoordinationSummary,
+  AdminOhCoordinationSummary,
   OhCoordinationReason,
   OhCoordinationStatus,
   OhFollowUpEvent,
@@ -36,6 +38,16 @@ export type {
   PreventionActionFilters,
   PreventionOverview,
   PreventionActionDetail,
+  ResetDemoScenarioResult,
+  NotificationEventType,
+  NotificationEntityType,
+  InAppNotification,
+  CreateNotificationInput,
+  NotificationFilters,
+  OhQueueFilterOptions,
+  SqlQueryExecutor,
+  TransactionExecutor,
+  TransactionalDatabase,
 } from './types';
 
 export {
@@ -49,6 +61,9 @@ export {
   PREVENTION_ACTION_STATUSES,
   PREVENTION_ACTION_TYPES,
   CONTRIBUTING_FACTOR_CATEGORIES,
+  NOTIFICATION_EVENT_TYPES,
+  NOTIFICATION_ENTITY_TYPES,
+  EVENT_RECIPIENT_ROLE,
 } from './types';
 
 export { DatabaseService } from './DatabaseService';
@@ -57,7 +72,7 @@ export {
   isValidTransition,
   isValidPreventionTransition,
 } from './AesGuardianDatabase';
-export { seedDemoScenarioIfEmpty, type SeedResult } from './demo-scenario-seeder';
+export { seedDemoScenarioIfEmpty, seedStandardScenario, type SeedResult } from './demo-scenario-seeder';
 
 let _aesDb: AesGuardianDatabase | null = null;
 

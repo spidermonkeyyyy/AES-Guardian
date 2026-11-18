@@ -36,6 +36,11 @@ import DesignSystemScreen from '../features/design_preview/screens/DesignSystemS
 
 // AES Guardian Screens
 import {
+  SplashScreen as AesSplashScreen,
+  LanguageSelectionScreen,
+  WelcomeCarouselScreen,
+  PrototypeDisclaimerScreen,
+  DemoAccountPickerScreen,
   AesGuardianWorkspaceScreen,
   DeclarationListScreen,
   DeclarationFormScreen,
@@ -54,6 +59,9 @@ import {
   PreventionActionRegisterScreen,
   PreventionActionCreateScreen,
   PreventionActionDetailScreen,
+  HelpGlossaryScreen,
+  AesGuardianProfileScreen,
+  NotificationCentreScreen,
 } from '../features/aes-guardian';
 
 import Icon from 'react-native-vector-icons/Feather';
@@ -292,6 +300,11 @@ export default function AppNavigator() {
           ) : status === 'unauthenticated' || status === 'error' ? (
             <>
               <Stack.Screen name="authGate" component={AuthGateScreen} />
+              <Stack.Screen name="aesSplash" component={AesSplashScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesWelcomeCarousel" component={WelcomeCarouselScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDisclaimer" component={PrototypeDisclaimerScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDemoPicker" component={DemoAccountPickerScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
               <Stack.Screen name="signIn" component={LoginScreen} />
               <Stack.Screen name="signUp" component={RegisterScreen} />
@@ -313,10 +326,17 @@ export default function AppNavigator() {
               <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
               <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
               <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
+              <Stack.Screen name="helpGlossary" component={HelpGlossaryScreen} options={{ headerShown: true, title: 'Aide & Glossaire AES' }} />
+              <Stack.Screen name="aesGuardianProfile" component={AesGuardianProfileScreen} options={{ headerShown: true, title: 'Profil & Réglages' }} />
             </>
           ) : status === 'authenticated' && nurseSide ? (
             <>
               <Stack.Screen name="nurseTabs" component={NurseTabsNavigator} />
+              <Stack.Screen name="aesSplash" component={AesSplashScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesWelcomeCarousel" component={WelcomeCarouselScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDisclaimer" component={PrototypeDisclaimerScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDemoPicker" component={DemoAccountPickerScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
               <Stack.Screen name="rules" component={RulesScreen} options={{ headerShown: true, title: 'Règles' }} />
               <Stack.Screen name="ruleDetail" component={RuleDetailScreen} options={{ headerShown: true, title: 'Détail de la règle' }} />
@@ -339,10 +359,18 @@ export default function AppNavigator() {
               <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
               <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
               <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
+              <Stack.Screen name="helpGlossary" component={HelpGlossaryScreen} options={{ headerShown: true, title: 'Aide & Glossaire AES' }} />
+              <Stack.Screen name="aesGuardianProfile" component={AesGuardianProfileScreen} options={{ headerShown: true, title: 'Profil & Réglages' }} />
+              <Stack.Screen name="notificationCentre" component={NotificationCentreScreen} options={{ headerShown: true, title: 'Notifications' }} />
             </>
           ) : status === 'authenticated' && !nurseSide ? (
             <>
               <Stack.Screen name="patientTabs" component={PatientTabsNavigator} />
+              <Stack.Screen name="aesSplash" component={AesSplashScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesWelcomeCarousel" component={WelcomeCarouselScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDisclaimer" component={PrototypeDisclaimerScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDemoPicker" component={DemoAccountPickerScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
               <Stack.Screen name="designSystem" component={DesignSystemScreen} />
               <Stack.Screen name="declarations" component={DeclarationListScreen} options={{ headerShown: true, title: 'Déclarations AES' }} />
@@ -362,10 +390,18 @@ export default function AppNavigator() {
               <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
               <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
               <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
+              <Stack.Screen name="helpGlossary" component={HelpGlossaryScreen} options={{ headerShown: true, title: 'Aide & Glossaire AES' }} />
+              <Stack.Screen name="aesGuardianProfile" component={AesGuardianProfileScreen} options={{ headerShown: true, title: 'Profil & Réglages' }} />
+              <Stack.Screen name="notificationCentre" component={NotificationCentreScreen} options={{ headerShown: true, title: 'Notifications' }} />
             </>
           ) : (
             <>
               <Stack.Screen name="authGate" component={AuthGateScreen} />
+              <Stack.Screen name="aesSplash" component={AesSplashScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesWelcomeCarousel" component={WelcomeCarouselScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDisclaimer" component={PrototypeDisclaimerScreen} options={{ headerShown: false }} />
+              <Stack.Screen name="aesDemoPicker" component={DemoAccountPickerScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} options={{ headerShown: true, title: 'Espace AES Guardian' }} />
               <Stack.Screen name="declarations" component={DeclarationListScreen} options={{ headerShown: true, title: 'Déclarations AES' }} />
               <Stack.Screen name="newDeclaration" component={DeclarationFormScreen} options={{ headerShown: true, title: 'Nouvelle déclaration' }} />
@@ -384,6 +420,8 @@ export default function AppNavigator() {
               <Stack.Screen name="preventionRegister" component={PreventionActionRegisterScreen} options={{ headerShown: true, title: 'Registre des Actions' }} />
               <Stack.Screen name="preventionCreate" component={PreventionActionCreateScreen} options={{ headerShown: true, title: 'Nouvelle Action CAPA' }} />
               <Stack.Screen name="preventionActionDetail" component={PreventionActionDetailScreen} options={{ headerShown: true, title: "Détail de l'Action" }} />
+              <Stack.Screen name="helpGlossary" component={HelpGlossaryScreen} options={{ headerShown: true, title: 'Aide & Glossaire AES' }} />
+              <Stack.Screen name="aesGuardianProfile" component={AesGuardianProfileScreen} options={{ headerShown: true, title: 'Profil & Réglages' }} />
             </>
           )}
         </Stack.Navigator>

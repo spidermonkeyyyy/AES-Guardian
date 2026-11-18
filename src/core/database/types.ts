@@ -35,6 +35,72 @@ export interface SchemaVersion {
   description: string;
 }
 
+// ─── Transaction Context Contract (Phase 2D.2D.6) ───────────────────────────
+
+/** Helper predicate for safe unknown narrowing without any casts */
+function isRecord(value: unknown): value is Record<string | symbol, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Core query and mutation execution interface */
+export interface SqlQueryExecutor {
+  execute(sql: string, params?: unknown[]): Promise<MutationResult>;
+  query<T = QueryRow>(sql: string, params?: unknown[]): Promise<QueryResult<T>>;
+}
+
+/**
+ * Transaction-scoped executor interface.
+ * Represents an active execution context within an atomic database transaction.
+ * Enforces single-use lifetime; cannot be reused after commit or rollback.
+ */
+export interface TransactionExecutor extends SqlQueryExecutor {
+  readonly isCompleted: () => boolean;
+}
+
+/**
+ * Database instance capable of initiating atomic transactions.
+ */
+export interface TransactionalDatabase extends SqlQueryExecutor {
+  transaction<T>(fn: (tx: TransactionExecutor) => Promise<T>): Promise<T>;
+}
+
+/** Result of scenario seeding */
+export interface SeedResult {
+  seeded: boolean;
+  declarationsCount: number;
+  preventionActionsCount: number;
+}
+
+/**
+ * Type guard verifying if an executor has the structural shape of a transaction-scoped executor.
+ * Strictly verifies method signatures with zero `any` casts.
+ */
+export function isTransactionExecutor(executor: unknown): executor is TransactionExecutor {
+  if (!isRecord(executor)) {
+    return false;
+  }
+  return (
+    typeof executor.execute === 'function' &&
+    typeof executor.query === 'function' &&
+    typeof executor.isCompleted === 'function'
+  );
+}
+
+/**
+ * Type guard verifying if an executor is a transactional database capable of initiating transactions.
+ * Strictly verifies capability signatures with zero `any` casts.
+ */
+export function isTransactionalDatabase(executor: unknown): executor is TransactionalDatabase {
+  if (!isRecord(executor)) {
+    return false;
+  }
+  return (
+    typeof executor.transaction === 'function' &&
+    typeof executor.execute === 'function' &&
+    typeof executor.query === 'function'
+  );
+}
+
 // ─── Approved AES Guardian roles ─────────────────────────────────────────────
 //
 // Role semantics:
@@ -328,6 +394,57 @@ export interface OhCoordination {
 }
 
 /**
+ * Optional filter options for listOhCoordinationsQueue.
+ *
+ * Default (no options): returns pending_acknowledgement and acknowledged records only.
+ * includeCompleted: true  → also includes completed records (for the blueprint Tab 3
+ *   "Suivi terminé" view). cancelled records remain excluded in all modes.
+ *
+ * Phase 2E.1.6.0.2 — backward-compatible extension.
+ */
+export interface OhQueueFilterOptions {
+  /**
+   * When true, completed coordinations are included alongside active records.
+   * cancelled records remain excluded regardless of this flag.
+   */
+  includeCompleted?: boolean;
+}
+
+/**
+ * Minimal status-only OH coordination projection for exposed professionals.
+ * Strictly shields internal assignment, personnel IDs, milestone timestamps, and reasons.
+ * Contains only identifiers, status, and system timestamps.
+ */
+export interface ExposedOhCoordinationSummary {
+  id: number;
+  declaration_id: number;
+  status: OhCoordinationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Approved minimal administrative OH coordination projection for admin reviewers.
+ * Contains oversight milestones, administrative ownership (created_by_user_id), and
+ * coordination reason category for protocol tracking, while completely omitting
+ * internal OH personnel IDs, private clinical notes, and follow-up events.
+ */
+export interface AdminOhCoordinationSummary {
+  id: number;
+  declaration_id: number;
+  /** Admin reviewer who initiated the coordination (for administrative handoff and creator scoping) */
+  created_by_user_id: number;
+  /** Neutral reason category (for protocol tracking without clinical disclosures) */
+  coordination_reason: OhCoordinationReason;
+  status: OhCoordinationStatus;
+  acknowledged_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  declaration_reference?: string;
+}
+
+/**
  * Occupational-Health Follow-Up Event.
  * Minimum-metadata milestone recorded by the occupational-health professional.
  * Does not store clinical narratives, lab values, PEP decisions, or diagnoses.
@@ -527,6 +644,116 @@ export interface PreventionOverview {
 /** Prevention action with historical audit events */
 export interface PreventionActionDetail extends PreventionAction {
   audit_history: AuditEvent[];
+}
+
+/** Result of resetting demonstration scenario */
+export interface ResetDemoScenarioResult {
+  success: boolean;
+  declarationsCount: number;
+  preventionActionsCount: number;
+  auditEventsCount: number;
+  resetAt: string;
+}
+
+// ─── Phase 2D.2: In-App Notification System ──────────────────────────────────
+//
+// Event-driven local notifications for AES Guardian workflow actions.
+// Offline-only SQLite persistence; zero remote APIs or background scheduling.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Supported notification event types (11 canonical workflow events) */
+export type NotificationEventType =
+  | 'declaration_submitted'
+  | 'review_completed'
+  | 'correction_requested'
+  | 'correction_submitted'
+  | 'oh_coordination_created'
+  | 'oh_coordination_acknowledged'
+  | 'oh_milestone_recorded'
+  | 'oh_coordination_completed'
+  | 'capa_created'
+  | 'capa_status_changed'
+  | 'capa_finalized';
+
+export const NOTIFICATION_EVENT_TYPES: NotificationEventType[] = [
+  'declaration_submitted',
+  'review_completed',
+  'correction_requested',
+  'correction_submitted',
+  'oh_coordination_created',
+  'oh_coordination_acknowledged',
+  'oh_milestone_recorded',
+  'oh_coordination_completed',
+  'capa_created',
+  'capa_status_changed',
+  'capa_finalized',
+];
+
+/** Expected recipient role for each workflow notification event type */
+export const EVENT_RECIPIENT_ROLE: Record<NotificationEventType, AesGuardianRole> = {
+  declaration_submitted: 'admin_reviewer',
+  review_completed: 'exposed_professional',
+  correction_requested: 'exposed_professional',
+  correction_submitted: 'admin_reviewer',
+  oh_coordination_created: 'oh_professional',
+  oh_coordination_acknowledged: 'exposed_professional',
+  oh_milestone_recorded: 'exposed_professional',
+  oh_coordination_completed: 'exposed_professional',
+  capa_created: 'quality_staff',
+  capa_status_changed: 'quality_staff',
+  capa_finalized: 'quality_staff',
+};
+
+/** Supported polymorphic entity types referenced by notifications */
+export type NotificationEntityType =
+  | 'aes_declaration'
+  | 'administrative_review'
+  | 'correction_response'
+  | 'oh_coordination'
+  | 'oh_follow_up_events'
+  | 'prevention_action';
+
+export const NOTIFICATION_ENTITY_TYPES: NotificationEntityType[] = [
+  'aes_declaration',
+  'administrative_review',
+  'correction_response',
+  'oh_coordination',
+  'oh_follow_up_events',
+  'prevention_action',
+];
+
+/** In-app notification record in SQLite */
+export interface InAppNotification {
+  id: number;
+  recipient_user_id: number;
+  event_type: NotificationEventType;
+  title_key: string;
+  message_key: string;
+  entity_type: NotificationEntityType;
+  entity_id: number;
+  entity_reference?: string | null;
+  is_read: number; // 0 = unread, 1 = read
+  created_at: string;
+  read_at?: string | null;
+  idempotency_key: string;
+}
+
+/** Input for inserting a new notification */
+export interface CreateNotificationInput {
+  recipient_user_id: number;
+  event_type: NotificationEventType;
+  title_key: string;
+  message_key: string;
+  entity_type: NotificationEntityType;
+  entity_id: number;
+  entity_reference?: string | null;
+  idempotency_key: string;
+}
+
+/** Query options/filters for retrieving notifications */
+export interface NotificationFilters {
+  is_read?: number; // 0 | 1
+  limit?: number;
 }
 
 /** Database initialization options */

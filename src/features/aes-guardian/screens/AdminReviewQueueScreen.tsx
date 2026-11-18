@@ -1,15 +1,15 @@
 /**
  * AES Guardian Administrative Review Queue Screen
  *
- * Phase 2C.3: Review queue for submitted AES declarations.
+ * Phase 2E.1.5.1 — Batch 5: Administrative Review Queue & Actions
  *
- * Requirements:
+ * Strictly enforces:
  * - Restricted to `admin_reviewer` role via `canReview()`.
- * - Displays declarations in `submitted` and `under_review` states.
+ * - Displays declarations in reviewable states ('submitted', 'under_review', 'correction_requested', 'resubmitted').
  * - Sorts newest submissions first.
- * - Filters by status: All, Submitted, Under Review.
- * - Empty, loading, and error states with pull-to-refresh.
- * - Navigates to AdminReviewActionScreen for administrative processing.
+ * - Filters by status: All, Submitted, Under Review, Correction Requested, Resubmitted.
+ * - Privacy & Data Minimization: strictly NO internal user IDs, NO elapsed-days or overdue badges.
+ * - Standard AES Guardian design system (AesScreenContainer, AesScreenHeader, AesCard, AesStatusBadge).
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -25,25 +25,36 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import {
+  aesColors,
+  aesDeclarationStatusColors,
+  aesTypography,
+  aesSpacing,
+  aesRadii,
+  aesShadows,
+} from '../../../theme/tokens';
+import {
+  AesScreenContainer,
+  AesScreenHeader,
+  AesStatusBadge,
+  AesButton,
+} from '../components';
 import {
   getDatabase,
   AesDeclaration,
-  DeclarationStatus,
   canReview,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
+  useDemoRoleStore,
 } from '../../../core';
 import { t } from '../../../localization';
 
 type FilterType = 'all' | 'submitted' | 'under_review' | 'correction_requested' | 'resubmitted';
 
 export const AdminReviewQueueScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
 
-  // Active context: synthetic admin reviewer for demonstration
-  const reviewerContext = SYNTHETIC_ADMIN_REVIEWER_CONTEXT;
+  // Active context from demo role store
+  const { activeContext } = useDemoRoleStore();
+  const reviewerContext = activeContext;
   const isAuthorized = canReview(reviewerContext);
 
   const [declarations, setDeclarations] = useState<AesDeclaration[]>([]);
@@ -53,14 +64,14 @@ export const AdminReviewQueueScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const loadQueue = useCallback(async () => {
-    if (!isAuthorized) {
+    if (!isAuthorized || !reviewerContext.userId) {
       setLoading(false);
       return;
     }
     setError(null);
     try {
       const db = getDatabase();
-      const items = await db.getReviewQueue({ limit: 100 });
+      const items = await db.getReviewQueue({ limit: 100, requestingUserId: reviewerContext.userId });
       setDeclarations(items);
     } catch (err: any) {
       setError(err?.message || t('error.loadFailed'));
@@ -68,7 +79,7 @@ export const AdminReviewQueueScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAuthorized]);
+  }, [isAuthorized, reviewerContext.userId]);
 
   useEffect(() => {
     loadQueue();
@@ -81,20 +92,22 @@ export const AdminReviewQueueScreen: React.FC = () => {
 
   if (!isAuthorized) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.unauthorizedCard, { backgroundColor: colors.card, borderColor: colors.destructive }]}>
-          <Text style={[styles.unauthorizedTitle, { color: colors.destructive }]}>
-            {t('review.unauthorized')}
-          </Text>
-          <Text style={[styles.unauthorizedText, { color: colors.mutedForeground }]}>
-            Cette interface est réservée exclusivement aux réviseurs administratifs (admin_reviewer).
-          </Text>
+      <AesScreenContainer testID="admin-review-queue-unauthorized">
+        <View style={styles.centerContainer}>
+          <View style={styles.unauthorizedCard}>
+            <Text style={styles.unauthorizedTitle}>
+              {t('review.unauthorized')}
+            </Text>
+            <Text style={styles.unauthorizedText}>
+              {t('reviewAction.unauthorizedNotice')}
+            </Text>
+          </View>
         </View>
-      </View>
+      </AesScreenContainer>
     );
   }
 
-  const filteredDeclarations = declarations.filter(d => {
+  const filteredDeclarations = declarations.filter((d) => {
     if (filter === 'submitted') return d.status === 'submitted';
     if (filter === 'under_review') return d.status === 'under_review';
     if (filter === 'correction_requested') return d.status === 'correction_requested';
@@ -102,112 +115,54 @@ export const AdminReviewQueueScreen: React.FC = () => {
     return true;
   });
 
-  const getStatusBadge = (status: DeclarationStatus) => {
-    switch (status) {
-      case 'submitted':
-        return {
-          bg: colors.primary,
-          text: colors.primaryForeground,
-          label: t('status.submitted'),
-        };
-      case 'under_review':
-        return {
-          bg: colors.accent,
-          text: colors.accentForeground,
-          label: t('status.under_review'),
-        };
-      case 'correction_requested':
-        return {
-          bg: '#f59e0b',
-          text: '#ffffff',
-          label: t('status.correction_requested'),
-        };
-      case 'resubmitted':
-        return {
-          bg: '#8b5cf6',
-          text: '#ffffff',
-          label: t('status.resubmitted'),
-        };
-      default:
-        return {
-          bg: colors.muted,
-          text: colors.foreground,
-          label: status,
-        };
-    }
-  };
-
   const renderItem = ({ item }: { item: AesDeclaration }) => {
-    const badge = getStatusBadge(item.status);
+    const isResubmitted = item.status === 'resubmitted';
 
     return (
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+        style={styles.card}
         onPress={() => navigation.navigate('adminReviewAction', { declarationId: item.id })}
         accessibilityRole="button"
         accessibilityLabel={`Revue déclaration ${item.reference_number}`}
+        activeOpacity={0.85}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.refNumber, { color: colors.foreground }]}>
-            {item.reference_number}
-          </Text>
-          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-            <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
-          </View>
+          <Text style={styles.refNumber}>{item.reference_number}</Text>
+          <AesStatusBadge status={item.status} domain="declaration" />
         </View>
 
         <View style={styles.cardBody}>
           <View style={styles.metaRow}>
-            <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>
-              {t('list.incidentDate')} :
-            </Text>
-            <Text style={[styles.metaValue, { color: colors.foreground }]}>
-              {item.incident_date}
-            </Text>
+            <Text style={styles.metaLabel}>{t('list.incidentDate')} :</Text>
+            <Text style={styles.metaValue}>{item.incident_date}</Text>
           </View>
 
           {item.submitted_at && (
             <View style={styles.metaRow}>
-              <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>
-                {t('reviewQueue.submittedAt')}
-              </Text>
-              <Text style={[styles.metaValue, { color: colors.foreground }]}>
-                {item.submitted_at}
-              </Text>
+              <Text style={styles.metaLabel}>{t('reviewQueue.submittedAt')}</Text>
+              <Text style={styles.metaValue}>{item.submitted_at}</Text>
             </View>
           )}
 
           {item.department_code && (
             <View style={styles.metaRow}>
-              <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>
-                {t('details.departmentCode')} :
-              </Text>
-              <Text style={[styles.metaValue, { color: colors.foreground }]}>
-                {item.department_code}
-              </Text>
+              <Text style={styles.metaLabel}>{t('details.departmentCode')} :</Text>
+              <Text style={styles.metaValue}>{item.department_code}</Text>
             </View>
           )}
 
-          <View style={styles.metaRow}>
-            <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>
-              {t('reviewQueue.declaredBy')}
-            </Text>
-            <Text style={[styles.metaValue, { color: colors.foreground }]}>
-              ID #{item.declared_by_user_id}
-            </Text>
-          </View>
-          {item.status === 'resubmitted' && (
-            <View style={[styles.responseIndicator, { backgroundColor: '#f5f3ff', borderColor: '#c4b5fd' }]}>
-              <Text style={[styles.responseIndicatorText, { color: '#6d28d9' }]}>
+          {isResubmitted && (
+            <View style={styles.responseIndicator}>
+              <Text style={styles.responseIndicatorText}>
                 ★ {t('reviewQueue.filterResubmitted')} — {t('review.declarantResponseHeader')}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
-          <Text style={[styles.openReviewText, { color: colors.primary }]}>
-            {item.status === 'resubmitted'
+        <View style={styles.cardFooter}>
+          <Text style={styles.openReviewText}>
+            {isResubmitted
               ? `${t('review.rereviewButton')} →`
               : `${t('reviewQueue.openReview')} →`}
           </Text>
@@ -217,15 +172,19 @@ export const AdminReviewQueueScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Reviewer Context Badge */}
-      <View style={[styles.reviewerSessionBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <AesScreenContainer testID="admin-review-queue-screen">
+      <AesScreenHeader
+        title={t('reviewQueue.title')}
+      />
+
+      {/* Reviewer Session Banner */}
+      <View style={styles.reviewerSessionBanner}>
         <View style={styles.sessionDot} />
         <View style={styles.sessionTextContainer}>
-          <Text style={[styles.sessionTitle, { color: colors.foreground }]}>
+          <Text style={styles.sessionTitle}>
             {t('reviewQueue.reviewerBadge')}
           </Text>
-          <Text style={[styles.sessionSubtitle, { color: colors.mutedForeground }]}>
+          <Text style={styles.sessionSubtitle}>
             {reviewerContext.displayName} ({t(`role.${reviewerContext.role}` as any)})
           </Text>
         </View>
@@ -233,8 +192,14 @@ export const AdminReviewQueueScreen: React.FC = () => {
 
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {(['all', 'submitted', 'under_review', 'correction_requested', 'resubmitted'] as FilterType[]).map((f) => {
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {(
+            ['all', 'submitted', 'under_review', 'correction_requested', 'resubmitted'] as FilterType[]
+          ).map((f) => {
             const isSelected = filter === f;
             const labelKey =
               f === 'all'
@@ -252,18 +217,16 @@ export const AdminReviewQueueScreen: React.FC = () => {
                 key={f}
                 style={[
                   styles.filterPill,
-                  {
-                    backgroundColor: isSelected ? colors.primary : colors.card,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                  },
+                  isSelected ? styles.filterPillActive : styles.filterPillInactive,
                 ]}
                 onPress={() => setFilter(f)}
                 accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
               >
                 <Text
                   style={[
                     styles.filterText,
-                    { color: isSelected ? colors.primaryForeground : colors.foreground },
+                    isSelected ? styles.filterTextActive : styles.filterTextInactive,
                   ]}
                 >
                   {t(labelKey as any)}
@@ -276,19 +239,17 @@ export const AdminReviewQueueScreen: React.FC = () => {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={aesColors.accentGreen} />
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          <Text style={styles.errorText}>{error}</Text>
+          <AesButton
+            title={t('reviewQueue.refresh')}
             onPress={loadQueue}
-          >
-            <Text style={[styles.retryText, { color: colors.primaryForeground }]}>
-              {t('reviewQueue.refresh')}
-            </Text>
-          </TouchableOpacity>
+            variant="outline"
+            fullWidth={false}
+          />
         </View>
       ) : (
         <FlatList
@@ -300,191 +261,218 @@ export const AdminReviewQueueScreen: React.FC = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={colors.primary}
+              tintColor={aesColors.accentGreen}
+              colors={[aesColors.accentGreen]}
             />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+              <Text style={styles.emptyTitle}>
                 {t('reviewQueue.empty')}
               </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+              <Text style={styles.emptySubtitle}>
                 {t('reviewQueue.emptySubtitle')}
               </Text>
             </View>
           }
         />
       )}
-    </View>
+    </AesScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: aesSpacing.lg,
   },
   reviewerSessionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    marginHorizontal: spacing.screenPadding,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    borderRadius: shapes.md,
+    padding: aesSpacing.md,
+    marginHorizontal: aesSpacing.screenHorizontal,
+    marginTop: aesSpacing.xs,
+    marginBottom: aesSpacing.xs,
+    borderRadius: aesRadii.card,
     borderWidth: 1,
-    gap: spacing.sm,
+    borderColor: aesColors.borderSubdued,
+    backgroundColor: aesColors.surface,
+    gap: aesSpacing.sm,
+    ...aesShadows.card,
   },
   sessionDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#10b981',
+    backgroundColor: aesColors.accentGreen,
   },
   sessionTextContainer: {
     flex: 1,
   },
   sessionTitle: {
-    fontSize: typography.fontSize.bodySmall,
+    ...aesTypography.label,
+    color: aesColors.textPrimary,
     fontWeight: '700',
   },
   sessionSubtitle: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
+    fontSize: 12,
   },
   filterContainer: {
-    paddingVertical: spacing.xxs,
+    paddingVertical: aesSpacing.xs,
   },
   filterRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.screenPadding,
-    paddingVertical: spacing.xs,
-    gap: spacing.xs,
+    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingVertical: aesSpacing.xs,
+    gap: aesSpacing.xs,
   },
   filterPill: {
-    paddingVertical: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: shapes.full,
+    paddingVertical: aesSpacing.xs,
+    paddingHorizontal: aesSpacing.md,
+    borderRadius: aesRadii.pill,
     borderWidth: 1,
+    minHeight: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterPillActive: {
+    backgroundColor: aesColors.primaryAction,
+    borderColor: aesColors.primaryAction,
+  },
+  filterPillInactive: {
+    backgroundColor: aesColors.surface,
+    borderColor: aesColors.borderSubdued,
   },
   filterText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '600',
+    ...aesTypography.labelSmall,
+    fontSize: 12,
   },
-  responseIndicator: {
-    marginTop: spacing.xxs,
-    paddingVertical: 2,
-    paddingHorizontal: spacing.xs,
-    borderRadius: shapes.xs,
-    borderWidth: 1,
+  filterTextActive: {
+    color: aesColors.textInverse,
+    fontWeight: '700',
   },
-  responseIndicatorText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '600',
+  filterTextInactive: {
+    color: aesColors.textPrimary,
+    fontWeight: '500',
   },
   listContent: {
-    padding: spacing.screenPadding,
-    paddingBottom: spacing.huge,
-    gap: spacing.md,
+    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingTop: aesSpacing.xs,
+    paddingBottom: aesSpacing['5xl'],
+    gap: aesSpacing.md,
   },
   card: {
-    borderRadius: shapes.md,
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
     borderWidth: 1,
-    padding: spacing.cardPadding,
-    gap: spacing.xs,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.cardPadding,
+    gap: aesSpacing.xs,
+    ...aesShadows.card,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xxs,
+    marginBottom: aesSpacing.xs,
   },
   refNumber: {
-    fontSize: typography.fontSize.bodyLarge,
-    fontWeight: '700',
-  },
-  badge: {
-    paddingVertical: 2,
-    paddingHorizontal: spacing.sm,
-    borderRadius: shapes.sm,
-  },
-  badgeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '600',
+    ...aesTypography.heading2,
+    fontSize: 16,
+    color: aesColors.textPrimary,
   },
   cardBody: {
     gap: 4,
-    paddingVertical: spacing.xxs,
+    paddingVertical: aesSpacing.xs,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: aesSpacing.xs,
   },
   metaLabel: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
     fontWeight: '500',
   },
   metaValue: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.bodySmall,
+    color: aesColors.textPrimary,
     fontWeight: '600',
+  },
+  responseIndicator: {
+    marginTop: aesSpacing.xs,
+    paddingVertical: 4,
+    paddingHorizontal: aesSpacing.sm,
+    borderRadius: aesRadii.badge,
+    borderWidth: 1,
+    backgroundColor: aesDeclarationStatusColors.resubmitted.bg,
+    borderColor: aesDeclarationStatusColors.resubmitted.border,
+  },
+  responseIndicatorText: {
+    ...aesTypography.labelSmall,
+    fontSize: 11,
+    fontWeight: '700',
+    color: aesDeclarationStatusColors.resubmitted.text,
   },
   cardFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: spacing.xs,
-    marginTop: spacing.xxs,
+    borderTopColor: aesColors.borderSubdued,
+    paddingTop: aesSpacing.xs,
+    marginTop: aesSpacing.xs,
     alignItems: 'flex-end',
   },
   openReviewText: {
-    fontSize: typography.fontSize.xs,
+    ...aesTypography.label,
+    color: aesColors.accentGreen,
     fontWeight: '700',
   },
   emptyContainer: {
-    paddingTop: spacing.huge,
+    paddingTop: aesSpacing['5xl'],
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: aesSpacing.xs,
   },
   emptyTitle: {
-    fontSize: typography.fontSize.bodyLarge,
-    fontWeight: '600',
+    ...aesTypography.heading2,
+    fontSize: 16,
+    color: aesColors.textPrimary,
   },
   emptySubtitle: {
-    fontSize: typography.fontSize.bodySmall,
+    ...aesTypography.bodySmall,
+    color: aesColors.textSecondary,
     textAlign: 'center',
     maxWidth: 280,
   },
   errorText: {
-    fontSize: typography.fontSize.bodyMedium,
-    marginBottom: spacing.md,
+    ...aesTypography.body,
+    color: aesColors.banners.error.text,
+    marginBottom: aesSpacing.md,
     textAlign: 'center',
   },
-  retryButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: shapes.md,
-  },
-  retryText: {
-    fontWeight: '600',
-  },
   unauthorizedCard: {
-    padding: spacing.lg,
-    borderRadius: shapes.md,
-    borderWidth: 2,
+    padding: aesSpacing.lg,
+    borderRadius: aesRadii.card,
+    borderWidth: 1.5,
+    borderColor: aesColors.banners.error.border,
+    backgroundColor: aesColors.banners.error.bg,
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: aesSpacing.sm,
     maxWidth: 320,
+    ...aesShadows.card,
   },
   unauthorizedTitle: {
-    fontSize: typography.fontSize.bodyLarge,
-    fontWeight: '700',
+    ...aesTypography.heading2,
+    fontSize: 16,
+    color: aesColors.banners.error.text,
     textAlign: 'center',
   },
   unauthorizedText: {
-    fontSize: typography.fontSize.bodySmall,
+    ...aesTypography.bodySmall,
+    color: aesColors.textPrimary,
     textAlign: 'center',
   },
 });

@@ -1,3 +1,22 @@
+/**
+ * AES Guardian — Declaration List Screen
+ *
+ * Phase 2E.1.4.3 — Batch 4
+ *
+ * Role-guarded declaration list for exposed_professional and admin_reviewer.
+ * Provides 5 filter chips mapping to real persisted DeclarationStatus values.
+ * NOTE: The blueprint "Validées" filter is intentionally replaced by "Clôturées" (→ closed),
+ * because `validated` is not a persisted DeclarationStatus value in the AES Guardian schema.
+ *
+ * Access matrix:
+ *   exposed_professional — sees own declarations only (getDeclarations scoped to userId)
+ *   admin_reviewer       — sees all declarations, plus Review Queue shortcut
+ *   oh_professional, quality_staff, tech_admin — blocked entirely (RestrictedState rendered)
+ *
+ * Authorisation is enforced at the repository layer (Phase 2E.1.4.2A).
+ * UI role guard is an additional informational barrier only.
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -6,297 +25,368 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
-import { getDatabase, AesDeclaration, DeclarationStatus } from '../../../core';
+import { aesColors, aesSpacing, aesTypography, aesRadii } from '../../../theme/tokens';
+import {
+  getDatabase,
+  AesDeclaration,
+  DeclarationStatus,
+  useDemoRoleStore,
+} from '../../../core';
 import { t } from '../../../localization';
+import { AesScreenContainer, AesScreenHeader, AesStatusBadge } from '../components';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type FilterKey = 'all' | 'draft' | 'submitted' | 'under_review' | 'closed';
+
+const PERMITTED_ROLES = ['exposed_professional', 'admin_reviewer'] as const;
+
+// ─── Filter chip definitions ──────────────────────────────────────────────────
+
+function getFilterChips(): { key: FilterKey; labelKey: string }[] {
+  return [
+    { key: 'all', labelKey: 'list.filter.all' },
+    { key: 'draft', labelKey: 'list.filter.draft' },
+    { key: 'submitted', labelKey: 'list.filter.submitted' },
+    { key: 'under_review', labelKey: 'list.filter.under_review' },
+    // "Clôturées" replaces blueprint "Validées": `validated` is not a persisted status.
+    { key: 'closed', labelKey: 'list.filter.closed' },
+  ];
+}
+
+// ─── Client-side filter predicate ────────────────────────────────────────────
+
+function matchesFilter(decl: AesDeclaration, filter: FilterKey): boolean {
+  if (filter === 'all') return true;
+  // "En révision" shows both under_review and resubmitted declarations
+  if (filter === 'under_review') {
+    return decl.status === 'under_review' || decl.status === 'resubmitted';
+  }
+  return decl.status === (filter as DeclarationStatus);
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export const DeclarationListScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const isFocused = useIsFocused();
+  const { activeContext } = useDemoRoleStore();
+  const { role, userId } = activeContext;
 
   const [declarations, setDeclarations] = useState<AesDeclaration[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isPermitted = (PERMITTED_ROLES as readonly string[]).includes(role);
+
+  // ─── Load ─────────────────────────────────────────────────────────────────
+
   const loadDeclarations = useCallback(async () => {
+    if (!isPermitted) return;
+    setLoading(true);
+    setError(null);
     try {
-      setError(null);
       const db = getDatabase();
-      const list = await db.getDeclarations();
-      setDeclarations(list);
-    } catch (err: any) {
-      setError(t('error.loadFailed'));
+      const result = await db.getDeclarations({ requestingUserId: userId });
+      setDeclarations(result);
+    } catch (e: any) {
+      setError(e?.message ?? t('error.loadFailed'));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
+  }, [userId, role, isPermitted]);
 
+  // Reset filter and reload when identity changes
+  useEffect(() => {
+    setDeclarations([]);
+    setActiveFilter('all');
+    loadDeclarations();
+  }, [userId, role]);
+
+  // Reload on screen focus
   useEffect(() => {
     if (isFocused) {
       loadDeclarations();
     }
-  }, [isFocused, loadDeclarations]);
+  }, [isFocused]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadDeclarations();
-  };
+  // ─── Derived filtered list ────────────────────────────────────────────────
 
-  const getStatusBadgeStyle = (status: DeclarationStatus) => {
-    switch (status) {
-      case 'draft':
-        return { backgroundColor: colors.muted, textColor: colors.mutedForeground };
-      case 'submitted':
-        return { backgroundColor: colors.primary, textColor: colors.primaryForeground };
-      case 'under_review':
-        return { backgroundColor: colors.accent, textColor: colors.accentForeground };
-      case 'correction_requested':
-        return { backgroundColor: '#f59e0b', textColor: '#ffffff' };
-      case 'resubmitted':
-        return { backgroundColor: '#8b5cf6', textColor: '#ffffff' };
-      case 'closed':
-        return { backgroundColor: colors.secondary, textColor: colors.secondaryForeground };
-      default:
-        return { backgroundColor: colors.muted, textColor: colors.foreground };
-    }
-  };
+  const filteredDeclarations = declarations.filter((d) => matchesFilter(d, activeFilter));
 
-  const renderStatusBadge = (status: DeclarationStatus) => {
-    const badgeStyle = getStatusBadgeStyle(status);
-    const statusKey = `status.${status}` as const;
+  // ─── Restricted state ─────────────────────────────────────────────────────
+
+  if (!isPermitted) {
     return (
-      <View style={[styles.badge, { backgroundColor: badgeStyle.backgroundColor }]}>
-        <Text style={[styles.badgeText, { color: badgeStyle.textColor }]}>
-          {t(statusKey as any)}
-        </Text>
-      </View>
-    );
-  };
-
-  const renderItem = ({ item }: { item: AesDeclaration }) => (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-        },
-      ]}
-      onPress={() => navigation.navigate('declarationDetails', { declarationId: item.id })}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`${t('list.refNumber')} ${item.reference_number}`}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={[styles.refNumber, { color: colors.foreground }]}>
-          {item.reference_number}
-        </Text>
-        {renderStatusBadge(item.status)}
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={[styles.incidentDate, { color: colors.mutedForeground }]}>
-          {t('list.incidentDate')}: {item.incident_date}
-        </Text>
-        {item.circumstances ? (
-          <Text
-            numberOfLines={2}
-            style={[styles.circumstances, { color: colors.foreground }]}
-          >
-            {item.circumstances}
+      <AesScreenContainer>
+        <AesScreenHeader title={t('list.restrictedTitle')} />
+        <View style={styles.centeredState}>
+          <Text style={[styles.restrictedText, { color: aesColors.textSecondary }]}>
+            {t('list.restrictedMessage')}
           </Text>
-        ) : null}
-      </View>
-    </TouchableOpacity>
-  );
+        </View>
+      </AesScreenContainer>
+    );
+  }
+
+  // ─── Title and role-specific actions ─────────────────────────────────────
+
+  const listTitle =
+    role === 'admin_reviewer' ? t('list.title.admin') : t('list.title');
+
+  const headerRightElement =
+    role === 'admin_reviewer' ? (
+      <TouchableOpacity
+        onPress={() => navigation.navigate('adminReviewQueue')}
+        style={styles.queueButton}
+        accessibilityRole="button"
+        accessibilityLabel={t('list.adminQueueShortcut')}
+        testID="admin-queue-shortcut"
+      >
+        <Text style={[styles.queueButtonText, { color: aesColors.accentGreen }]}>
+          {t('list.adminQueueShortcut')}
+        </Text>
+      </TouchableOpacity>
+    ) : undefined;
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: colors.foreground }]}>{t('list.title')}</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={[styles.queueButton, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={() => navigation.navigate('adminReviewQueue')}
-            accessibilityRole="button"
-            accessibilityLabel={t('nav.reviewQueue')}
-          >
-            <Text style={[styles.queueButtonText, { color: colors.foreground }]}>
-              {t('nav.reviewQueue')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.newButton, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.navigate('newDeclaration')}
-            accessibilityRole="button"
-            accessibilityLabel={t('list.newButton')}
-          >
-            <Text style={[styles.newButtonText, { color: colors.primaryForeground }]}>
-              + {t('list.newButton')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <AesScreenContainer>
+      <AesScreenHeader title={listTitle} rightElement={headerRightElement} />
 
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
-        </View>
-      ) : null}
+      {/* Filter chip bar */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipBar}
+        contentContainerStyle={styles.chipBarContent}
+        testID="filter-chip-bar"
+      >
+        {getFilterChips().map((chip) => {
+          const isActive = activeFilter === chip.key;
+          return (
+            <TouchableOpacity
+              key={chip.key}
+              onPress={() => setActiveFilter(chip.key)}
+              style={[
+                styles.chip,
+                isActive ? styles.chipActive : styles.chipInactive,
+              ]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              testID={`filter-chip-${chip.key}`}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: isActive ? aesColors.textInverse : aesColors.textPrimary },
+                ]}
+              >
+                {t(chip.labelKey as any)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
-      {loading && !refreshing ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-            {t('app.loading')}
-          </Text>
+      {/* Content */}
+      {loading ? (
+        <View style={styles.centeredState}>
+          <ActivityIndicator color={aesColors.accentGreen} />
+        </View>
+      ) : error ? (
+        <View style={styles.centeredState}>
+          <Text style={[styles.errorText, { color: aesColors.textPrimary }]}>{error}</Text>
         </View>
       ) : (
         <FlatList
-          data={declarations}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-            />
+          data={filteredDeclarations}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={
+            filteredDeclarations.length === 0
+              ? styles.emptyContent
+              : styles.listContent
           }
+          testID="declaration-list"
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            <View style={styles.centeredState}>
+              <Text style={[styles.emptyText, { color: aesColors.textSecondary }]}>
                 {t('list.empty')}
-              </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-                {t('list.emptySubtitle')}
               </Text>
             </View>
           }
+          ListFooterComponent={
+            role === 'exposed_professional' ? (
+              <TouchableOpacity
+                style={styles.newButton}
+                onPress={() => navigation.navigate('newDeclaration')}
+                accessibilityRole="button"
+                accessibilityLabel={t('list.newButton')}
+                testID="new-declaration-button"
+              >
+                <Text style={styles.newButtonText}>+ {t('list.newButton')}</Text>
+              </TouchableOpacity>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: aesColors.surface }]}
+              onPress={() =>
+                navigation.navigate('declarationDetails', { declarationId: item.id })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`${t('list.refNumber')} ${item.reference_number}`}
+              testID={`declaration-card-${item.id}`}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={[styles.referenceText, { color: aesColors.textPrimary }]}>
+                  {item.reference_number ?? `#${item.id}`}
+                </Text>
+                <AesStatusBadge status={item.status} domain="declaration" />
+              </View>
+              {item.incident_date ? (
+                <Text style={[styles.cardMeta, { color: aesColors.textSecondary }]}>
+                  {`${t('list.incidentDate')}: ${item.incident_date}`}
+                </Text>
+              ) : null}
+              {item.incident_type ? (
+                <Text style={[styles.cardMeta, { color: aesColors.textSecondary }]}>
+                  {`${t('list.incidentType')}: ${(t as any)(`form.incidentType.${item.incident_type.replace('_exposure', '')}`) ?? item.incident_type}`}
+                </Text>
+              ) : null}
+              {item.circumstances ? (
+                <Text
+                  numberOfLines={2}
+                  style={[styles.cardCircumstances, { color: aesColors.textPrimary }]}
+                >
+                  {item.circumstances}
+                </Text>
+              ) : null}
+            </TouchableOpacity>
+          )}
         />
       )}
-    </View>
+    </AesScreenContainer>
   );
 };
 
+export default DeclarationListScreen;
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing.screenPadding,
-    paddingTop: spacing.md,
+  chipBar: {
+    flexGrow: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: aesColors.borderSubdued,
   },
-  headerRow: {
+  chipBarContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
+    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingVertical: aesSpacing.sm,
+    gap: aesSpacing.xs,
   },
-  title: {
-    fontSize: typography.fontSize.titleLarge,
-    fontWeight: '700',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  queueButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: shapes.md,
+  chip: {
     borderWidth: 1,
+    borderRadius: aesRadii.pill,
+    paddingHorizontal: aesSpacing.md,
+    paddingVertical: aesSpacing.xs,
   },
-  queueButtonText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '600',
+  chipActive: {
+    backgroundColor: aesColors.accentGreen,
+    borderColor: aesColors.accentGreen,
   },
-  newButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: shapes.md,
+  chipInactive: {
+    backgroundColor: aesColors.surface,
+    borderColor: aesColors.borderMedium,
   },
-  newButtonText: {
-    fontSize: typography.fontSize.bodyMedium,
+  chipText: {
+    ...aesTypography.labelSmall,
     fontWeight: '600',
   },
   listContent: {
-    paddingBottom: spacing.xxl,
-    gap: spacing.md,
+    paddingTop: aesSpacing.sm,
+    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingBottom: aesSpacing['2xl'],
+    gap: aesSpacing.sm,
+  },
+  emptyContent: {
+    flex: 1,
+    paddingHorizontal: aesSpacing.screenHorizontal,
   },
   card: {
-    padding: spacing.cardPadding,
-    borderRadius: shapes.md,
+    padding: aesSpacing.cardPadding,
+    borderRadius: aesRadii.card,
     borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+    alignItems: 'flex-start',
+    marginBottom: aesSpacing.xs,
   },
-  refNumber: {
-    fontSize: typography.fontSize.titleSmall,
-    fontWeight: '700',
+  referenceText: {
+    ...aesTypography.heading2,
+    flex: 1,
+    marginRight: aesSpacing.sm,
   },
-  badge: {
-    paddingVertical: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: shapes.sm,
+  cardMeta: {
+    ...aesTypography.bodySmall,
+    marginTop: 2,
   },
-  badgeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '600',
+  cardCircumstances: {
+    ...aesTypography.bodySmall,
+    marginTop: aesSpacing.xs,
   },
-  cardBody: {
-    gap: spacing.xs,
-  },
-  incidentDate: {
-    fontSize: typography.fontSize.bodySmall,
-  },
-  circumstances: {
-    fontSize: typography.fontSize.bodyMedium,
-  },
-  centerContainer: {
+  centeredState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: aesSpacing.xl,
   },
-  loadingText: {
-    marginTop: spacing.sm,
-    fontSize: typography.fontSize.bodyMedium,
-  },
-  emptyContainer: {
-    paddingTop: spacing.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  emptyTitle: {
-    fontSize: typography.fontSize.titleMedium,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
+  emptyText: {
+    ...aesTypography.body,
     textAlign: 'center',
   },
-  emptySubtitle: {
-    fontSize: typography.fontSize.bodyMedium,
+  restrictedText: {
+    ...aesTypography.body,
     textAlign: 'center',
-  },
-  errorContainer: {
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
   },
   errorText: {
-    fontSize: typography.fontSize.bodyMedium,
+    ...aesTypography.body,
     textAlign: 'center',
   },
+  newButton: {
+    marginTop: aesSpacing.md,
+    marginBottom: aesSpacing['2xl'],
+    padding: aesSpacing.md,
+    borderRadius: aesRadii.pill,
+    backgroundColor: aesColors.primaryAction,
+    alignItems: 'center',
+  },
+  newButtonText: {
+    color: aesColors.textInverse,
+    ...aesTypography.body,
+    fontWeight: '600',
+  },
+  queueButton: {
+    paddingHorizontal: aesSpacing.sm,
+    paddingVertical: aesSpacing.xs,
+  },
+  queueButtonText: {
+    ...aesTypography.labelSmall,
+    fontWeight: '600',
+  },
 });
-
-export default DeclarationListScreen;

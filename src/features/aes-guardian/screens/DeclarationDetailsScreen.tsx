@@ -1,3 +1,18 @@
+/**
+ * AES Guardian — Declaration Details Screen
+ *
+ * Phase 2E.1.4.3 — Batch 4
+ *
+ * 5-tab details view for exposed_professional and admin_reviewer.
+ * Tabs: Résumé | Incident | Mesures | Statut | Suivi
+ * No Timeline/Chronologie tab (explicitly deferred per blueprint).
+ *
+ * Follow-up tab data projections:
+ *   exposed_professional: id, declaration_id, status, created_at, updated_at ONLY
+ *   admin_reviewer: AdminOhCoordinationSummary fields (no OH staff IDs or events)
+ *   All other roles: blocked entirely
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -10,591 +25,751 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import { aesColors, aesSpacing, aesTypography, aesRadii, aesBannerColors } from '../../../theme/tokens';
 import {
   getDatabase,
   AesDeclaration,
   AdministrativeReview,
-  DeclarationStatus,
-  logAuditEvent,
-  SYNTHETIC_DEMO_CONTEXT,
+  OhCoordination,
+  AdminOhCoordinationSummary,
+  ExposedOhCoordinationSummary,
+  useDemoRoleStore,
   canRespondToCorrection,
 } from '../../../core';
 import { t } from '../../../localization';
+import { AesScreenContainer, AesScreenHeader, AesStatusBadge } from '../components';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type ParamList = {
   declarationDetails: { declarationId: number };
 };
 
+type TabKey = 'summary' | 'incident' | 'measures' | 'status' | 'followup';
+
+const TAB_KEYS: TabKey[] = ['summary', 'incident', 'measures', 'status', 'followup'];
+
+const TAB_LABEL_KEYS: Record<TabKey, string> = {
+  summary: 'details.tab.summary',
+  incident: 'details.tab.incident',
+  measures: 'details.tab.measures',
+  status: 'details.tab.status',
+  followup: 'details.tab.followup',
+};
+
+const PERMITTED_ROLES = ['exposed_professional', 'admin_reviewer'] as const;
+
+// ─── Helper components ────────────────────────────────────────────────────────
+
+const LabelValue: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <View style={styles.labelValueRow}>
+    <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>{label}</Text>
+    <Text style={[styles.fieldValue, { color: aesColors.textPrimary }]}>{value}</Text>
+  </View>
+);
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export const DeclarationDetailsScreen: React.FC = () => {
-  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'declarationDetails'>>();
   const { declarationId } = route.params;
+  const { activeContext } = useDemoRoleStore();
+  const { role, userId } = activeContext;
 
   const [declaration, setDeclaration] = useState<AesDeclaration | null>(null);
   const [reviewHistory, setReviewHistory] = useState<AdministrativeReview[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [ohCoordination, setOhCoordination] = useState<
+    OhCoordination | AdminOhCoordinationSummary | ExposedOhCoordinationSummary | null
+  >(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('summary');
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const isPermitted = (PERMITTED_ROLES as readonly string[]).includes(role);
+
+  // ─── Load ─────────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
+    if (!isPermitted) return;
+    setLoading(true);
+    setNotFound(false);
     try {
       const db = getDatabase();
-      const [item, history] = await Promise.all([
-        db.getDeclarationById(declarationId),
-        db.getDeclarationReviewHistory(declarationId),
-      ]);
-      setDeclaration(item);
-      setReviewHistory(history);
-    } catch (e) {
-      Alert.alert(t('error.generic'), t('error.loadFailed'));
+
+      // Load declaration — catch Unauthorized separately
+      let decl: AesDeclaration | null = null;
+      try {
+        decl = await db.getDeclarationById(declarationId, userId);
+      } catch (e: any) {
+        const msg: string = e?.message ?? '';
+        if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('not found')) {
+          setNotFound(true);
+          setLoading(false);
+          return;
+        }
+        throw e;
+      }
+
+      if (!decl) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      setDeclaration(decl);
+
+      // Load review history — graceful fallback
+      try {
+        const history = await db.getDeclarationReviewHistory(declarationId, userId);
+        setReviewHistory(history ?? []);
+      } catch {
+        setReviewHistory([]);
+      }
+
+      // Load OH coordination — graceful null
+      try {
+        const coord = await db.getOhCoordinationByDeclaration(declarationId, userId);
+        setOhCoordination(coord ?? null);
+      } catch {
+        setOhCoordination(null);
+      }
+    } catch (e: any) {
+      Alert.alert(t('error.generic'), e?.message ?? t('error.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [declarationId]);
+  }, [declarationId, userId, role, isPermitted]);
 
   useEffect(() => {
+    setDeclaration(null);
+    setReviewHistory([]);
+    setOhCoordination(null);
+    setActiveTab('summary');
     loadData();
-  }, [loadData]);
+  }, [declarationId, userId, role]);
 
-  const handleSubmit = async () => {
-    if (!declaration || declaration.status !== 'draft') return;
-    setSubmitting(true);
-    try {
-      const db = getDatabase();
-      await db.submitDeclaration(declaration.id);
+  // ─── Restricted ───────────────────────────────────────────────────────────
 
-      await logAuditEvent({
-        eventType: 'DECLARATION_SUBMITTED',
-        userId: SYNTHETIC_DEMO_CONTEXT.userId,
-        entityType: 'aes_declaration',
-        entityId: declaration.id,
-        description: `Declaration ${declaration.reference_number} submitted from details screen`,
-      });
+  if (!isPermitted) {
+    return (
+      <AesScreenContainer>
+        <AesScreenHeader
+          title={t('details.restrictedAccess')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centeredState}>
+          <Text style={[styles.stateText, { color: aesColors.textSecondary }]}>
+            {t('details.restrictedAccess')}
+          </Text>
+        </View>
+      </AesScreenContainer>
+    );
+  }
 
-      navigation.replace('submissionConfirmation', {
-        referenceNumber: declaration.reference_number,
-      });
-    } catch (err: any) {
-      Alert.alert(t('error.submitFailed'), err?.message || t('error.generic'));
-      setSubmitting(false);
-    }
-  };
+  // ─── Loading ──────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <AesScreenContainer>
+        <AesScreenHeader title="" onBack={() => navigation.goBack()} />
+        <View style={styles.centeredState}>
+          <ActivityIndicator color={aesColors.accentGreen} />
+        </View>
+      </AesScreenContainer>
     );
   }
 
-  if (!declaration) {
+  // ─── Not found / unauthorized ─────────────────────────────────────────────
+
+  if (notFound || !declaration) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>
-          {t('error.loadFailed')}
-        </Text>
-      </View>
+      <AesScreenContainer>
+        <AesScreenHeader
+          title={t('details.notFound')}
+          onBack={() => navigation.goBack()}
+        />
+        <View style={styles.centeredState}>
+          <Text style={[styles.stateText, { color: aesColors.textSecondary }]}>
+            {t('details.notFound')}
+          </Text>
+        </View>
+      </AesScreenContainer>
     );
   }
 
-  const isDraft = declaration.status === 'draft';
+  // ─── Derived state ────────────────────────────────────────────────────────
 
-  const getStatusBadgeStyle = (status: DeclarationStatus) => {
-    switch (status) {
-      case 'draft':
-        return { backgroundColor: colors.muted, textColor: colors.mutedForeground };
-      case 'submitted':
-        return { backgroundColor: colors.primary, textColor: colors.primaryForeground };
-      case 'under_review':
-        return { backgroundColor: colors.accent, textColor: colors.accentForeground };
-      case 'correction_requested':
-        return { backgroundColor: '#f59e0b', textColor: '#ffffff' };
-      case 'resubmitted':
-        return { backgroundColor: '#8b5cf6', textColor: '#ffffff' };
-      case 'closed':
-        return { backgroundColor: colors.secondary, textColor: colors.secondaryForeground };
-      default:
-        return { backgroundColor: colors.muted, textColor: colors.foreground };
-    }
-  };
+  // Find pending correction review for exposed_professional
+  const pendingCorrectionReview = reviewHistory.find(
+    (r) => r.outcome === 'correction_requested' && !r.response,
+  );
 
-  const badgeStyle = getStatusBadgeStyle(declaration.status);
-  const statusKey = `status.${declaration.status}` as const;
+  const canCorrect =
+    role === 'exposed_professional' &&
+    declaration.status === 'correction_requested' &&
+    pendingCorrectionReview != null &&
+    canRespondToCorrection(activeContext);
 
-  const getIncidentTypeLabel = (type: string) => {
-    switch (type) {
-      case 'percutaneous_exposure':
-        return t('form.incidentType.percutaneous');
-      case 'mucocutaneous_exposure':
-        return t('form.incidentType.mucocutaneous');
-      case 'sexual_assault':
-        return t('form.incidentType.sexual_assault');
-      default:
-        return t('form.incidentType.other');
-    }
-  };
+  const canAdminReview =
+    role === 'admin_reviewer' &&
+    ['submitted', 'under_review', 'resubmitted'].includes(declaration.status);
 
-  return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {declaration.reference_number}
-        </Text>
-        <View style={[styles.badge, { backgroundColor: badgeStyle.backgroundColor }]}>
-          <Text style={[styles.badgeText, { color: badgeStyle.textColor }]}>
-            {t(statusKey as any)}
+  // ─── Tab content renderers ────────────────────────────────────────────────
+
+  const renderSummaryTab = () => (
+    <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
+      {/* Header card */}
+      <View style={[styles.sectionCard]}>
+        <View style={styles.cardTopRow}>
+          <Text style={[styles.referenceText, { color: aesColors.textPrimary }]}>
+            {declaration.reference_number ?? `#${declaration.id}`}
           </Text>
+          <AesStatusBadge status={declaration.status} domain="declaration" />
         </View>
+        {declaration.created_at ? (
+          <LabelValue
+            label={t('details.createdAt')}
+            value={new Date(declaration.created_at).toLocaleDateString()}
+          />
+        ) : null}
+        {declaration.submitted_at ? (
+          <LabelValue
+            label={t('details.submittedAt')}
+            value={new Date(declaration.submitted_at).toLocaleDateString()}
+          />
+        ) : null}
       </View>
 
-      {!isDraft && (
-        <View style={[styles.readOnlyBanner, { backgroundColor: colors.muted }]}>
-          <Text style={[styles.readOnlyText, { color: colors.mutedForeground }]}>
-            {t('details.readOnly')}
+      {/* Correction pending banner */}
+      {canCorrect && pendingCorrectionReview ? (
+        <View
+          style={[
+            styles.banner,
+            { backgroundColor: aesBannerColors.warning.bg, borderColor: aesBannerColors.warning.border },
+          ]}
+        >
+          <Text style={[styles.sectionLabel, { color: aesBannerColors.warning.text }]}>
+            {t('details.pendingCorrectionTitle')}
           </Text>
-        </View>
-      )}
-
-      {declaration.status === 'correction_requested' &&
-        canRespondToCorrection(SYNTHETIC_DEMO_CONTEXT) &&
-        reviewHistory.find((rev) => rev.outcome === 'correction_requested' && !rev.response) && (
-          <View style={[styles.correctionBanner, { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }]}>
-            <Text style={[styles.correctionBannerTitle, { color: '#92400e' }]}>
-              {t('details.pendingCorrectionTitle')}
+          {pendingCorrectionReview.correction_reason ? (
+            <Text style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
+              {pendingCorrectionReview.correction_reason}
             </Text>
-            {reviewHistory.find((rev) => rev.outcome === 'correction_requested' && !rev.response)?.correction_reason ? (
-              <Text style={[styles.correctionBannerReason, { color: '#b45309' }]}>
-                {reviewHistory.find((rev) => rev.outcome === 'correction_requested' && !rev.response)?.correction_reason}
-              </Text>
-            ) : null}
-            {reviewHistory.find((rev) => rev.outcome === 'correction_requested' && !rev.response)?.comments ? (
-              <Text style={[styles.correctionBannerComments, { color: '#78350f' }]}>
-                {reviewHistory.find((rev) => rev.outcome === 'correction_requested' && !rev.response)?.comments}
-              </Text>
-            ) : null}
+          ) : (
+            <Text style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
+              {t('details.correctionPending')}
+            </Text>
+          )}
+          <TouchableOpacity
+            disabled={submitting}
+            onPress={() =>
+              navigation.navigate('correctionResponse', {
+                declarationId: declaration.id,
+                reviewId: pendingCorrectionReview.id,
+              })
+            }
+            style={[styles.actionButton, submitting && styles.actionButtonDisabled]}
+            accessibilityRole="button"
+            testID="respond-correction-button"
+          >
+            <Text style={styles.actionButtonText}>{t('details.respondToCorrection')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Draft edit action */}
+      {role === 'exposed_professional' && declaration.status === 'draft' ? (
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            disabled={submitting}
+            onPress={() => navigation.navigate('newDeclaration', { declarationId: declaration.id })}
+            style={[styles.actionButton, submitting && styles.actionButtonDisabled]}
+            accessibilityRole="button"
+            testID="edit-draft-button"
+          >
+            <Text style={styles.actionButtonText}>{t('details.editDraft')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+
+  const renderIncidentTab = () => (
+    <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
+      <View style={styles.sectionCard}>
+        {declaration.incident_date ? (
+          <LabelValue
+            label={t('details.incidentDate')}
+            value={new Date(declaration.incident_date).toLocaleDateString()}
+          />
+        ) : null}
+        {declaration.incident_type ? (
+          <LabelValue
+            label={t('details.incidentType')}
+            value={
+              (t as any)(`form.incidentType.${declaration.incident_type.replace('_exposure', '')}`) ??
+              declaration.incident_type
+            }
+          />
+        ) : null}
+        {declaration.department_code ? (
+          <LabelValue
+            label={t('details.departmentCode')}
+            value={declaration.department_code}
+          />
+        ) : null}
+        {declaration.circumstances ? (
+          <LabelValue
+            label={t('details.circumstances')}
+            value={declaration.circumstances}
+          />
+        ) : null}
+        {declaration.exposure_description ? (
+          <LabelValue
+            label={t('details.exposureDescription')}
+            value={declaration.exposure_description}
+          />
+        ) : null}
+      </View>
+    </ScrollView>
+  );
+
+  const renderMeasuresTab = () => {
+    const hasData = declaration.protective_measures_taken || declaration.notes;
+    return (
+      <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
+        <View style={styles.sectionCard}>
+          {declaration.protective_measures_taken ? (
+            <LabelValue
+              label={t('details.protectiveMeasures')}
+              value={declaration.protective_measures_taken}
+            />
+          ) : null}
+          {declaration.notes ? (
+            <LabelValue label={t('details.notes')} value={declaration.notes} />
+          ) : null}
+          {!hasData ? (
+            <Text style={[styles.emptyTabText, { color: aesColors.textSecondary }]}>
+              {t('details.notSet')}
+            </Text>
+          ) : null}
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderStatusTab = () => (
+    <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
+      <View style={styles.sectionCard}>
+        {/* Current status badge */}
+        <View style={styles.badgeRow}>
+          <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
+            {t('details.status')}
+          </Text>
+          <AesStatusBadge status={declaration.status} domain="declaration" />
+        </View>
+
+        {/* Review history */}
+        {reviewHistory.length > 0 ? (
+          <>
+            <Text style={[styles.sectionLabel, { color: aesColors.textPrimary }]}>
+              {t('details.reviewHistory')}
+            </Text>
+            {reviewHistory.map((review, idx) => (
+              <View key={review.id ?? idx} style={styles.reviewRow}>
+                <View style={styles.reviewRowHeader}>
+                  <Text style={[styles.reviewDate, { color: aesColors.textSecondary }]}>
+                    {review.reviewed_at
+                      ? new Date(review.reviewed_at).toLocaleDateString()
+                      : review.created_at
+                      ? new Date(review.created_at).toLocaleDateString()
+                      : ''}
+                  </Text>
+                  <AesStatusBadge
+                    status={review.outcome ?? 'acknowledged'}
+                    domain="declaration"
+                  />
+                </View>
+                {review.comments ? (
+                  <Text style={[styles.reviewComment, { color: aesColors.textSecondary }]}>
+                    {review.comments}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </>
+        ) : null}
+
+        {/* Admin reviewer actions */}
+        {canAdminReview ? (
+          <View style={styles.actionRow}>
             <TouchableOpacity
-              style={[styles.correctionActionButton, { backgroundColor: '#d97706' }]}
-              onPress={() => {
-                const targetRev = reviewHistory.find(
-                  (rev) => rev.outcome === 'correction_requested' && !rev.response,
-                );
-                if (targetRev) {
-                  navigation.navigate('correctionResponse', {
-                    declarationId: declaration.id,
-                    reviewId: targetRev.id,
-                  });
-                }
-              }}
+              disabled={submitting}
+              onPress={() =>
+                navigation.navigate('adminReviewAction', { declarationId: declaration.id })
+              }
+              style={[styles.actionButton, submitting && styles.actionButtonDisabled]}
               accessibilityRole="button"
+              testID="admin-review-action-button"
             >
-              <Text style={styles.correctionActionText}>
-                {t('details.pendingCorrectionAction')}
+              <Text style={styles.actionButtonText}>{t('details.reviewAction')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={submitting}
+              onPress={() =>
+                navigation.navigate('createCoordination', { declarationId: declaration.id })
+              }
+              style={[styles.actionButtonSecondary, submitting && styles.actionButtonDisabled]}
+              accessibilityRole="button"
+              testID="create-coordination-button"
+            >
+              <Text style={[styles.actionButtonText, { color: aesColors.textPrimary }]}>
+                {t('details.createCoordination')}
               </Text>
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
-      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-            {t('details.incidentDate')}
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.foreground }]}>
-            {declaration.incident_date}
-          </Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-            {t('details.incidentType')}
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.foreground }]}>
-            {getIncidentTypeLabel(declaration.incident_type)}
-          </Text>
-        </View>
-
-        {declaration.department_code && (
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.departmentCode')}
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.department_code}
-            </Text>
-          </View>
-        )}
-
-        {declaration.circumstances && (
-          <View style={styles.detailBlock}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.circumstances')}
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.circumstances}
-            </Text>
-          </View>
-        )}
-
-        {declaration.exposure_description && (
-          <View style={styles.detailBlock}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.exposureDescription')}
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.exposure_description}
-            </Text>
-          </View>
-        )}
-
-        {declaration.protective_measures_taken && (
-          <View style={styles.detailBlock}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.protectiveMeasures')}
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.protective_measures_taken}
-            </Text>
-          </View>
-        )}
-
-        {declaration.notes && (
-          <View style={styles.detailBlock}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.notes')}
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.notes}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-            {t('details.createdAt')}
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.foreground }]}>
-            {declaration.created_at}
-          </Text>
-        </View>
-
-        {declaration.submitted_at && (
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-              {t('details.submittedAt')}
-            </Text>
-            <Text style={[styles.detailValue, { color: colors.foreground }]}>
-              {declaration.submitted_at}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Review History */}
-      {reviewHistory.length > 0 && (
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.historyHeading, { color: colors.foreground }]}>
-            {t('review.historyTitle')} ({reviewHistory.length})
-          </Text>
-          {reviewHistory.map((rev) => (
-            <View
-              key={rev.id}
-              style={[
-                styles.historyCard,
-                { borderLeftColor: colors.primary, backgroundColor: colors.muted },
-              ]}
+        {/* Exposed professional correction response */}
+        {canCorrect && pendingCorrectionReview ? (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              disabled={submitting}
+              onPress={() =>
+                navigation.navigate('correctionResponse', {
+                  declarationId: declaration.id,
+                  reviewId: pendingCorrectionReview.id,
+                })
+              }
+              style={[styles.actionButton, submitting && styles.actionButtonDisabled]}
+              accessibilityRole="button"
+              testID="correction-response-button-status"
             >
-              <View style={styles.historyCardHeader}>
-                <Text style={[styles.historyOutcome, { color: colors.foreground }]}>
-                  {t(`review.outcome.${rev.outcome}` as any)}
-                </Text>
-                <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>
-                  {rev.reviewed_at ? new Date(rev.reviewed_at).toLocaleDateString() : ''}
-                </Text>
-              </View>
-              {rev.correction_reason && (
-                <Text style={[styles.historyReason, { color: colors.destructive }]}>
-                  Motif : {rev.correction_reason}
-                </Text>
-              )}
-              {rev.comments && (
-                <Text style={[styles.historyComments, { color: colors.mutedForeground }]}>
-                  Notes : {rev.comments}
-                </Text>
-              )}
-              {rev.response && (
-                <View style={styles.responseContainer}>
-                  <Text style={[styles.responseHeader, { color: colors.primary }]}>
-                    {t('review.declarantResponseHeader')}
-                  </Text>
-                  <Text style={[styles.responseText, { color: colors.foreground }]}>
-                    {rev.response.response_text}
-                  </Text>
-                  <Text style={[styles.responseDate, { color: colors.mutedForeground }]}>
-                    {rev.response.responded_at ? new Date(rev.response.responded_at).toLocaleDateString() : ''}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Admin Review Action Button for submitted / under_review / resubmitted declarations */}
-      {(declaration.status === 'submitted' ||
-        declaration.status === 'under_review' ||
-        declaration.status === 'resubmitted') && (
-        <View style={styles.adminActionContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.reviewButton, { backgroundColor: colors.accent }]}
-            onPress={() => navigation.navigate('adminReviewAction', { declarationId: declaration.id })}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.buttonText, { color: colors.accentForeground }]}>
-              {declaration.status === 'resubmitted'
-                ? `${t('review.rereviewButton')} (Admin)`
-                : `${t('reviewQueue.openReview')} (Admin)`}
-            </Text>
-          </TouchableOpacity>
-          {/* Phase 2C.4: Admin reviewer can initiate coordination */}
-          <TouchableOpacity
-            style={[styles.button, styles.reviewButton, { backgroundColor: '#0ea5e9', marginTop: 8 }]}
-            onPress={() => navigation.navigate('createCoordination', { declarationId: declaration.id })}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.buttonText, { color: '#fff' }]}>
-              {t('oh.decl.createCoordination')}
-            </Text>
-          </TouchableOpacity>
-          {/* Phase 2C.4: Show coordination status to exposed_professional */}
-          <TouchableOpacity
-            style={[styles.button, styles.reviewButton, { backgroundColor: '#6366f1', marginTop: 8 }]}
-            onPress={() => navigation.navigate('declarationCoordinationStatus', { declarationId: declaration.id })}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.buttonText, { color: '#fff' }]}>
-              {t('oh.decl.coordinationStatus')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {isDraft && (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.button, styles.editButton, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={() => navigation.navigate('newDeclaration', { declarationId: declaration.id })}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.buttonText, { color: colors.foreground }]}>
-              {t('details.editDraft')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.submitButton, { backgroundColor: colors.primary }]}
-            onPress={handleSubmit}
-            disabled={submitting}
-            accessibilityRole="button"
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color={colors.primaryForeground} />
-            ) : (
-              <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-                {t('details.submitDeclaration')}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
+              <Text style={styles.actionButtonText}>{t('details.respondToCorrection')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
     </ScrollView>
+  );
+
+  const renderFollowupTab = () => {
+    if (!ohCoordination) {
+      return (
+        <View style={styles.centeredState}>
+          <Text style={[styles.emptyTabText, { color: aesColors.textSecondary }]}>
+            {t('details.followup.noCoordination')}
+          </Text>
+        </View>
+      );
+    }
+
+    if (role === 'exposed_professional') {
+      // Exposed: show ONLY 5 safe fields (id, declaration_id, status, created_at, updated_at)
+      // Do NOT render: coordination_reason, staff IDs, events, clinical info
+      const c = ohCoordination as ExposedOhCoordinationSummary;
+      return (
+        <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
+          <View style={styles.sectionCard}>
+            <View style={styles.badgeRow}>
+              <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
+                {t('details.followup.coordinationStatus')}
+              </Text>
+              <AesStatusBadge
+                status={c.status}
+                domain="ohCoordination"
+                testID="followup-status-badge"
+              />
+            </View>
+            {c.created_at ? (
+              <LabelValue
+                label={t('details.followup.coordinationDate')}
+                value={new Date(c.created_at).toLocaleDateString()}
+              />
+            ) : null}
+            {c.updated_at ? (
+              <LabelValue
+                label={t('details.followup.updatedAt')}
+                value={new Date(c.updated_at).toLocaleDateString()}
+              />
+            ) : null}
+          </View>
+        </ScrollView>
+      );
+    }
+
+    // admin_reviewer: AdminOhCoordinationSummary
+    // Show: status, coordination_reason, acknowledged_at, completed_at, created_at, updated_at
+    // Do NOT show: acknowledged_by_user_id, completed_by_user_id, oh_follow_up_events
+    const admin = ohCoordination as AdminOhCoordinationSummary;
+    return (
+      <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
+        <View style={styles.sectionCard}>
+          <Text style={[styles.sectionLabel, { color: aesColors.textPrimary }]}>
+            {t('details.followup.adminSummary')}
+          </Text>
+          <View style={styles.badgeRow}>
+            <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
+              {t('details.followup.coordinationStatus')}
+            </Text>
+            <AesStatusBadge
+              status={admin.status}
+              domain="ohCoordination"
+              testID="admin-followup-status-badge"
+            />
+          </View>
+          {admin.coordination_reason ? (
+            <LabelValue
+              label={t('details.followup.reason')}
+              value={
+                (t as any)(`oh.reason.${admin.coordination_reason}`) ??
+                admin.coordination_reason
+              }
+            />
+          ) : null}
+          {admin.created_at ? (
+            <LabelValue
+              label={t('details.followup.coordinationDate')}
+              value={new Date(admin.created_at).toLocaleDateString()}
+            />
+          ) : null}
+          {admin.acknowledged_at ? (
+            <LabelValue
+              label={t('details.followup.acknowledgedAt')}
+              value={new Date(admin.acknowledged_at).toLocaleDateString()}
+            />
+          ) : null}
+          {admin.completed_at ? (
+            <LabelValue
+              label={t('details.followup.completedAt')}
+              value={new Date(admin.completed_at).toLocaleDateString()}
+            />
+          ) : null}
+          {admin.updated_at ? (
+            <LabelValue
+              label={t('details.followup.updatedAt')}
+              value={new Date(admin.updated_at).toLocaleDateString()}
+            />
+          ) : null}
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderActiveTab = (): React.ReactNode => {
+    switch (activeTab) {
+      case 'summary':  return renderSummaryTab();
+      case 'incident': return renderIncidentTab();
+      case 'measures': return renderMeasuresTab();
+      case 'status':   return renderStatusTab();
+      case 'followup': return renderFollowupTab();
+      default:         return null;
+    }
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
+  return (
+    <AesScreenContainer>
+      <AesScreenHeader
+        title={declaration.reference_number ?? `#${declaration.id}`}
+        onBack={() => navigation.goBack()}
+      />
+
+      {/* Tab bar — 5 tabs only, no Timeline tab */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.tabBar, { borderBottomColor: aesColors.borderSubdued }]}
+        contentContainerStyle={styles.tabBarContent}
+        testID="details-tab-bar"
+      >
+        {TAB_KEYS.map((tabKey) => {
+          const isActive = activeTab === tabKey;
+          return (
+            <TouchableOpacity
+              key={tabKey}
+              onPress={() => setActiveTab(tabKey)}
+              style={[
+                styles.tabItem,
+                isActive && {
+                  borderBottomColor: aesColors.accentGreen,
+                  borderBottomWidth: 2,
+                },
+              ]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              testID={`tab-${tabKey}`}
+            >
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: isActive ? aesColors.accentGreen : aesColors.textSecondary,
+                    fontWeight: isActive ? '700' : '500',
+                  },
+                ]}
+              >
+                {t(TAB_LABEL_KEYS[tabKey] as any)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Tab content */}
+      <View style={styles.tabContentContainer}>{renderActiveTab()}</View>
+    </AesScreenContainer>
   );
 };
 
+export default DeclarationDetailsScreen;
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.screenPadding,
-    paddingBottom: spacing.huge,
-  },
-  centerContainer: {
+  centeredState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: aesSpacing.xl,
   },
-  header: {
+  stateText: {
+    ...aesTypography.body,
+    textAlign: 'center',
+  },
+  // Tab bar
+  tabBar: {
+    flexGrow: 0,
+    borderBottomWidth: 1,
+  },
+  tabBarContent: {
+    flexDirection: 'row',
+    paddingHorizontal: aesSpacing.sm,
+  },
+  tabItem: {
+    paddingHorizontal: aesSpacing.md,
+    paddingVertical: aesSpacing.sm,
+    marginBottom: -1,
+  },
+  tabLabel: {
+    ...aesTypography.bodySmall,
+  },
+  tabContentContainer: {
+    flex: 1,
+  },
+  tabContent: {
+    flex: 1,
+  },
+  tabContentPadding: {
+    padding: aesSpacing.screenHorizontal,
+    gap: aesSpacing.md,
+  },
+  // Cards and sections
+  sectionCard: {
+    backgroundColor: aesColors.surface,
+    borderRadius: aesRadii.card,
+    borderWidth: 1,
+    borderColor: aesColors.borderSubdued,
+    padding: aesSpacing.cardPadding,
+    gap: aesSpacing.sm,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: aesSpacing.xs,
+  },
+  referenceText: {
+    ...aesTypography.heading2,
+    flex: 1,
+    marginRight: aesSpacing.sm,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: aesSpacing.sm,
+    flexWrap: 'wrap',
+  },
+  sectionLabel: {
+    ...aesTypography.labelSmall,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: aesSpacing.xs,
+  },
+  // Label-value
+  labelValueRow: {
+    gap: 2,
+  },
+  fieldLabel: {
+    ...aesTypography.labelSmall,
+    fontWeight: '600',
+  },
+  fieldValue: {
+    ...aesTypography.bodySmall,
+  },
+  // Review history
+  reviewRow: {
+    paddingVertical: aesSpacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: aesColors.borderSubdued,
+    gap: aesSpacing.xs,
+  },
+  reviewRowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
-  title: {
-    fontSize: typography.fontSize.titleLarge,
-    fontWeight: '700',
+  reviewDate: {
+    ...aesTypography.labelSmall,
   },
-  badge: {
-    paddingVertical: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: shapes.sm,
-  },
-  badgeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '600',
-  },
-  readOnlyBanner: {
-    padding: spacing.sm,
-    borderRadius: shapes.sm,
-    marginBottom: spacing.md,
-  },
-  readOnlyText: {
-    fontSize: typography.fontSize.bodySmall,
+  reviewComment: {
+    ...aesTypography.bodySmall,
     fontStyle: 'italic',
   },
-  section: {
+  // Actions
+  actionRow: {
+    marginTop: aesSpacing.sm,
+    gap: aesSpacing.sm,
+  },
+  actionButton: {
+    backgroundColor: aesColors.primaryAction,
+    padding: aesSpacing.md,
+    borderRadius: aesRadii.pill,
+    alignItems: 'center',
+  },
+  actionButtonSecondary: {
+    backgroundColor: aesColors.secondaryAction,
+    padding: aesSpacing.md,
+    borderRadius: aesRadii.pill,
+    alignItems: 'center',
     borderWidth: 1,
-    borderRadius: shapes.md,
-    padding: spacing.cardPadding,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
+    borderColor: aesColors.borderMedium,
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xxs,
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
-  detailBlock: {
-    paddingVertical: spacing.xxs,
-    gap: spacing.xxs,
-  },
-  detailLabel: {
-    fontSize: typography.fontSize.bodySmall,
+  actionButtonText: {
+    color: aesColors.textInverse,
+    ...aesTypography.bodySmall,
     fontWeight: '600',
   },
-  detailValue: {
-    fontSize: typography.fontSize.bodyMedium,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: shapes.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editButton: {
+  // Banner
+  banner: {
+    borderRadius: aesRadii.card,
     borderWidth: 1,
+    padding: aesSpacing.cardPadding,
+    gap: aesSpacing.sm,
   },
-  submitButton: {},
-  buttonText: {
-    fontSize: typography.fontSize.bodyMedium,
-    fontWeight: '600',
+  bannerText: {
+    ...aesTypography.bodySmall,
   },
-  errorText: {
-    fontSize: typography.fontSize.bodyLarge,
-  },
-  historyHeading: {
-    fontSize: typography.fontSize.bodyMedium,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  historyCard: {
-    borderLeftWidth: 3,
-    borderRadius: shapes.sm,
-    padding: spacing.xs,
-    gap: 2,
-    marginBottom: spacing.xs,
-  },
-  historyCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  historyOutcome: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '700',
-  },
-  historyDate: {
-    fontSize: typography.fontSize.xs,
-  },
-  historyReason: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '500',
-  },
-  historyComments: {
-    fontSize: typography.fontSize.xs,
-  },
-  adminActionContainer: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  reviewButton: {
-    paddingVertical: spacing.md,
-  },
-  correctionBanner: {
-    borderWidth: 1,
-    borderRadius: shapes.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  correctionBannerTitle: {
-    fontSize: typography.fontSize.bodyMedium,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  correctionBannerReason: {
-    fontSize: typography.fontSize.bodySmall,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  correctionBannerComments: {
-    fontSize: typography.fontSize.xs,
-    marginBottom: spacing.sm,
-  },
-  correctionActionButton: {
-    borderRadius: shapes.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs,
-  },
-  correctionActionText: {
-    color: '#ffffff',
-    fontSize: typography.fontSize.bodySmall,
-    fontWeight: '600',
-  },
-  responseContainer: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: '#cbd5e1',
-  },
-  responseHeader: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  responseText: {
-    fontSize: typography.fontSize.xs,
-    marginBottom: 2,
-  },
-  responseDate: {
-    fontSize: 10,
+  // Empty
+  emptyTabText: {
+    ...aesTypography.body,
+    textAlign: 'center',
+    padding: aesSpacing.xl,
   },
 });
-
-export default DeclarationDetailsScreen;

@@ -8,11 +8,12 @@
  */
 
 import { open, type DB } from '@op-engineering/op-sqlite';
-import type {
-  DatabaseOptions,
-  MutationResult,
-  QueryResult,
-  QueryRow,
+import {
+  type DatabaseOptions,
+  type MutationResult,
+  type QueryResult,
+  type QueryRow,
+  type TransactionExecutor,
 } from './types';
 
 export class DatabaseService {
@@ -118,16 +119,21 @@ export class DatabaseService {
    * Execute multiple statements inside a single transaction.
    * Rolls back automatically on error and re-throws.
    */
-  async transaction(
-    fn: (tx: {
-      execute: (sql: string, params?: unknown[]) => Promise<MutationResult>;
-    }) => Promise<void>,
-  ): Promise<void> {
+  async transaction<T = void>(
+    fn: (tx: TransactionExecutor) => Promise<T>,
+  ): Promise<T> {
     const db = this.assertOpen();
     await db.execute('BEGIN;');
+    let completed = false;
     try {
-      await fn({
+      const tx: TransactionExecutor = {
+        isCompleted: () => completed,
         execute: async (sql, params = []) => {
+          if (completed) {
+            throw new Error(
+              'TransactionContextError: Cannot execute statement on completed or rolled back transaction.',
+            );
+          }
           const result = await db.execute(sql, params as never[]);
           return {
             rowsAffected: result.rowsAffected ?? 0,
@@ -137,11 +143,43 @@ export class DatabaseService {
                 : undefined,
           };
         },
-      });
+        query: async <R extends QueryRow = QueryRow>(
+          sql: string,
+          params: unknown[] = [],
+        ): Promise<QueryResult<R>> => {
+          if (completed) {
+            throw new Error(
+              'TransactionContextError: Cannot execute query on completed or rolled back transaction.',
+            );
+          }
+          const result = await db.execute(sql, params as never[]);
+          const rows: R[] = [];
+          if (result.rows) {
+            if (typeof (result.rows as any).item === 'function') {
+              for (let i = 0; i < (result.rows as any).length; i++) {
+                rows.push((result.rows as any).item(i) as R);
+              }
+            } else if (Array.isArray(result.rows)) {
+              for (let i = 0; i < result.rows.length; i++) {
+                rows.push(result.rows[i] as R);
+              }
+            }
+          }
+          return { rows };
+        },
+      };
+      const result = await fn(tx);
       await db.execute('COMMIT;');
+      return result;
     } catch (err) {
-      await db.execute('ROLLBACK;');
+      try {
+        await db.execute('ROLLBACK;');
+      } catch {
+        // Rollback may fail if connection was broken
+      }
       throw err;
+    } finally {
+      completed = true;
     }
   }
 }

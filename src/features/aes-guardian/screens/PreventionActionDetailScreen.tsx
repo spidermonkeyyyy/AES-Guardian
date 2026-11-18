@@ -1,495 +1,655 @@
-/**
- * AES Guardian — Prevention Action Detail Screen (Phase 2C.6)
- *
- * Full detail view for a prevention action with status transitions
- * and audit history timeline.
- * Access: quality_staff (full CRUD), admin_reviewer, oh_professional (read-only).
- * Strictly prohibited: exposed_professional, tech_admin.
- *
- * Contributing-factor categories are PROVISIONAL.
- * No personal identifiers or clinical narratives are displayed.
- */
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
   ActivityIndicator,
-  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { spacing, typography, shapes } from '../../../theme/tokens';
-import { useTheme } from '../../../theme/ThemeContext';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  getDatabase,
   canManagePreventionActions,
   canViewPreventionActions,
-  SYNTHETIC_QUALITY_STAFF_CONTEXT,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
-  SYNTHETIC_OH_PROFESSIONAL_CONTEXT,
-  SYNTHETIC_DEMO_CONTEXT,
-  SYNTHETIC_TECH_ADMIN_CONTEXT,
-  AuthContext,
+  getDatabase,
   PreventionActionDetail,
   PreventionActionStatus,
+  useDemoRoleStore,
   isValidPreventionTransition,
 } from '../../../core';
-import { t } from '../../../localization';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { isRTL, t, useLocale } from '../../../localization';
+import {
+  aesColors,
+  aesRadii,
+  aesSpacing,
+  aesTypography,
+} from '../../../theme/tokens';
 import { RootStackParamList } from '../../../navigation/routes';
+import {
+  AesButton,
+  AesCard,
+  AesRoundArrowButton,
+  AesScreenContainer,
+  AesScreenHeader,
+  AesStatusBadge,
+} from '../components';
 
 type RouteProps = RouteProp<RootStackParamList, 'preventionActionDetail'>;
-
-const DEMO_ROLES: Array<{ key: string; label: string; context: AuthContext }> = [
-  { key: 'quality_staff',       label: 'Qualité',   context: SYNTHETIC_QUALITY_STAFF_CONTEXT },
-  { key: 'admin_reviewer',      label: 'Admin RH',  context: SYNTHETIC_ADMIN_REVIEWER_CONTEXT },
-  { key: 'oh_professional',     label: 'SST',       context: SYNTHETIC_OH_PROFESSIONAL_CONTEXT },
-  { key: 'exposed_professional',label: 'Exposé ✗',  context: SYNTHETIC_DEMO_CONTEXT },
-  { key: 'tech_admin',          label: 'Tech ✗',    context: SYNTHETIC_TECH_ADMIN_CONTEXT },
-];
-
-const STATUS_COLORS: Record<PreventionActionStatus, string> = {
-  proposed:    '#6366F1',
-  in_progress: '#F59E0B',
-  completed:   '#10B981',
-  cancelled:   '#EF4444',
-};
-
-const STATUS_LABELS: Record<PreventionActionStatus, string> = {
-  proposed:    t('prevention.detail.status.proposed'),
-  in_progress: t('prevention.detail.status.in_progress'),
-  completed:   t('prevention.detail.status.completed'),
-  cancelled:   t('prevention.detail.status.cancelled'),
-};
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const PreventionActionDetailScreen: React.FC = () => {
-  const { colors } = useTheme();
   const route = useRoute<RouteProps>();
+  const navigation = useNavigation<NavProp>();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
+  const styles = createStyles(rtl);
+  const { activeContext } = useDemoRoleStore();
+  const canView = canViewPreventionActions(activeContext);
+  const canManage = canManagePreventionActions(activeContext);
+  const userId = activeContext.userId;
   const { actionId } = route.params;
-  const styles = createStyles(colors);
 
-  const [activeRoleContext, setActiveRoleContext] = useState<AuthContext>(SYNTHETIC_QUALITY_STAFF_CONTEXT);
-  const isAuthorized = canViewPreventionActions(activeRoleContext);
-  const canManage   = canManagePreventionActions(activeRoleContext);
+  const [action, setAction] = useState<PreventionActionDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [transitionStatus, setTransitionStatus] = useState<PreventionActionStatus | null>(null);
+  const [transitionFromStatus, setTransitionFromStatus] = useState<PreventionActionStatus | null>(null);
+  const [transitionNote, setTransitionNote] = useState('');
+  const [transitionError, setTransitionError] = useState(false);
+  const [validationError, setValidationError] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const requestId = useRef(0);
+  const transitionLock = useRef(false);
 
-  const [action,       setAction]       = useState<PreventionActionDetail | null>(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
-  const [transitioning,setTransitioning]= useState(false);
-  const [completionNote, setCompletionNote] = useState('');
-  const [showNoteInput, setShowNoteInput]   = useState(false);
-
-  const loadAction = useCallback(async () => {
-    if (!isAuthorized || !activeRoleContext.userId) { setAction(null); return; }
-    setLoading(true);
-    setError(null);
-    try {
-      const db = getDatabase();
-      const data = await db.getPreventionActionById(activeRoleContext.userId, actionId);
-      setAction(data);
-    } catch (e: any) {
-      console.error('[PreventionDetail] loadAction error:', e?.message);
-      setError(e?.message ?? 'Erreur de chargement');
-    } finally {
+  const loadAction = useCallback(async (): Promise<PreventionActionDetail | null> => {
+    const request = ++requestId.current;
+    if (!userId || !canView) {
+      setAction(null);
       setLoading(false);
+      setLoadError(false);
+      return null;
     }
-  }, [actionId, activeRoleContext, isAuthorized]);
 
-  useEffect(() => { loadAction(); }, [loadAction]);
+    setAction(null);
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const data = await getDatabase().getPreventionActionById(userId, actionId);
+      const current = useDemoRoleStore.getState().activeContext;
+      if (
+        request !== requestId.current ||
+        current.userId !== userId ||
+        !canViewPreventionActions(current)
+      ) {
+        return null;
+      }
+      setAction(data);
+      return data;
+    } catch {
+      if (request === requestId.current) {
+        setLoadError(true);
+      }
+      return null;
+    } finally {
+      if (request === requestId.current) {
+        setLoading(false);
+      }
+    }
+  }, [actionId, canView, userId]);
 
-  const performTransition = async (newStatus: PreventionActionStatus, note?: string) => {
-    console.log('[PreventionDetail] performTransition called:', { newStatus, note, userId: activeRoleContext.userId, actionId });
-    if (!activeRoleContext.userId) {
-      console.warn('[PreventionDetail] blocked: userId is null');
-      Alert.alert('Debug', 'userId est null — contexte de rôle non initialisé');
+  useEffect(() => {
+    void loadAction();
+    return () => {
+      requestId.current += 1;
+    };
+  }, [loadAction]);
+
+  const closeTransition = () => {
+    setTransitionStatus(null);
+    setTransitionFromStatus(null);
+    setTransitionNote('');
+    setTransitionError(false);
+    setValidationError(false);
+  };
+
+  const performTransition = async (
+    status: PreventionActionStatus,
+    note?: string,
+    fromStatus = action?.status,
+  ) => {
+    if (transitionLock.current || !fromStatus) return;
+    const current = useDemoRoleStore.getState();
+    if (!current.activeContext.userId || !canManagePreventionActions(current.activeContext)) {
+      setTransitionError(true);
       return;
     }
+    if (!isValidPreventionTransition(fromStatus, status)) return;
+    if (status === 'completed' && (!note?.trim() || note.trim().length < 3)) {
+      setValidationError(true);
+      return;
+    }
+
+    transitionLock.current = true;
     setTransitioning(true);
+    setTransitionError(false);
+    setValidationError(false);
+    setTransitionStatus(status);
+    setTransitionFromStatus(fromStatus);
     try {
-      const db = getDatabase();
-      console.log('[PreventionDetail] calling updatePreventionActionStatus...');
-      await db.updatePreventionActionStatus(activeRoleContext.userId, actionId, newStatus, note);
-      console.log('[PreventionDetail] transition succeeded');
-      setShowNoteInput(false);
-      setCompletionNote('');
-      await loadAction();
-    } catch (e: any) {
-      console.error('[PreventionDetail] transition error:', e?.message);
-      Alert.alert('Erreur de transition', e?.message ?? 'Transition impossible');
+      const updated = await getDatabase().updatePreventionActionStatus(
+        current.activeContext.userId,
+        actionId,
+        status,
+        note?.trim() || undefined,
+      );
+      if (useDemoRoleStore.getState().activeContext.userId === current.activeContext.userId) {
+        setAction(updated);
+        closeTransition();
+      }
+    } catch {
+      setTransitionError(true);
     } finally {
+      transitionLock.current = false;
       setTransitioning(false);
     }
   };
 
-  const handleStart = () => performTransition('in_progress');
-  const handleCancel = () => {
-    Alert.alert('Confirmation', 'Annuler cette action ?', [
-      { text: 'Non', style: 'cancel' },
-      { text: 'Oui', onPress: () => performTransition('cancelled', 'Action annulée.') },
-    ]);
-  };
-  const handleComplete = () => {
-    if (!showNoteInput) { setShowNoteInput(true); return; }
-    if (completionNote.trim().length < 3) {
-      Alert.alert('Validation', 'La note de clôture doit comporter au moins 3 caractères.');
-      return;
-    }
-    performTransition('completed', completionNote.trim());
+  const confirmTransition = () => {
+    if (!transitionStatus) return;
+    const note = transitionStatus === 'completed' ? transitionNote.trim() : transitionNote.trim() || undefined;
+    void performTransition(transitionStatus, note, transitionFromStatus ?? action?.status);
   };
 
-  const InfoRow: React.FC<{ label: string; value?: string | null; provisional?: boolean }> = ({
-    label, value, provisional,
+  const retryTransition = async () => {
+    const target = transitionStatus;
+    const original = transitionFromStatus;
+    setTransitionError(false);
+    const currentAction = await loadAction();
+    if (!currentAction || !target) {
+      setTransitionError(true);
+      return;
+    }
+    if (
+      currentAction.status === target ||
+      (original !== null && currentAction.status !== original &&
+        !isValidPreventionTransition(currentAction.status, target))
+    ) {
+      closeTransition();
+      return;
+    }
+    if (original !== null && currentAction.status === original) {
+      setTransitionError(false);
+    }
+  };
+
+  const openTransition = (status: PreventionActionStatus) => {
+    setTransitionStatus(status);
+    setTransitionFromStatus(action?.status ?? null);
+    setTransitionNote('');
+    setTransitionError(false);
+    setValidationError(false);
+  };
+
+  const factorLabel = (factor: PreventionActionDetail['contributing_factor']) => {
+    switch (factor) {
+      case 'device_safety_design':
+        return t('prevention.factor.device_safety_design', locale);
+      case 'procedure_compliance':
+        return t('prevention.factor.procedure_compliance', locale);
+      case 'workload_fatigue':
+        return t('prevention.factor.workload_fatigue', locale);
+      case 'waste_disposal_container':
+        return t('prevention.factor.waste_disposal_container', locale);
+      case 'protective_equipment':
+        return t('prevention.factor.protective_equipment', locale);
+      case 'training_supervision':
+        return t('prevention.factor.training_supervision', locale);
+      case 'environment_workspace':
+        return t('prevention.factor.environment_workspace', locale);
+      case 'other_factor':
+        return t('prevention.factor.other_factor', locale);
+    }
+  };
+
+  const InfoRow: React.FC<{ label: string; value?: string | null; testID: string }> = ({
+    label,
+    value,
+    testID,
   }) => {
     if (!value) return null;
     return (
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
-        {provisional && (
-          <Text style={styles.provisionalNote}>{t('prevention.provisional.disclaimer')}</Text>
-        )}
+      <View style={styles.infoRow} testID={testID}>
+        <Text style={[styles.infoLabel, rtl && styles.rtlText]}>{label}</Text>
+        <Text style={[styles.infoValue, rtl && styles.rtlText]}>{value}</Text>
       </View>
     );
   };
 
   return (
-    <ScrollView style={styles.root}>
-      {/* Role switcher */}
-      <View style={styles.roleBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {DEMO_ROLES.map(r => (
-            <TouchableOpacity
-              key={r.key}
-              style={[
-                styles.roleChip,
-                activeRoleContext.userId === r.context.userId && styles.roleChipActive,
-              ]}
-              onPress={() => setActiveRoleContext(r.context)}
-            >
-              <Text style={[
-                styles.roleChipText,
-                activeRoleContext.userId === r.context.userId && styles.roleChipTextActive,
-              ]}>{r.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+    <AesScreenContainer
+      scrollable
+      testID="prevention-detail-screen"
+      contentContainerStyle={styles.content}
+    >
+      <AesScreenHeader
+        title={t('prevention.detail.title', locale)}
+        subtitle={t('prevention.detail.subtitle', locale)}
+        overline={t('prevention.overview.title', locale)}
+        rightElement={
+          <AesRoundArrowButton
+            testID="prevention-detail-back"
+            onPress={() => navigation.goBack()}
+            accessibilityLabel={t('app.back', locale)}
+          />
+        }
+      />
 
-      {!isAuthorized && (
-        <View style={styles.unauthorizedBox}>
-          <Text style={styles.unauthorizedText}>{t('prevention.unauthorized')}</Text>
+      {!canView ? (
+        <AesCard testID="prevention-detail-denied" style={styles.outerCard}>
+          <Text style={[styles.bodyText, rtl && styles.rtlText]}>
+            {t('prevention.unauthorized', locale)}
+          </Text>
+        </AesCard>
+      ) : loading ? (
+        <View testID="prevention-detail-loading" style={styles.stateContainer}>
+          <ActivityIndicator size="large" color={aesColors.accentGreen} />
+          <Text style={[styles.bodyText, rtl && styles.rtlText]}>{t('app.loading', locale)}</Text>
         </View>
-      )}
-
-      {isAuthorized && loading && !action && (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-      )}
-
-      {isAuthorized && error && (
-        <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>
-      )}
-
-      {isAuthorized && action && (
-        <View style={styles.content}>
-          {/* Status badge + reference */}
-          <View style={styles.headerRow}>
-            <Text style={styles.refText}>{action.reference_code}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[action.status] }]}>
-              <Text style={styles.statusBadgeText}>{STATUS_LABELS[action.status]}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.actionTitle}>{action.title}</Text>
-
-          {/* Detail fields */}
-          <InfoRow label={t('prevention.detail.referenceCode')} value={action.reference_code} />
-          <InfoRow label={t('prevention.create.action_type')}
-            value={action.action_type === 'corrective'
-              ? t('prevention.detail.type.corrective')
-              : t('prevention.detail.type.preventive')}
+      ) : loadError ? (
+        <AesCard testID="prevention-detail-error" style={styles.outerCard}>
+          <Text style={[styles.errorText, rtl && styles.rtlText]}>
+            {t('prevention.detail.loadError', locale)}
+          </Text>
+          <AesButton
+            testID="prevention-detail-retry"
+            title={t('prevention.detail.retry', locale)}
+            onPress={() => void loadAction()}
+            variant="outline"
           />
-          <InfoRow
-            label={t('prevention.detail.factor')}
-            value={action.contributing_factor
-              ? t(`prevention.factor.${action.contributing_factor}` as any)
-              : undefined}
-            provisional
-          />
-          <InfoRow label={t('prevention.create.description')} value={action.description} />
-          <InfoRow label={t('prevention.detail.rationale')} value={action.rationale} />
-          <InfoRow label={t('prevention.detail.createdAt')} value={action.created_at} />
-          <InfoRow label={t('prevention.detail.targetDate')} value={action.target_date} />
-          <InfoRow label={t('prevention.detail.completedAt')} value={action.completed_at} />
-          <InfoRow label={t('prevention.detail.completionNotes')} value={action.completion_notes} />
-          {action.surveillance_reference && (
-            <InfoRow label={t('prevention.create.surveillance_reference')} value={action.surveillance_reference} />
-          )}
-
-          {/* Transition buttons — quality_staff only, non-terminal states */}
-          {canManage && action.status !== 'completed' && action.status !== 'cancelled' && (
-            <View style={styles.transitionSection}>
-              {isValidPreventionTransition(action.status, 'in_progress') && (
-                <TouchableOpacity
-                  style={[styles.transBtn, { backgroundColor: '#F59E0B' }]}
-                  onPress={handleStart}
-                  disabled={transitioning}
-                >
-                  <Text style={styles.transBtnText}>{t('prevention.detail.start_action')}</Text>
-                </TouchableOpacity>
-              )}
-              {isValidPreventionTransition(action.status, 'completed') && (
-                <TouchableOpacity
-                  style={[styles.transBtn, { backgroundColor: '#10B981' }]}
-                  onPress={handleComplete}
-                  disabled={transitioning}
-                >
-                  <Text style={styles.transBtnText}>{t('prevention.detail.complete_action')}</Text>
-                </TouchableOpacity>
-              )}
-              {isValidPreventionTransition(action.status, 'cancelled') && (
-                <TouchableOpacity
-                  style={[styles.transBtn, { backgroundColor: '#EF4444' }]}
-                  onPress={handleCancel}
-                  disabled={transitioning}
-                >
-                  <Text style={styles.transBtnText}>{t('prevention.detail.cancel_action')}</Text>
-                </TouchableOpacity>
-              )}
-              {transitioning && <ActivityIndicator color={colors.primary} style={{ marginLeft: spacing.sm }} />}
-            </View>
-          )}
-
-          {/* Completion note input */}
-          {showNoteInput && (
-            <View style={styles.noteInputSection}>
-              <Text style={styles.label}>{t('prevention.detail.completion_note_prompt')}</Text>
-              <TextInput
-                style={[styles.input, styles.multiline]}
-                value={completionNote}
-                onChangeText={setCompletionNote}
-                multiline
-                numberOfLines={3}
-                placeholderTextColor={colors.mutedForeground}
-                placeholder="Note de clôture de l'action…"
+        </AesCard>
+      ) : !action ? (
+        <AesCard testID="prevention-detail-not-found" style={styles.outerCard}>
+          <Text style={[styles.bodyText, rtl && styles.rtlText]}>
+            {t('prevention.detail.notFound', locale)}
+          </Text>
+        </AesCard>
+      ) : (
+        <View style={styles.contentBody}>
+          <AesCard testID="prevention-detail-summary" style={styles.summaryCard}>
+            <View style={[styles.referenceRow, rtl && styles.rowReverse]}>
+              <Text testID="prevention-detail-reference" style={styles.reference}>
+                {action.reference_code}
+              </Text>
+              <AesStatusBadge
+                status={action.status}
+                domain="capa"
+                testID="prevention-detail-status"
               />
-              <TouchableOpacity
-                style={[styles.transBtn, { backgroundColor: '#10B981', marginTop: spacing.sm }]}
-                onPress={handleComplete}
-                disabled={transitioning}
-              >
-                <Text style={styles.transBtnText}>Confirmer la clôture</Text>
-              </TouchableOpacity>
             </View>
-          )}
+            <Text
+              testID="prevention-detail-title"
+              style={[styles.title, rtl && styles.rtlText]}
+            >
+              {action.title}
+            </Text>
+            <Text style={[styles.description, rtl && styles.rtlText]}>{action.description}</Text>
+          </AesCard>
 
-          {/* Audit history */}
-          <Text style={styles.sectionTitle}>{t('prevention.detail.audit_history')}</Text>
-          {action.audit_history.length === 0 && (
-            <Text style={styles.emptyText}>Aucun événement d'audit enregistré.</Text>
-          )}
-          {action.audit_history.map((evt, idx) => (
-            <View key={evt.id ?? idx} style={styles.auditRow}>
-              <View style={styles.auditDot} />
-              <View style={styles.auditContent}>
-                <Text style={styles.auditType}>{evt.event_type}</Text>
-                <Text style={styles.auditDate}>{evt.occurred_at}</Text>
-                {evt.description && (
-                  <Text style={styles.auditDetails} numberOfLines={3}>{evt.description}</Text>
-                )}
+          <AesCard style={styles.detailCard}>
+            <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+              {t('prevention.detail.actionInformation', locale)}
+            </Text>
+            <InfoRow
+              testID="prevention-detail-type"
+              label={t('prevention.create.action_type', locale)}
+              value={t(
+                action.action_type === 'corrective'
+                  ? 'prevention.detail.type.corrective'
+                  : 'prevention.detail.type.preventive',
+                locale,
+              )}
+            />
+            <InfoRow
+              testID="prevention-detail-factor"
+              label={t('prevention.detail.factor', locale)}
+              value={factorLabel(action.contributing_factor)}
+            />
+            <InfoRow
+              testID="prevention-detail-rationale"
+              label={t('prevention.detail.rationale', locale)}
+              value={action.rationale}
+            />
+            <InfoRow
+              testID="prevention-detail-surveillance-reference"
+              label={t('prevention.create.surveillance_reference', locale)}
+              value={action.surveillance_reference}
+            />
+            <InfoRow
+              testID="prevention-detail-target-date"
+              label={t('prevention.detail.targetDate', locale)}
+              value={action.target_date}
+            />
+          </AesCard>
+
+          <AesCard style={styles.detailCard}>
+            <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+              {t('prevention.detail.recordInformation', locale)}
+            </Text>
+            <InfoRow
+              testID="prevention-detail-created-at"
+              label={t('prevention.detail.createdAt', locale)}
+              value={action.created_at}
+            />
+            <InfoRow
+              testID="prevention-detail-updated-at"
+              label={t('prevention.detail.updatedAt', locale)}
+              value={action.updated_at}
+            />
+            <InfoRow
+              testID="prevention-detail-completed-at"
+              label={t('prevention.detail.completedAt', locale)}
+              value={action.completed_at}
+            />
+            <InfoRow
+              testID="prevention-detail-completion-notes"
+              label={t('prevention.detail.completionNotes', locale)}
+              value={action.completion_notes}
+            />
+          </AesCard>
+
+          {canManage ? (
+            <AesCard testID="prevention-detail-actions" style={styles.detailCard}>
+              <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+                {t('prevention.detail.lifecycleActions', locale)}
+              </Text>
+              <View style={[styles.actionRow, rtl && styles.rowReverse]}>
+                {isValidPreventionTransition(action.status, 'in_progress') ? (
+                  <AesButton
+                    testID="prevention-detail-start"
+                    title={t('prevention.detail.start_action', locale)}
+                    onPress={() => void performTransition('in_progress')}
+                    variant="green"
+                    loading={transitioning && transitionStatus === 'in_progress'}
+                    disabled={transitioning}
+                    style={styles.actionButton}
+                  />
+                ) : null}
+                {isValidPreventionTransition(action.status, 'completed') ? (
+                  <AesButton
+                    testID="prevention-detail-complete"
+                    title={t('prevention.detail.complete_action', locale)}
+                    onPress={() => openTransition('completed')}
+                    variant="primary"
+                    disabled={transitioning}
+                    style={styles.actionButton}
+                  />
+                ) : null}
+                {isValidPreventionTransition(action.status, 'cancelled') ? (
+                  <AesButton
+                    testID="prevention-detail-cancel"
+                    title={t('prevention.detail.cancel_action', locale)}
+                    onPress={() => openTransition('cancelled')}
+                    variant="danger"
+                    disabled={transitioning}
+                    style={styles.actionButton}
+                  />
+                ) : null}
               </View>
-            </View>
-          ))}
+              {transitionError ? (
+                <View testID="prevention-detail-transition-error" style={styles.errorBanner}>
+                  <Text style={[styles.errorText, rtl && styles.rtlText]}>
+                    {t('prevention.detail.transitionError', locale)}
+                  </Text>
+                  <AesButton
+                    testID="prevention-detail-transition-retry"
+                    title={t('prevention.detail.refreshRetry', locale)}
+                    onPress={() => void retryTransition()}
+                    variant="outline"
+                    disabled={transitioning}
+                  />
+                </View>
+              ) : null}
+              {transitionStatus === 'completed' || transitionStatus === 'cancelled' ? (
+                <View testID="prevention-detail-transition-panel" style={styles.transitionPanel}>
+                  <Text style={[styles.panelTitle, rtl && styles.rtlText]}>
+                    {transitionStatus === 'completed'
+                      ? t('prevention.detail.completion_note_prompt', locale)
+                      : t('prevention.detail.cancelConfirmation', locale)}
+                  </Text>
+                  <Text style={[styles.fieldLabel, rtl && styles.rtlText]}>
+                    {transitionStatus === 'completed'
+                      ? t('prevention.detail.completionNoteLabel', locale)
+                      : t('prevention.detail.cancelNoteLabel', locale)}
+                  </Text>
+                  <TextInput
+                    testID={
+                      transitionStatus === 'completed'
+                        ? 'prevention-detail-completion-note'
+                        : 'prevention-detail-cancel-note'
+                    }
+                    style={[styles.noteInput, rtl && styles.rtlText]}
+                    value={transitionNote}
+                    onChangeText={(value) => {
+                      setTransitionNote(value);
+                      setValidationError(false);
+                    }}
+                    multiline
+                    textAlign={rtl ? 'right' : 'left'}
+                    textAlignVertical="top"
+                    accessibilityLabel={
+                      transitionStatus === 'completed'
+                        ? t('prevention.detail.completionNoteLabel', locale)
+                        : t('prevention.detail.cancelNoteLabel', locale)
+                    }
+                  />
+                  {validationError ? (
+                    <Text testID="prevention-detail-transition-validation" style={styles.errorText}>
+                      {t('prevention.detail.validation.completionNote', locale)}
+                    </Text>
+                  ) : null}
+                  <View style={[styles.actionRow, rtl && styles.rowReverse]}>
+                    <AesButton
+                      testID="prevention-detail-transition-confirm"
+                      title={
+                        transitionStatus === 'completed'
+                          ? t('prevention.detail.complete_action', locale)
+                          : t('prevention.detail.confirmCancellation', locale)
+                      }
+                      onPress={confirmTransition}
+                      variant={transitionStatus === 'completed' ? 'green' : 'danger'}
+                      loading={transitioning}
+                      disabled={transitioning}
+                      style={styles.actionButton}
+                    />
+                    <AesButton
+                      testID="prevention-detail-transition-dismiss"
+                      title={t('prevention.detail.keepAction', locale)}
+                      onPress={closeTransition}
+                      variant="outline"
+                      disabled={transitioning}
+                      style={styles.actionButton}
+                    />
+                  </View>
+                </View>
+              ) : null}
+            </AesCard>
+          ) : null}
 
-          {/* Disclaimer */}
-          <View style={styles.disclaimerBanner}>
-            <Text style={styles.disclaimerText}>{t('prevention.disclaimer')}</Text>
-          </View>
+          <AesCard style={styles.detailCard}>
+            <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+              {t('prevention.detail.audit_history', locale)}
+            </Text>
+            {action.audit_history.length === 0 ? (
+              <Text style={[styles.bodyText, rtl && styles.rtlText]}>
+                {t('prevention.detail.auditEmpty', locale)}
+              </Text>
+            ) : (
+              action.audit_history.map((event) => (
+                <View key={event.id} style={[styles.auditRow, rtl && styles.rowReverse]}>
+                  <View style={styles.auditMarker} />
+                  <View style={styles.auditContent}>
+                    <Text style={[styles.auditDescription, rtl && styles.rtlText]}>
+                      {event.description}
+                    </Text>
+                    <Text style={[styles.auditDate, rtl && styles.rtlText]}>
+                      {event.occurred_at}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </AesCard>
+          <Text style={[styles.disclaimer, rtl && styles.rtlText]}>
+            {t('prevention.disclaimer', locale)}
+          </Text>
         </View>
       )}
-    </ScrollView>
+    </AesScreenContainer>
   );
 };
 
-function createStyles(colors: any) {
+function createStyles(rtl: boolean) {
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: colors.background },
-    roleBar: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+    content: { paddingHorizontal: 0 },
+    contentBody: {
+      paddingHorizontal: aesSpacing.screenHorizontal,
+      paddingBottom: aesSpacing['2xl'],
     },
-    roleChip: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: shapes.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginRight: spacing.xs,
-    },
-    roleChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    roleChipText: { fontSize: typography.fontSize.xs, color: colors.text },
-    roleChipTextActive: { color: '#fff' },
-    unauthorizedBox: {
-      margin: spacing.md,
-      padding: spacing.md,
-      backgroundColor: '#FEE2E2',
-      borderRadius: shapes.md,
-    },
-    unauthorizedText: { color: '#991B1B', textAlign: 'center' },
-    content: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
-    headerRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+    outerCard: { marginHorizontal: aesSpacing.screenHorizontal },
+    stateContainer: {
+      flex: 1,
+      minHeight: 180,
       alignItems: 'center',
-      marginBottom: spacing.sm,
+      justifyContent: 'center',
+      gap: aesSpacing.md,
     },
-    refText: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
+    summaryCard: {
+      padding: aesSpacing.lg,
+      marginBottom: aesSpacing.md,
     },
-    statusBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: shapes.full,
+    referenceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: aesSpacing.sm,
+      marginBottom: aesSpacing.md,
     },
-    statusBadgeText: {
-      color: '#fff',
-      fontSize: typography.fontSize.xs,
-      fontWeight: typography.fontWeight.bold,
+    rowReverse: { flexDirection: 'row-reverse' },
+    reference: {
+      ...aesTypography.code,
+      color: aesColors.textSecondary,
     },
-    actionTitle: {
-      fontSize: typography.fontSize.xl,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.text,
-      marginBottom: spacing.md,
-      fontFamily: typography.fontFamily.urbanist,
+    title: {
+      ...aesTypography.heading1,
+      color: aesColors.textPrimary,
+      marginBottom: aesSpacing.sm,
+    },
+    description: {
+      ...aesTypography.body,
+      color: aesColors.textSecondary,
+      lineHeight: 24,
+    },
+    detailCard: { marginBottom: aesSpacing.md },
+    sectionTitle: {
+      ...aesTypography.heading2,
+      color: aesColors.textPrimary,
+      marginBottom: aesSpacing.md,
     },
     infoRow: {
-      marginBottom: spacing.sm,
-      paddingBottom: spacing.sm,
+      paddingVertical: aesSpacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border,
+      borderBottomColor: aesColors.borderSubdued,
     },
     infoLabel: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-      marginBottom: 2,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
+      ...aesTypography.label,
+      color: aesColors.textSecondary,
+      marginBottom: aesSpacing.xs,
     },
     infoValue: {
-      fontSize: typography.fontSize.sm,
-      color: colors.text,
-      fontFamily: typography.fontFamily.openSans,
+      ...aesTypography.body,
+      color: aesColors.textPrimary,
     },
-    provisionalNote: {
-      fontSize: typography.fontSize.xs,
-      color: '#92400E',
-      marginTop: 2,
-    },
-    transitionSection: {
+    actionRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: spacing.sm,
-      marginTop: spacing.lg,
-      marginBottom: spacing.sm,
+      gap: aesSpacing.sm,
+      marginTop: aesSpacing.sm,
     },
-    transBtn: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      borderRadius: shapes.md,
-      minWidth: 100,
-      alignItems: 'center',
-    },
-    transBtnText: { color: '#fff', fontWeight: typography.fontWeight.bold, fontSize: typography.fontSize.sm },
-    noteInputSection: {
-      marginTop: spacing.sm,
-      padding: spacing.md,
-      backgroundColor: colors.card,
-      borderRadius: shapes.md,
+    actionButton: { flexGrow: 1, minWidth: 120 },
+    transitionPanel: {
+      marginTop: aesSpacing.md,
+      padding: aesSpacing.md,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: aesColors.borderMedium,
+      borderRadius: aesRadii.card,
+      backgroundColor: aesColors.surfaceSubdued,
     },
-    label: {
-      fontSize: typography.fontSize.sm,
-      fontWeight: typography.fontWeight.medium,
-      color: colors.text,
-      marginBottom: spacing.xs,
+    panelTitle: {
+      ...aesTypography.heading2,
+      color: aesColors.textPrimary,
+      marginBottom: aesSpacing.sm,
     },
-    input: {
+    fieldLabel: {
+      ...aesTypography.label,
+      color: aesColors.textPrimary,
+      marginBottom: aesSpacing.xs,
+    },
+    noteInput: {
+      minHeight: 80,
       borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: shapes.md,
-      padding: spacing.sm,
-      color: colors.text,
-      backgroundColor: colors.background,
+      borderColor: aesColors.borderMedium,
+      borderRadius: aesRadii.input,
+      padding: aesSpacing.md,
+      backgroundColor: aesColors.surface,
+      color: aesColors.textPrimary,
     },
-    multiline: { minHeight: 70, textAlignVertical: 'top' },
-    sectionTitle: {
-      fontSize: typography.fontSize.md,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.text,
-      marginTop: spacing.xl,
-      marginBottom: spacing.sm,
+    errorBanner: {
+      marginTop: aesSpacing.md,
+      padding: aesSpacing.md,
+      borderWidth: 1,
+      borderColor: aesColors.banners.error.border,
+      borderRadius: aesRadii.card,
+      backgroundColor: aesColors.banners.error.bg,
+    },
+    errorText: {
+      ...aesTypography.bodySmall,
+      color: aesColors.banners.error.text,
+      textAlign: rtl ? 'right' : 'left',
+      marginBottom: aesSpacing.sm,
+    },
+    bodyText: {
+      ...aesTypography.body,
+      color: aesColors.textPrimary,
     },
     auditRow: {
       flexDirection: 'row',
-      marginBottom: spacing.sm,
+      gap: aesSpacing.sm,
+      paddingVertical: aesSpacing.sm,
     },
-    auditDot: {
+    auditMarker: {
       width: 10,
       height: 10,
       borderRadius: 5,
-      backgroundColor: colors.primary,
-      marginTop: 4,
-      marginRight: spacing.sm,
-      flexShrink: 0,
+      marginTop: aesSpacing.xs,
+      backgroundColor: aesColors.accentGreen,
     },
     auditContent: { flex: 1 },
-    auditType: {
-      fontSize: typography.fontSize.sm,
-      fontWeight: typography.fontWeight.medium,
-      color: colors.text,
+    auditDescription: {
+      ...aesTypography.bodySmall,
+      color: aesColors.textPrimary,
     },
     auditDate: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
+      ...aesTypography.caption,
+      color: aesColors.textSecondary,
+      marginTop: aesSpacing.xs,
     },
-    auditDetails: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-      marginTop: 2,
+    disclaimer: {
+      ...aesTypography.caption,
+      color: aesColors.textSecondary,
+      textAlign: rtl ? 'right' : 'left',
+      paddingVertical: aesSpacing.md,
     },
-    disclaimerBanner: {
-      backgroundColor: '#FEF3C7',
-      borderLeftWidth: 4,
-      borderLeftColor: '#F59E0B',
-      marginTop: spacing.xl,
-      padding: spacing.sm,
-      borderRadius: shapes.sm,
-    },
-    disclaimerText: {
-      fontSize: typography.fontSize.xs,
-      color: '#92400E',
-    },
-    errorBox: {
-      margin: spacing.md,
-      padding: spacing.md,
-      backgroundColor: '#FEE2E2',
-      borderRadius: shapes.md,
-    },
-    errorText: { color: '#991B1B' },
-    emptyText: {
-      color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
-      fontSize: typography.fontSize.sm,
-      marginBottom: spacing.sm,
-    },
+    rtlText: { textAlign: 'right', writingDirection: 'rtl' },
   });
 }
