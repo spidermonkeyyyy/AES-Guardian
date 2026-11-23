@@ -70,7 +70,9 @@ export const useEducationStore = create<EducationState & EducationActions>((set,
       const sessions = await repo2.getExerciseSessions();
       set({ exerciseSessions: sessions });
     } catch (error) {
-      // In a real app, we'd handle this better, but for mock we'll just log
+      set({
+        errorMessage: error instanceof Error ? error.message : 'Failed to record exercise session',
+      });
     }
   },
 
@@ -81,6 +83,9 @@ export const useEducationStore = create<EducationState & EducationActions>((set,
       const entries = await repo.getSmokingEntries(limit);
       set({ smokingEntries: entries, isLoading: false });
     } catch (error) {
+      set({
+        errorMessage: error instanceof Error ? error.message : 'Failed to add smoking entry',
+      });
       set({ errorMessage: error instanceof Error ? error.message : 'Failed to load smoking entries', isLoading: false });
     }
   },
@@ -93,6 +98,9 @@ export const useEducationStore = create<EducationState & EducationActions>((set,
       const entries = await repo2.getSmokingEntries();
       set({ smokingEntries: entries });
     } catch (error) {
+      set({
+        errorMessage: error instanceof Error ? error.message : 'Failed to delete smoking entry',
+      });
     }
   },
 

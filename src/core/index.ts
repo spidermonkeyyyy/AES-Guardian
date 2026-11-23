@@ -9,6 +9,11 @@ export {
   resetDatabaseForTesting,
   DatabaseService,
   AesGuardianDatabase,
+  PreventionActionCreationUncertainError,
+  CapaCreationOperationConflictError,
+  CapaCreationOperationIntegrityError,
+  CapaOperationEntropyUnavailableError,
+  CapaOperationIdCollisionError,
   isValidTransition,
   isValidPreventionTransition,
   seedDemoScenarioIfEmpty,
@@ -54,6 +59,8 @@ export type {
   InAppNotification,
   CreateNotificationInput,
   NotificationFilters,
+  CapaCreationOperation,
+  CapaCreationOperationStatus,
 } from './database';
 
 export {

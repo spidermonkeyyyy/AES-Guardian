@@ -1,5 +1,15 @@
 export { colors, lightTheme, darkTheme, themes, getThemeColors } from './colors';
 export { typography } from './typography';
+export {
+  approvedFontFamilies,
+  appFontFamilies,
+  fontAssetsAvailable,
+  getAppFontFamily,
+  getAppFontWeight,
+  getTypographyRoleTokens,
+  type TypographyRole,
+  type TypographyRoleTokens,
+} from './fontFamilies';
 export { spacing } from './spacing';
 export { shapes } from './shapes';
 export { useTheme, ThemeProvider } from '../ThemeContext';

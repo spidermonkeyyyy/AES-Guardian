@@ -612,6 +612,50 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
         declarationId: d1,
       });
     });
+
+    it('does not truncate user-authored circumstances in the declaration list', async () => {
+      useDemoRoleStore.getState().setRole('exposed_professional');
+      const circumstances =
+        'Needlestick during an urgent procedure; the exposed professional was wearing gloves, ' +
+        'the instrument had been used for a vascular access attempt, and the event was immediately reported.';
+      await getDatabase().createDraft({
+        declared_by_user_id: 1,
+        incident_date: '2026-03-06',
+        incident_type: 'percutaneous_exposure',
+        circumstances,
+      });
+
+      const { findByText } = render(
+        <ThemeProvider>
+          <DeclarationListScreen />
+        </ThemeProvider>
+      );
+
+      const circumstancesText = await findByText(circumstances);
+      expect(circumstancesText.props.numberOfLines).toBeUndefined();
+    });
+
+    it('does not expose a database ID when a declaration reference is missing', async () => {
+      useDemoRoleStore.getState().setRole('exposed_professional');
+      const declarationId = await getDatabase().createDraft({
+        declared_by_user_id: 1,
+        incident_date: '2026-03-06',
+        incident_type: 'percutaneous_exposure',
+      });
+      await (getDatabase() as any).db.execute(
+        'UPDATE aes_declarations SET reference_number = ? WHERE id = ?',
+        ['', declarationId],
+      );
+
+      const { findByText, queryByText } = render(
+        <ThemeProvider>
+          <DeclarationListScreen />
+        </ThemeProvider>
+      );
+
+      expect(await findByText(t('list.refUnavailable', 'fr'))).toBeTruthy();
+      expect(queryByText(`#${declarationId}`)).toBeNull();
+    });
   });
 
   // ═════════════════════════════════════════════════════════════════════════════
@@ -701,6 +745,42 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
       expect(queryByTestId('tab-history')).toBeNull();
 
       expect(getByText('Résumé')).toBeTruthy();
+    });
+
+    it('formats date-only incident dates in the selected language without shifting the day', async () => {
+      setLocale('en');
+      useDemoRoleStore.getState().setRole('exposed_professional');
+      mockRouteParams = { declarationId: declId1 };
+
+      const { findByTestId, findByText } = render(
+        <ThemeProvider>
+          <DeclarationDetailsScreen />
+        </ThemeProvider>
+      );
+
+      fireEvent.press(await findByTestId('tab-incident'));
+
+      expect(await findByText('01/03/2026')).toBeTruthy();
+    });
+
+    it('uses a neutral reference fallback instead of exposing a database ID', async () => {
+      useDemoRoleStore.getState().setRole('exposed_professional');
+      await (getDatabase() as any).db.execute(
+        'UPDATE aes_declarations SET reference_number = ? WHERE id = ?',
+        ['', declIdDraft],
+      );
+      mockRouteParams = { declarationId: declIdDraft };
+
+      const { findAllByText, queryByText } = render(
+        <ThemeProvider>
+          <DeclarationDetailsScreen />
+        </ThemeProvider>
+      );
+
+      expect(
+        (await findAllByText(t('list.refUnavailable', 'fr'))).length,
+      ).toBeGreaterThan(0);
+      expect(queryByText(`#${declIdDraft}`)).toBeNull();
     });
 
     it('shows safe "Déclaration introuvable." for missing or unauthorized declarations without leaking data', async () => {

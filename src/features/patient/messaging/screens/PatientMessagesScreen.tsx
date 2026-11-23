@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { usePatientMessagesStore } from '../state/use-patient-messages-store';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useTheme } from '../../../theme/ThemeContext';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { useTheme } from '../../../../theme/ThemeContext';
 
 const PatientMessagesScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ onNavigate }) => {
   const { colors } = useTheme();
@@ -24,7 +24,7 @@ const PatientMessagesScreen: React.FC<{ onNavigate?: (screen: string) => void }>
   if (isLoading && conversations.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="colors.primary" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -40,11 +40,17 @@ const PatientMessagesScreen: React.FC<{ onNavigate?: (screen: string) => void }>
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={
-      <ScrollView>
-        <View style={{ flex: 1 }} />
-      </ScrollView>
-    }>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <Text style={styles.header}>Messages</Text>
       {conversation ? (
         <TouchableOpacity style={styles.conversationCard} onPress={() => onNavigate?.('conversationDetail')} activeOpacity={0.7}>
@@ -83,7 +89,7 @@ const PatientMessagesScreen: React.FC<{ onNavigate?: (screen: string) => void }>
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16 },
   header: { fontSize: 24, fontWeight: '700', color: colors.primary, marginBottom: 16 },
@@ -108,7 +114,7 @@ function createStyles(colors: any) {
   errorBody: { fontSize: 14, color: colors.mutedForeground, textAlign: 'center', marginBottom: 16 },
   retryButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, minHeight: 44, justifyContent: 'center' },
   retryButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
-}
+});
 }
 
 export default PatientMessagesScreen;

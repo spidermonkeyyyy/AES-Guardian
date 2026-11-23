@@ -1,10 +1,12 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import AppIcon from '../../../components/AppIcon';
 import { PreventionActionDetailScreen } from '../screens/PreventionActionDetailScreen';
 import { useDemoRoleStore } from '../../../core/auth/use-demo-role';
 import type { PreventionActionDetail, PreventionActionStatus } from '../../../core/database/types';
 import { setLocale, t } from '../../../localization';
+import { formatPreventionDate } from '../prevention-date-format';
 import { ThemeProvider } from '../../../theme/ThemeContext';
 
 const mockGoBack = jest.fn();
@@ -29,13 +31,6 @@ jest.mock('../../../core', () => {
       updatePreventionActionStatus: mockUpdatePreventionActionStatus,
     })),
   };
-});
-
-jest.mock('react-native-vector-icons/Feather', () => {
-  const ReactRuntime = require('react');
-  const { Text: NativeText } = require('react-native');
-  return ({ name }: { name: string }) =>
-    ReactRuntime.createElement(NativeText, { testID: `icon-${name}` }, name);
 });
 
 const makeAction = (
@@ -107,7 +102,7 @@ describe('PreventionActionDetailScreen AES UI', () => {
     expect(screen.getByText(t('prevention.factor.waste_disposal_container'))).toBeTruthy();
     expect(screen.getByText('Reduce handling of uncontained sharps.')).toBeTruthy();
     expect(screen.getByText('Observation T3-2026')).toBeTruthy();
-    expect(screen.getByText('2026-12-15')).toBeTruthy();
+    expect(screen.getByText(formatPreventionDate('2026-12-15', 'fr')!)).toBeTruthy();
     expect(screen.getByText('CAPA action created.')).toBeTruthy();
   });
 
@@ -333,6 +328,9 @@ describe('PreventionActionDetailScreen AES UI', () => {
     await waitFor(() => expect(screen.getByTestId('prevention-detail-start')).toBeTruthy());
     const backButton = screen.getByTestId('prevention-detail-back');
     expect(StyleSheet.flatten(backButton.props.style).width).toBeGreaterThanOrEqual(48);
+    expect(screen.getByTestId('prevention-detail-back').findByType(AppIcon).props.name).toBe('back');
+    act(() => setLocale('ar'));
+    expect(screen.getByTestId('prevention-detail-back').findByType(AppIcon).props.name).toBe('back');
     const startButton = screen.getByTestId('prevention-detail-start');
     expect(startButton.props.accessibilityLabel).toBe(t('prevention.detail.start_action'));
     const startStyle = StyleSheet.flatten(startButton.props.style);

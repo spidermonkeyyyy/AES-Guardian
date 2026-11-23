@@ -12,14 +12,15 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '../../../components/AppIcon';
 import { aesColors, aesRadii } from '../../../theme/tokens';
-import { useLocale, isRTL } from '../../../localization';
+import { useLayoutDirection } from '../../../localization';
 
 export type AesRoundArrowButtonVariant = 'black' | 'green';
 
 export interface AesRoundArrowButtonProps {
   onPress: () => void;
+  direction?: 'forward' | 'back';
   variant?: AesRoundArrowButtonVariant;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -29,14 +30,15 @@ export interface AesRoundArrowButtonProps {
 
 export const AesRoundArrowButton: React.FC<AesRoundArrowButtonProps> = ({
   onPress,
+  direction = 'forward',
   variant = 'black',
   disabled = false,
   style,
   testID,
   accessibilityLabel = 'Étape suivante',
 }) => {
-  const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rtl = layoutDirection === 'rtl';
 
   const backgroundColor =
     variant === 'green' ? aesColors.accentGreen : aesColors.primaryAction;
@@ -58,7 +60,7 @@ export const AesRoundArrowButton: React.FC<AesRoundArrowButtonProps> = ({
       accessibilityState={{ disabled }}
     >
       <Icon
-        name={rtl ? 'arrow-left' : 'arrow-right'}
+        name={direction === 'back' ? 'back' : 'forward'}
         size={22}
         color={aesColors.textInverse}
       />

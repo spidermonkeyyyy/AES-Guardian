@@ -1,3 +1,5 @@
+import { appFontFamilies } from './fontFamilies';
+
 export const lightTheme = {
   colors: {
     background: '#f8f5f0',
@@ -37,9 +39,9 @@ export const lightTheme = {
   },
 
   fonts: {
-    sans: 'Montserrat',
-    serif: 'Merriweather',
-    mono: 'Source Code Pro',
+    sans: appFontFamilies.body,
+    serif: appFontFamilies.display,
+    mono: appFontFamilies.monospace,
   },
 
   radius: 8,
@@ -84,9 +86,9 @@ export const darkTheme = {
   },
 
   fonts: {
-    sans: 'Montserrat',
-    serif: 'Merriweather',
-    mono: 'Source Code Pro',
+    sans: appFontFamilies.body,
+    serif: appFontFamilies.display,
+    mono: appFontFamilies.monospace,
   },
 
   radius: 8,

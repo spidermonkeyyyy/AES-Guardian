@@ -2,9 +2,12 @@ import React, { useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRuleStore } from '../state/use-rule-store';
 import { useTheme } from '../../../../theme/ThemeContext';
+import { isRTL, t, useLocale } from '../../../../localization';
 
 export function RulesScreen({ navigation }: { navigation: any }) {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
   const styles = createStyles(colors);
   const loadRules = useRuleStore((state) => state.loadRules);
   const setShowEnabledOnly = useRuleStore((state) => state.setShowEnabledOnly);
@@ -23,17 +26,17 @@ export function RulesScreen({ navigation }: { navigation: any }) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: 48 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Règles de surveillance</Text>
+      <View style={[styles.header, { paddingTop: 48, direction: rtl ? 'rtl' : 'ltr' }]}>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t('nurse.rules.title', locale)}</Text>
         <View style={styles.summaryRow}>
           <Text style={[styles.summaryText, { color: colors.mutedForeground }]}>
-            {enabledCount} règle{enabledCount !== 1 ? 's' : ''} active{enabledCount !== 1 ? 's' : ''} sur {rules.length}.
+            {t('nurse.rules.summary', locale).replace('{enabled}', String(enabledCount)).replace('{total}', String(rules.length))}
           </Text>
           <TouchableOpacity
             style={[styles.filterButton, { borderColor: colors.primary }]}
             onPress={() => setShowEnabledOnly(!showEnabledOnly)}
           >
-            <Text style={[styles.filterText, { color: colors.primary }]}>{showEnabledOnly ? 'Toutes' : 'Actives'}</Text>
+            <Text style={[styles.filterText, { color: colors.primary }]}>{t(showEnabledOnly ? 'nurse.rules.filterAll' : 'nurse.rules.filterActive', locale)}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -46,9 +49,9 @@ export function RulesScreen({ navigation }: { navigation: any }) {
 
       {errorMessage ? (
         <View style={styles.stateContainer}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{errorMessage}</Text>
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{t('nurse.rules.loading', locale)}</Text>
           <TouchableOpacity style={[styles.retryButton, { borderColor: colors.destructive }]} onPress={loadRules}>
-            <Text style={[styles.retryText, { color: colors.destructive }]}>Réessayer</Text>
+            <Text style={[styles.retryText, { color: colors.destructive }]}>{t('nurse.rules.retry', locale)}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -57,9 +60,9 @@ export function RulesScreen({ navigation }: { navigation: any }) {
         <View style={[styles.content, { paddingHorizontal: 24, paddingBottom: 80 }]}>
           {filteredRules.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Aucune règle</Text>
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t('nurse.rules.emptyTitle', locale)}</Text>
               <Text style={[styles.emptyMessage, { color: colors.mutedForeground }]}>
-                Créez une règle pour déclencher des alertes de surveillance.
+                {t('nurse.rules.emptyMessage', locale)}
               </Text>
             </View>
           ) : (
@@ -73,7 +76,7 @@ export function RulesScreen({ navigation }: { navigation: any }) {
                   <Text style={[styles.ruleName, { color: colors.foreground }]}>{rule.name}</Text>
                   <View style={[styles.statusBadge, rule.enabled ? styles.statusActive : styles.statusInactive]}>
                     <Text style={[styles.statusText, rule.enabled ? styles.statusTextActive : styles.statusTextInactive]}>
-                      {rule.enabled ? 'Active' : 'Inactive'}
+                      {t(rule.enabled ? 'nurse.rules.active' : 'nurse.rules.inactive', locale)}
                     </Text>
                   </View>
                 </View>
@@ -99,7 +102,7 @@ export function RulesScreen({ navigation }: { navigation: any }) {
             style={[styles.fab, { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 24, alignItems: 'center', marginTop: 16 }]}
             onPress={() => navigation.navigate('ruleBuilder', { ruleId: 'new' })}
           >
-            <Text style={[styles.fabText, { color: colors.primaryForeground }]}>+ Nouvelle règle</Text>
+            <Text style={[styles.fabText, { color: colors.primaryForeground }]}>{t('nurse.rules.create', locale)}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -108,7 +111,7 @@ export function RulesScreen({ navigation }: { navigation: any }) {
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1 },
   header: { padding: 24 },
   title: { fontFamily: 'Urbanist', fontSize: 28, fontWeight: '700', marginBottom: 12 },
@@ -140,6 +143,6 @@ function createStyles(colors: any) {
   emptyMessage: { fontFamily: 'Urbanist', fontSize: 14, textAlign: 'center' },
   fab: {},
   fabText: { fontFamily: 'Urbanist', fontSize: 16, fontWeight: '600' },
-}
+});
 
 }

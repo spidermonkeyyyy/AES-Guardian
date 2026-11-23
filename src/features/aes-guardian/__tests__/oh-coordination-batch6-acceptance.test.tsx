@@ -50,6 +50,7 @@ import {
   useDemoRoleStore,
   type AesGuardianDatabase,
 } from '../../../core';
+import { setLocale, t } from '../../../localization';
 
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
@@ -81,6 +82,7 @@ describe('Phase 2E.1.6.1: Batch 6 OH Coordination Acceptance Tests', () => {
   let techUserId: number;
 
   beforeEach(async () => {
+    setLocale('fr');
     const { clearAllMockStores } = require('../../../../__mocks__/@op-engineering/op-sqlite');
     clearAllMockStores();
     jest.clearAllMocks();
@@ -165,6 +167,22 @@ describe('Phase 2E.1.6.1: Batch 6 OH Coordination Acceptance Tests', () => {
         expect(component.getByTestId('oh-coordination-queue-screen')).toBeTruthy();
         expect(component.getByText('AES-2025-00101')).toBeTruthy();
       });
+    });
+
+    it('does not expose declaration database IDs when a reference is missing', async () => {
+      await seedDeclaration(111, exposedUserId);
+      await seedCoordinationWithStatus(111, 'pending_acknowledgement');
+      await (db as any).db.execute(
+        'UPDATE aes_declarations SET reference_number = ? WHERE id = ?',
+        ['', 111],
+      );
+
+      const component = render(<OhCoordinationQueueScreen />);
+
+      await waitFor(() => {
+        expect(component.getByText(t('oh.detail.noReference', 'fr'))).toBeTruthy();
+      });
+      expect(component.queryByText('#111')).toBeNull();
     });
 
     it('2. The screen requests { includeCompleted: true } from the repository', async () => {
@@ -484,6 +502,7 @@ describe('Phase 2E.1.6.1: Batch 6 OH Coordination Acceptance Tests', () => {
         expect(component.getByTestId('create-coordination-screen')).toBeTruthy();
         expect(component.getByTestId('create-oh-reason-routine_followup')).toBeTruthy();
       });
+      expect(component.queryByText('Décl. #1201')).toBeNull();
 
       // Select 'serology_monitoring'
       fireEvent.press(component.getByTestId('create-oh-reason-serology_monitoring'));
@@ -544,6 +563,30 @@ describe('Phase 2E.1.6.1: Batch 6 OH Coordination Acceptance Tests', () => {
       expect(spy).toHaveBeenCalledTimes(1);
     });
 
+    it('rechecks the active role before confirming coordination creation', async () => {
+      await seedDeclaration(1302, exposedUserId, 'AES-ROLE-CHANGE');
+      useDemoRoleStore.getState().setRole('admin_reviewer');
+      mockRouteParams = { declarationId: 1302 };
+
+      const createSpy = jest.spyOn(db, 'createOhCoordination');
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      const component = render(<CreateCoordinationScreen />);
+
+      fireEvent.press(component.getByTestId('create-oh-submit-button'));
+      const confirmButton = alertSpy.mock.calls[0][2]![1];
+      useDemoRoleStore.getState().setRole('exposed_professional');
+
+      await act(async () => {
+        await confirmButton.onPress!();
+      });
+
+      expect(createSpy).not.toHaveBeenCalled();
+      expect(alertSpy).toHaveBeenLastCalledWith(
+        "Une erreur s'est produite",
+        'Accès non autorisé à cette action de coordination.',
+      );
+    });
+
     it('18. Repository failure handles duplicate active coordination without false success', async () => {
       await seedDeclaration(1401, exposedUserId, 'AES-ALREADY-ACTIVE');
       await seedCoordinationWithStatus(1401, 'pending_acknowledgement');
@@ -589,6 +632,9 @@ describe('Phase 2E.1.6.1: Batch 6 OH Coordination Acceptance Tests', () => {
       await waitFor(() => {
         expect(component.getByTestId('record-follow-up-event-screen')).toBeTruthy();
       });
+      expect(
+        component.queryByText(`${t('oh.detail.title', 'fr')} #${coordId}`),
+      ).toBeNull();
 
       // Select 'consultation_recorded'
       fireEvent.press(component.getByTestId('oh-event-category-consultation_recorded'));
@@ -782,6 +828,9 @@ describe('Phase 2E.1.6.1: Batch 6 OH Coordination Acceptance Tests', () => {
       mockRouteParams = { coordinationId: 100 };
       const eventComp = render(<OhFollowUpEventScreen />);
       const dateInput = eventComp.getByTestId('oh-event-date-input');
+      expect(dateInput.props.placeholder).toBe(
+        t('oh.event.datePlaceholder', 'fr'),
+      );
       const inputStyle = Array.isArray(dateInput.props.style)
         ? Object.assign({}, ...dateInput.props.style.filter(Boolean))
         : dateInput.props.style;

@@ -225,7 +225,7 @@ export const OhCoordinationDetailScreen: React.FC = () => {
   const declRef =
     'declaration_reference' in coordination && coordination.declaration_reference
       ? coordination.declaration_reference
-      : `Décl. #${coordination.declaration_id}`;
+      : t('oh.detail.noReference');
 
   const isActive =
     coordination.status === 'pending_acknowledgement' ||

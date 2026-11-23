@@ -50,13 +50,45 @@ import {
   canReview,
   useDemoRoleStore,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale, TranslationKey } from '../../../localization';
 
 type ParamList = {
   adminReviewAction: { declarationId: number };
 };
 
+const DATE_LOCALES = {
+  fr: 'fr-FR',
+  en: 'en-GB',
+  ar: 'ar',
+} as const;
+
+const INCIDENT_TYPE_LABELS: Record<string, TranslationKey> = {
+  percutaneous_exposure: 'form.incidentType.percutaneous',
+  mucocutaneous_exposure: 'form.incidentType.mucocutaneous',
+  sexual_assault: 'form.incidentType.sexual_assault',
+  other: 'form.incidentType.other',
+};
+
+function formatReviewDate(
+  value: string,
+  locale: keyof typeof DATE_LOCALES,
+  includeTime = false,
+): string {
+  const dateInput = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return value;
+  const options = { day: '2-digit', month: '2-digit', year: 'numeric' } as const;
+  return includeTime
+    ? date.toLocaleString(DATE_LOCALES[locale], {
+        ...options,
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : date.toLocaleDateString(DATE_LOCALES[locale], options);
+}
+
 export const AdminReviewActionScreen: React.FC = () => {
+  const locale = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'adminReviewAction'>>();
   const { declarationId } = route.params;
@@ -118,7 +150,7 @@ export const AdminReviewActionScreen: React.FC = () => {
     ) {
       Alert.alert(
         t('error.generic'),
-        `Cette déclaration a le statut "${declaration.status}" et ne peut pas faire l'objet d'une révision.`,
+        t('review.notReviewable'),
       );
       return;
     }
@@ -174,13 +206,15 @@ export const AdminReviewActionScreen: React.FC = () => {
                 t('review.success'),
                 [
                   {
-                    text: 'OK',
+                    text: t('app.ok'),
                     onPress: () => navigation.goBack(),
                   },
                 ],
               );
-            } catch (err: any) {
-              Alert.alert(t('error.saveFailed'), err?.message || t('error.generic'));
+            } catch (error: unknown) {
+              const message =
+                error instanceof Error ? error.message : t('error.generic');
+              Alert.alert(t('error.saveFailed'), message);
             } finally {
               setSubmitting(false);
             }
@@ -254,7 +288,7 @@ export const AdminReviewActionScreen: React.FC = () => {
     <AesScreenContainer scrollable testID="admin-review-action-screen">
       <AesScreenHeader
         title={t('review.title')}
-        subtitle={declaration.reference_number ?? `#${declaration.id}`}
+        subtitle={declaration.reference_number ?? t('list.refUnavailable', locale)}
         onBack={() => navigation.goBack()}
       />
 
@@ -277,7 +311,7 @@ export const AdminReviewActionScreen: React.FC = () => {
               {t('details.incidentDate')} :
             </Text>
             <Text style={styles.detailValue}>
-              {declaration.incident_date}
+              {formatReviewDate(declaration.incident_date, locale)}
             </Text>
           </View>
 
@@ -286,7 +320,9 @@ export const AdminReviewActionScreen: React.FC = () => {
               {t('details.incidentType')} :
             </Text>
             <Text style={styles.detailValue}>
-              {declaration.incident_type}
+              {INCIDENT_TYPE_LABELS[declaration.incident_type]
+                ? t(INCIDENT_TYPE_LABELS[declaration.incident_type], locale)
+                : '—'}
             </Text>
           </View>
 
@@ -335,7 +371,7 @@ export const AdminReviewActionScreen: React.FC = () => {
             </Text>
             <Text style={styles.responseHighlightDate}>
               {t('reviewQueue.submittedAt')}{' '}
-              {new Date(correctionResponses[0].responded_at).toLocaleString()}
+              {formatReviewDate(correctionResponses[0].responded_at, locale, true)}
             </Text>
           </View>
         )}
@@ -358,7 +394,9 @@ export const AdminReviewActionScreen: React.FC = () => {
                     {t(`review.outcome.${rev.outcome}` as any)}
                   </Text>
                   <Text style={styles.historyDate}>
-                    {rev.reviewed_at ? new Date(rev.reviewed_at).toLocaleDateString() : ''}
+                    {rev.reviewed_at
+                      ? formatReviewDate(rev.reviewed_at, locale)
+                      : ''}
                   </Text>
                 </View>
 

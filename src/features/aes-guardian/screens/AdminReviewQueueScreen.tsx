@@ -45,12 +45,37 @@ import {
   canReview,
   useDemoRoleStore,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale } from '../../../localization';
 
 type FilterType = 'all' | 'submitted' | 'under_review' | 'correction_requested' | 'resubmitted';
 
+const DATE_LOCALES = {
+  fr: 'fr-FR',
+  en: 'en-GB',
+  ar: 'ar',
+} as const;
+
+function formatQueueDate(value: string, locale: keyof typeof DATE_LOCALES, includeTime = false) {
+  const dateInput = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return value;
+  const dateOptions = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  } as const;
+  return includeTime
+    ? date.toLocaleString(DATE_LOCALES[locale], {
+        ...dateOptions,
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : date.toLocaleDateString(DATE_LOCALES[locale], dateOptions);
+}
+
 export const AdminReviewQueueScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const locale = useLocale();
 
   // Active context from demo role store
   const { activeContext } = useDemoRoleStore();
@@ -73,8 +98,8 @@ export const AdminReviewQueueScreen: React.FC = () => {
       const db = getDatabase();
       const items = await db.getReviewQueue({ limit: 100, requestingUserId: reviewerContext.userId });
       setDeclarations(items);
-    } catch (err: any) {
-      setError(err?.message || t('error.loadFailed'));
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : t('error.loadFailed', locale));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -123,7 +148,7 @@ export const AdminReviewQueueScreen: React.FC = () => {
         style={styles.card}
         onPress={() => navigation.navigate('adminReviewAction', { declarationId: item.id })}
         accessibilityRole="button"
-        accessibilityLabel={`Revue déclaration ${item.reference_number}`}
+        accessibilityLabel={`${t('reviewQueue.openReview', locale)} ${item.reference_number}`}
         activeOpacity={0.85}
       >
         <View style={styles.cardHeader}>
@@ -134,13 +159,15 @@ export const AdminReviewQueueScreen: React.FC = () => {
         <View style={styles.cardBody}>
           <View style={styles.metaRow}>
             <Text style={styles.metaLabel}>{t('list.incidentDate')} :</Text>
-            <Text style={styles.metaValue}>{item.incident_date}</Text>
+            <Text style={styles.metaValue}>{formatQueueDate(item.incident_date, locale)}</Text>
           </View>
 
           {item.submitted_at && (
             <View style={styles.metaRow}>
               <Text style={styles.metaLabel}>{t('reviewQueue.submittedAt')}</Text>
-              <Text style={styles.metaValue}>{item.submitted_at}</Text>
+              <Text style={styles.metaValue}>
+                {formatQueueDate(item.submitted_at, locale, true)}
+              </Text>
             </View>
           )}
 
@@ -185,7 +212,7 @@ export const AdminReviewQueueScreen: React.FC = () => {
             {t('reviewQueue.reviewerBadge')}
           </Text>
           <Text style={styles.sessionSubtitle}>
-            {reviewerContext.displayName} ({t(`role.${reviewerContext.role}` as any)})
+            {reviewerContext.displayName} ({t(`role.${reviewerContext.role}` as any, locale)})
           </Text>
         </View>
       </View>
@@ -221,6 +248,7 @@ export const AdminReviewQueueScreen: React.FC = () => {
                 ]}
                 onPress={() => setFilter(f)}
                 accessibilityRole="button"
+                accessibilityLabel={t(labelKey as any, locale)}
                 accessibilityState={{ selected: isSelected }}
               >
                 <Text
@@ -229,7 +257,7 @@ export const AdminReviewQueueScreen: React.FC = () => {
                     isSelected ? styles.filterTextActive : styles.filterTextInactive,
                   ]}
                 >
-                  {t(labelKey as any)}
+                  {t(labelKey as any, locale)}
                 </Text>
               </TouchableOpacity>
             );

@@ -1,13 +1,13 @@
-import React, { useRef, useState } from 'react';
+import AppTextInput from '../../../components/AppTextInput';
+import AppText from '../../../components/AppText';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '../../../components/AppIcon';
 import {
   getDatabase,
   useDemoRoleStore,
@@ -17,8 +17,16 @@ import {
   PREVENTION_ACTION_TYPES,
   CONTRIBUTING_FACTOR_CATEGORIES,
   CreatePreventionActionInput,
+  PreventionActionCreationUncertainError,
+  CapaCreationOperation,
 } from '../../../core';
-import { isRTL, t, useLocale } from '../../../localization';
+import {
+  t,
+  useLocale,
+  useLayoutDirection,
+  getLayoutRowDirection,
+  getLayoutTextAlign,
+} from '../../../localization';
 import { aesColors, aesSpacing, aesRadii, aesTypography } from '../../../theme/tokens';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -36,7 +44,10 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 export const PreventionActionCreateScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
   const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rtl = layoutDirection === 'rtl';
+  const rowDirection = getLayoutRowDirection(layoutDirection);
+  const textAlign = getLayoutTextAlign(layoutDirection);
   const styles = createStyles(rtl);
   const { activeContext } = useDemoRoleStore();
   const isAuthorized = canManagePreventionActions(activeContext);
@@ -50,9 +61,21 @@ export const PreventionActionCreateScreen: React.FC = () => {
   const [targetDate, setTargetDate] = useState('');
   const [survRef, setSurvRef] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [error, setError] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
+  const [confirmedAbsent, setConfirmedAbsent] = useState(false);
+  const [operationId, setOperationId] = useState<string | null>(null);
+  const [operationIntent, setOperationIntent] = useState<'new' | 'retry' | null>(null);
+  const [recoveryConflict, setRecoveryConflict] = useState(false);
+  const [recoveredCommittedAction, setRecoveredCommittedAction] = useState<any | null>(null);
+  const [presentedAction, setPresentedAction] = useState<any | null>(null);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [acknowledgementError, setAcknowledgementError] = useState(false);
   const [validation, setValidation] = useState<string[]>([]);
   const submissionLock = useRef(false);
+  const acknowledgementLock = useRef(false);
+  const creationReference = useRef<string | null>(null);
 
   const validate = (): string[] => {
     const messages: string[] = [];
@@ -74,8 +97,127 @@ export const PreventionActionCreateScreen: React.FC = () => {
     return messages;
   };
 
+  const createInput = (): CreatePreventionActionInput => ({
+    title: title.trim(),
+    description: description.trim(),
+    action_type: actionType,
+    contributing_factor: factor,
+    rationale: rationale.trim(),
+    target_date: targetDate.trim() || undefined,
+    surveillance_reference: survRef.trim() || undefined,
+  });
+
+  useEffect(() => {
+    if (!isAuthorized || !userId) return;
+    let cancelled = false;
+    const db = getDatabase() as any;
+    if (
+      typeof db.listPendingCapaCreationOperations !== 'function' &&
+      typeof db.listUnacknowledgedCommittedCapaCreationOperations !== 'function'
+    ) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    Promise.all([
+      typeof db.listPendingCapaCreationOperations === 'function'
+        ? db.listPendingCapaCreationOperations(userId)
+        : Promise.resolve([]),
+      typeof db.listUnacknowledgedCommittedCapaCreationOperations === 'function'
+        ? db.listUnacknowledgedCommittedCapaCreationOperations(userId)
+        : Promise.resolve([]),
+    ])
+      .then(async ([pending, committed]: [CapaCreationOperation[], CapaCreationOperation[]]) => {
+        if (cancelled) return;
+        if (pending.length + committed.length > 1) {
+          setRecoveryConflict(true);
+          setError(true);
+          return;
+        }
+        if (pending.length === 1) {
+          const operation = pending[0];
+          let payload: CreatePreventionActionInput;
+          try {
+            payload = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
+          } catch {
+            setError(true);
+            setRecoveryConflict(true);
+            return;
+          }
+          setTitle(payload.title);
+          setDescription(payload.description);
+          setActionType(payload.action_type);
+          setFactor(payload.contributing_factor);
+          setRationale(payload.rationale);
+          setTargetDate(payload.target_date ?? '');
+          setSurvRef(payload.surveillance_reference ?? '');
+          setOperationId(operation.operation_id);
+          setOperationIntent('retry');
+          creationReference.current = operation.reference_code;
+        } else if (committed.length === 1) {
+          const operation = committed[0];
+          let payload: CreatePreventionActionInput;
+          try {
+            payload = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
+          } catch {
+            setRecoveryConflict(true);
+            setError(true);
+            return;
+          }
+          if (typeof db.reconcileCapaCreationOperation === 'function') {
+            const action = await db.reconcileCapaCreationOperation(
+              userId,
+              operation.operation_id,
+              payload,
+            );
+            if (!cancelled && action) {
+              setOperationId(operation.operation_id);
+              setOperationIntent('retry');
+              setRecoveredCommittedAction(action);
+              setPresentedAction(action);
+            }
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthorized, userId]);
+
+  const handleConfirmPresentation = async () => {
+    if (
+      !presentedAction ||
+      !operationId ||
+      !isAuthorized ||
+      !userId ||
+      acknowledging ||
+      acknowledgementLock.current
+    ) return;
+    acknowledgementLock.current = true;
+    setAcknowledging(true);
+    setAcknowledgementError(false);
+    try {
+      await getDatabase().acknowledgeCapaCreationOperation(userId, operationId);
+      setPresentedAction(null);
+      setRecoveredCommittedAction(null);
+      setOperationId(null);
+      setOperationIntent(null);
+      creationReference.current = null;
+      setAcknowledgementError(false);
+      navigation.goBack();
+    } catch {
+      setAcknowledgementError(true);
+    } finally {
+      acknowledgementLock.current = false;
+      setAcknowledging(false);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (submissionLock.current) return;
+    if (submissionLock.current || uncertain || recoveryConflict) return;
     if (!isAuthorized || !userId) {
       setError(true);
       return;
@@ -90,26 +232,98 @@ export const PreventionActionCreateScreen: React.FC = () => {
 
     setValidation([]);
     setError(false);
+    setConfirmedAbsent(false);
     submissionLock.current = true;
     setSubmitting(true);
     try {
-      const db = getDatabase();
-      const input: CreatePreventionActionInput = {
-        title: title.trim(),
-        description: description.trim(),
-        action_type: actionType,
-        contributing_factor: factor,
-        rationale: rationale.trim(),
-        target_date: targetDate.trim() || undefined,
-        surveillance_reference: survRef.trim() || undefined,
-      };
-      await db.createPreventionAction(userId, input);
-      navigation.goBack();
+      const db = getDatabase() as any;
+      let activeOperationId = operationId;
+      let operationReference = creationReference.current;
+      let stageIntent: 'new' | 'retry' =
+        operationIntent ?? (activeOperationId ? 'retry' : 'new');
+      if (!activeOperationId && typeof db.reserveCapaCreationOperation === 'function') {
+        activeOperationId = db.createCapaCreationOperationId();
+        setOperationIntent('new');
+        stageIntent = 'new';
+        const reserved = await db.reserveCapaCreationOperation(
+          userId,
+          createInput(),
+          activeOperationId,
+          undefined,
+          'new',
+        );
+        operationReference = reserved.reference_code;
+        setOperationId(reserved.operation_id);
+        creationReference.current = reserved.reference_code;
+      }
+      if (
+        activeOperationId &&
+        typeof db.createPreventionActionForOperation === 'function'
+      ) {
+        const action = await db.createPreventionActionForOperation(
+          userId,
+          createInput(),
+          activeOperationId,
+          operationReference || db.createPreventionActionReferenceCode(),
+          stageIntent,
+        );
+        setPresentedAction(action);
+      }
+    } catch (caught) {
+      setError(true);
+      if (creationReference.current) {
+        setOperationIntent('retry');
+      }
+      if (caught instanceof PreventionActionCreationUncertainError) {
+        creationReference.current = caught.referenceCode ?? null;
+        if (caught.operationId) setOperationId(caught.operationId);
+        setOperationIntent('retry');
+        setUncertain(true);
+      }
+    } finally {
+      submissionLock.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const handleReconcile = async () => {
+    if (
+      submissionLock.current ||
+      !uncertain ||
+      !isAuthorized ||
+      !userId ||
+      (!operationId && !creationReference.current)
+    ) return;
+    submissionLock.current = true;
+    setReconciling(true);
+    try {
+      const db = getDatabase() as any;
+      const action =
+        typeof db.reconcileCapaCreationOperation === 'function' && operationId
+          ? await db.reconcileCapaCreationOperation(
+              userId,
+              operationId,
+              createInput(),
+            )
+          : await db.reconcilePreventionActionCreation(
+              userId,
+              createInput(),
+              creationReference.current,
+            );
+      if (action) {
+        setPresentedAction(action);
+        setUncertain(false);
+        setError(false);
+        return;
+      }
+      setUncertain(false);
+      setError(true);
+      setConfirmedAbsent(true);
     } catch {
       setError(true);
     } finally {
       submissionLock.current = false;
-      setSubmitting(false);
+      setReconciling(false);
     }
   };
 
@@ -133,7 +347,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             accessibilityLabel={t('app.back', locale)}
           >
             <Icon
-              name={rtl ? 'chevron-right' : 'chevron-left'}
+              name="back-chevron"
               size={24}
               color={aesColors.textPrimary}
             />
@@ -143,15 +357,17 @@ export const PreventionActionCreateScreen: React.FC = () => {
 
       {!isAuthorized ? (
         <AesCard testID="prevention-create-denied" style={styles.deniedCard}>
-          <Text style={styles.deniedText}>{t('prevention.create.denied', locale)}</Text>
+          <AppText style={styles.deniedText}>{t('prevention.create.denied', locale)}</AppText>
         </AesCard>
       ) : (
         <View testID="prevention-create-content" style={styles.form}>
           <AesCard style={styles.sectionCard}>
-            <Text style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.actionTitle', locale)}</Text>
-            <TextInput
+            <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.actionTitle', locale)}</AppText>
+            <AppTextInput
               testID="prevention-create-title-input"
-              style={[styles.input, rtl && styles.rtlText]}
+              accessibilityLabel={t('prevention.create.actionTitle', locale)}
+              editable={!uncertain}
+              style={[styles.input, rtl && styles.rtlText, { textAlign: 'left', writingDirection: 'ltr' }]}
               value={title}
               onChangeText={(value) => {
                 setTitle(value);
@@ -159,12 +375,14 @@ export const PreventionActionCreateScreen: React.FC = () => {
               }}
               placeholder={t('prevention.create.placeholder.title', locale)}
               placeholderTextColor={aesColors.textTertiary}
-              textAlign={rtl ? 'right' : 'left'}
+              textAlign={textAlign}
             />
 
-            <Text style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.description', locale)}</Text>
-            <TextInput
+            <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.description', locale)}</AppText>
+            <AppTextInput
               testID="prevention-create-description-input"
+              accessibilityLabel={t('prevention.create.description', locale)}
+              editable={!uncertain}
               style={[styles.input, styles.multiline, rtl && styles.rtlText]}
               value={description}
               onChangeText={(value) => {
@@ -175,20 +393,21 @@ export const PreventionActionCreateScreen: React.FC = () => {
               placeholderTextColor={aesColors.textTertiary}
               multiline
               numberOfLines={4}
-              textAlign={rtl ? 'right' : 'left'}
+              textAlign={textAlign}
               textAlignVertical="top"
             />
           </AesCard>
 
           <AesCard style={styles.sectionCard}>
-            <Text style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.action_type', locale)}</Text>
-            <View style={styles.optionRow}>
+            <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.action_type', locale)}</AppText>
+            <View style={[styles.optionRow, { flexDirection: rowDirection }]}>
               {PREVENTION_ACTION_TYPES.map((type) => (
                 <AesOptionCard
                   key={type}
                   testID={`prevention-create-action-type-${type}`}
                   title={t(`prevention.create.${type}`, locale)}
                   selected={actionType === type}
+                  disabled={uncertain}
                   onPress={() => setActionType(type)}
                   style={styles.optionCard}
                 />
@@ -197,19 +416,20 @@ export const PreventionActionCreateScreen: React.FC = () => {
           </AesCard>
 
           <AesCard style={styles.sectionCard}>
-            <Text style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.factor.label', locale)}</Text>
+            <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.factor.label', locale)}</AppText>
             <View style={styles.factorDisclaimer}>
-              <Text style={[styles.factorDisclaimerText, rtl && styles.rtlText]}>
+              <AppText style={[styles.factorDisclaimerText, rtl && styles.rtlText]}>
                 {t('prevention.create.factor.disclaimer', locale)}
-              </Text>
+              </AppText>
             </View>
-            <View style={styles.factorGrid}>
+            <View style={[styles.factorGrid, { flexDirection: rowDirection }]}>
               {CONTRIBUTING_FACTOR_CATEGORIES.map((category) => (
                 <AesOptionCard
                   key={category}
                   testID={`prevention-create-factor-${category}`}
                   title={t(`prevention.factor.${category}`, locale)}
                   selected={factor === category}
+                  disabled={uncertain}
                   onPress={() => setFactor(category)}
                   variant="radio"
                   style={styles.factorOption}
@@ -219,9 +439,11 @@ export const PreventionActionCreateScreen: React.FC = () => {
           </AesCard>
 
           <AesCard style={styles.sectionCard}>
-            <Text style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.rationale', locale)}</Text>
-            <TextInput
+            <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.rationale', locale)}</AppText>
+            <AppTextInput
               testID="prevention-create-rationale-input"
+              accessibilityLabel={t('prevention.create.rationale', locale)}
+              editable={!uncertain}
               style={[styles.input, styles.multiline, rtl && styles.rtlText]}
               value={rationale}
               onChangeText={(value) => {
@@ -232,13 +454,15 @@ export const PreventionActionCreateScreen: React.FC = () => {
               placeholderTextColor={aesColors.textTertiary}
               multiline
               numberOfLines={3}
-              textAlign={rtl ? 'right' : 'left'}
+              textAlign={textAlign}
               textAlignVertical="top"
             />
 
-            <Text style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.target_date', locale)}</Text>
-            <TextInput
+            <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.target_date', locale)}</AppText>
+            <AppTextInput
               testID="prevention-create-target-date-input"
+              accessibilityLabel={t('prevention.create.target_date', locale)}
+              editable={!uncertain}
               style={[styles.input, rtl && styles.rtlText]}
               value={targetDate}
               onChangeText={(value) => {
@@ -247,13 +471,15 @@ export const PreventionActionCreateScreen: React.FC = () => {
               }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={aesColors.textTertiary}
-              textAlign={rtl ? 'right' : 'left'}
+              textAlign="left"
             />
 
-            <Text style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.surveillance_reference', locale)}</Text>
-            <TextInput
+            <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.surveillance_reference', locale)}</AppText>
+            <AppTextInput
               testID="prevention-create-surveillance-reference-input"
-              style={[styles.input, rtl && styles.rtlText]}
+              accessibilityLabel={t('prevention.create.surveillance_reference', locale)}
+              editable={!uncertain}
+              style={[styles.input, rtl && styles.rtlText, { textAlign: 'left', writingDirection: 'ltr' }]}
               value={survRef}
               onChangeText={(value) => {
                 setSurvRef(value);
@@ -261,39 +487,98 @@ export const PreventionActionCreateScreen: React.FC = () => {
               }}
               placeholder={t('prevention.create.placeholder.surveillanceReference', locale)}
               placeholderTextColor={aesColors.textTertiary}
-              textAlign={rtl ? 'right' : 'left'}
+              textAlign="left"
             />
           </AesCard>
+
+          {presentedAction ? (
+            <AesCard testID="prevention-create-result" style={styles.errorCard}>
+              <AppText style={[styles.errorText, rtl && styles.rtlText]}>
+                {t('prevention.create.result.title', locale)}
+              </AppText>
+              {recoveredCommittedAction ? (
+                <AppText style={[styles.errorText, rtl && styles.rtlText]}>
+                  {t('prevention.create.result.recovery', locale)}
+                </AppText>
+              ) : null}
+              <AppText style={[styles.errorText, rtl && styles.rtlText]}>
+                {t('prevention.create.reference', locale)}: {presentedAction.reference_code}
+              </AppText>
+              {acknowledgementError ? (
+                <AppText
+                  testID="prevention-create-acknowledgement-error"
+                  style={[styles.errorText, rtl && styles.rtlText]}
+                >
+                  {t('prevention.create.acknowledgement.error', locale)}
+                </AppText>
+              ) : null}
+              <AesButton
+                testID="prevention-create-confirm-presentation"
+                title={
+                  acknowledging
+                    ? t('prevention.create.acknowledgement.inProgress', locale)
+                    : t('prevention.create.acknowledgement.confirm', locale)
+                }
+                accessibilityLabel={t('prevention.create.acknowledgement.confirm', locale)}
+                onPress={handleConfirmPresentation}
+                variant="green"
+                loading={acknowledging}
+                disabled={acknowledging}
+              />
+            </AesCard>
+          ) : null}
 
           {validation.length > 0 ? (
             <AesCard testID="prevention-create-validation" style={styles.errorCard}>
               {validation.map((message) => (
-                <Text key={message} style={[styles.errorText, rtl && styles.rtlText]}>{message}</Text>
+                <AppText key={message} style={[styles.errorText, rtl && styles.rtlText]}>{message}</AppText>
               ))}
             </AesCard>
           ) : null}
 
           {error ? (
             <AesCard testID="prevention-create-error" style={styles.errorCard}>
-              <Text style={[styles.errorText, rtl && styles.rtlText]}>
-                {t('prevention.create.error', locale)}
-              </Text>
-              <AesButton
-                testID="prevention-create-retry"
-                title={t('prevention.create.retry', locale)}
-                onPress={handleSubmit}
-                variant="outline"
-                disabled={submitting}
-              />
+              <AppText style={[styles.errorText, rtl && styles.rtlText]}>
+                {recoveryConflict
+                  ? t('prevention.create.error', locale)
+                  : uncertain
+                  ? t('prevention.create.uncertain', locale)
+                  : confirmedAbsent
+                    ? t('prevention.create.reconcileAbsent', locale)
+                    : t('prevention.create.error', locale)}
+              </AppText>
+              {uncertain ? (
+                <>
+                  <AppText style={[styles.errorText, rtl && styles.rtlText]}>
+                    {t('prevention.create.reference', locale)}: {creationReference.current}
+                  </AppText>
+                  <AesButton
+                    testID="prevention-create-reconcile"
+                    title={t('prevention.create.reconcile', locale)}
+                    onPress={handleReconcile}
+                    variant="outline"
+                    loading={reconciling}
+                    disabled={submitting || reconciling}
+                  />
+                </>
+              ) : (
+                <AesButton
+                  testID="prevention-create-retry"
+                  title={t('prevention.create.retry', locale)}
+                  onPress={handleSubmit}
+                  variant="outline"
+                  disabled={submitting || reconciling}
+                />
+              )}
             </AesCard>
           ) : null}
 
           {submitting ? (
             <View testID="prevention-create-loading" style={styles.loadingRow}>
               <ActivityIndicator color={aesColors.accentGreen} />
-              <Text style={[styles.loadingText, rtl && styles.rtlText]}>
+              <AppText style={[styles.loadingText, rtl && styles.rtlText]}>
                 {t('prevention.create.submitting', locale)}
-              </Text>
+              </AppText>
             </View>
           ) : null}
 
@@ -303,7 +588,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             onPress={handleSubmit}
             variant="green"
             loading={submitting}
-            disabled={submitting}
+            disabled={submitting || reconciling || uncertain || recoveryConflict || !!presentedAction}
           />
         </View>
       )}

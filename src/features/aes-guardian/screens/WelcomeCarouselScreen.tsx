@@ -34,7 +34,6 @@ import { RootStackParamList } from '../../../navigation/routes';
 interface CarouselSlideData {
   iconName: string;
   titleKey: TranslationKey;
-  descKey: TranslationKey;
   bulletKeys: [TranslationKey, TranslationKey, TranslationKey];
   badgeText: string;
 }
@@ -43,7 +42,6 @@ const SLIDES: CarouselSlideData[] = [
   {
     iconName: 'shield',
     titleKey: 'onboarding.carousel.slide1.title',
-    descKey: 'onboarding.carousel.slide1.desc',
     bulletKeys: [
       'onboarding.carousel.slide1.bullet1',
       'onboarding.carousel.slide1.bullet2',
@@ -54,7 +52,6 @@ const SLIDES: CarouselSlideData[] = [
   {
     iconName: 'activity',
     titleKey: 'onboarding.carousel.slide2.title',
-    descKey: 'onboarding.carousel.slide2.desc',
     bulletKeys: [
       'onboarding.carousel.slide2.bullet1',
       'onboarding.carousel.slide2.bullet2',
@@ -65,7 +62,6 @@ const SLIDES: CarouselSlideData[] = [
   {
     iconName: 'bar-chart-2',
     titleKey: 'onboarding.carousel.slide3.title',
-    descKey: 'onboarding.carousel.slide3.desc',
     bulletKeys: [
       'onboarding.carousel.slide3.bullet1',
       'onboarding.carousel.slide3.bullet2',
@@ -134,15 +130,6 @@ export const WelcomeCarouselScreen: React.FC = () => {
             ]}
           >
             {t(activeSlide.titleKey, locale)}
-          </Text>
-
-          <Text
-            style={[
-              styles.slideDesc,
-              { textAlign: rtl ? 'right' : 'left' },
-            ]}
-          >
-            {t(activeSlide.descKey, locale)}
           </Text>
 
           {/* Key Value Proposition Bullets */}
@@ -273,12 +260,6 @@ const styles = StyleSheet.create({
     ...aesTypography.heading1,
     color: aesColors.textPrimary,
     marginBottom: aesSpacing.sm,
-  },
-  slideDesc: {
-    ...aesTypography.body,
-    color: aesColors.textSecondary,
-    marginBottom: aesSpacing.xl,
-    lineHeight: 22,
   },
   bulletList: {
     gap: aesSpacing.md,

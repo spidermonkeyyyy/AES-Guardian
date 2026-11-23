@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import AppText from '../../../components/AppText';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, shapes, typography } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 import { QuestionOption, QuestionType } from '../../../types/monitoring-question';
@@ -33,10 +34,10 @@ export default function QuestionOptionCard({ option, isSelected, onTap }: Questi
         {isSelected && <View style={[styles.radioDot, { backgroundColor: colors.primaryForeground }]} />}
       </View>
       <View style={styles.textContainer}>
-        <Text style={[styles.label, { color: colors.foreground }, isSelected && { color: colors.primary, fontWeight: typography.fontWeight.semibold }]}>
+        <AppText style={[styles.label, { color: colors.foreground }, isSelected && { color: colors.primary, fontWeight: typography.fontWeight.semibold }]}>
           {option.label}
-        </Text>
-        {option.description ? <Text style={[styles.description, { color: colors.mutedForeground }]}>{option.description}</Text> : null}
+        </AppText>
+        {option.description ? <AppText style={[styles.description, { color: colors.mutedForeground }]}>{option.description}</AppText> : null}
       </View>
     </TouchableOpacity>
   );

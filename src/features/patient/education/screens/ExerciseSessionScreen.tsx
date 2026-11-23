@@ -147,7 +147,7 @@ const ExerciseSessionScreen: React.FC<{ exerciseId: string; onBack: () => void }
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   notFound: { fontSize: 18, fontWeight: '600', color: colors.primary, marginBottom: 8 },
@@ -188,7 +188,7 @@ function createStyles(colors: any) {
   statLabel: { fontSize: 11, color: colors.mutedForeground, marginTop: 2 },
   button: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 14, marginHorizontal: 16, alignItems: 'center', marginBottom: 8 },
   buttonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
-}
+});
 }
 
 export default ExerciseSessionScreen;

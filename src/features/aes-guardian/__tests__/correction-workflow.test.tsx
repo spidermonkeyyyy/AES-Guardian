@@ -105,6 +105,8 @@ describe('Phase 2C.3.1: Correction Response Workflow', () => {
       expect(
         component.getByText('Données indispensables pour l évaluation du risque.')
       ).toBeTruthy();
+      expect(component.getByText(/Données de démonstration synthétiques uniquement/)).toBeTruthy();
+      expect(component.queryByText(/exposed_professional/)).toBeNull();
       expect(
         component.getByPlaceholderText(
           'Apportez ici les précisions ou compléments demandés…'

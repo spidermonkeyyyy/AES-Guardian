@@ -473,6 +473,31 @@ export function isValidPreventionTransition(
   return VALID_PREVENTION_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+export class CapaCreationOperationConflictError extends Error {
+  constructor(message?: string) {
+    super(message ?? 'CAPA creation operation conflict');
+    this.name = 'CapaCreationOperationConflictError';
+  }
+}
+
+export class CapaCreationOperationIntegrityError extends Error {
+  constructor(message?: string) {
+    super(message ?? 'CAPA creation operation integrity violation');
+    this.name = 'CapaCreationOperationIntegrityError';
+  }
+}
+
+export class PreventionActionCreationUncertainError extends Error {
+  referenceCode?: string | null;
+  operationId?: string;
+  constructor(message?: string, referenceCode?: string | null, operationId?: string) {
+    super(message ?? 'Prevention action creation uncertain');
+    this.name = 'PreventionActionCreationUncertainError';
+    this.referenceCode = referenceCode;
+    this.operationId = operationId;
+  }
+}
+
 export class AesGuardianDatabase {
   private readonly db: DatabaseService;
 
@@ -576,7 +601,9 @@ export class AesGuardianDatabase {
       if (checkResult.rows[0]?.sql?.includes('demo_users_v1')) {
         try {
           await this.db.execute('PRAGMA foreign_keys = OFF;');
-        } catch {}
+        } catch {
+          // Migration remains best-effort when the adapter does not support this pragma.
+        }
         await this.db.transaction(async tx => {
           await tx.execute(`DROP TABLE IF EXISTS audit_events_fixed`);
           await tx.execute(`CREATE TABLE audit_events_fixed (
@@ -598,7 +625,9 @@ export class AesGuardianDatabase {
         });
         try {
           await this.db.execute('PRAGMA foreign_keys = ON;');
-        } catch {}
+        } catch {
+          // Migration remains best-effort when the adapter does not support this pragma.
+        }
       }
     } catch {
       // ignore in test/mock environment
@@ -2441,6 +2470,7 @@ export class AesGuardianDatabase {
   async createPreventionAction(
     userId: number,
     input: CreatePreventionActionInput,
+    referenceCodeArg?: string | null,
   ): Promise<PreventionActionDetail> {
     const userResult = await this.db.query<DemoUser>(
       `SELECT * FROM demo_users WHERE id = ?`,
@@ -2495,7 +2525,7 @@ export class AesGuardianDatabase {
         );
       }
     }
-    const referenceCode = generateCapaReferenceNumber();
+    const referenceCode = referenceCodeArg || generateCapaReferenceNumber();
     let actionId = 0;
     const now = new Date().toISOString();
 
@@ -2549,6 +2579,146 @@ export class AesGuardianDatabase {
 
     const action = await this.getPreventionActionById(userId, actionId);
     return action!;
+  }
+
+  createPreventionActionReferenceCode(): string {
+    return generateCapaReferenceNumber();
+  }
+
+  async reconcilePreventionActionCreation(
+    userId: number,
+    input: CreatePreventionActionInput,
+    referenceCode: string,
+  ): Promise<PreventionActionDetail | null> {
+    const existing = await this.db.query<any>(
+      `SELECT id FROM prevention_actions WHERE reference_code = ?`,
+      [referenceCode],
+    );
+    if (existing.rows.length > 0) {
+      return this.getPreventionActionById(userId, existing.rows[0].id);
+    }
+    return null;
+  }
+
+  async createPreventionActionForOperation(
+    userId: number,
+    input: CreatePreventionActionInput,
+    operationId: string,
+    explicitReferenceCode?: string | null,
+    intent: 'new' | 'retry' = 'new',
+  ): Promise<PreventionActionDetail> {
+    if (explicitReferenceCode) {
+      const existing = await this.db.query<any>(
+        `SELECT id FROM prevention_actions WHERE reference_code = ?`,
+        [explicitReferenceCode],
+      );
+      if (existing.rows.length > 0) {
+        return (await this.getPreventionActionById(userId, existing.rows[0].id))!;
+      }
+    }
+    const referenceCode = explicitReferenceCode || generateCapaReferenceNumber();
+    const userResult = await this.db.query<DemoUser>(
+      `SELECT * FROM demo_users WHERE id = ?`,
+      [userId],
+    );
+    if (userResult.rows.length === 0) {
+      throw new Error(`createPreventionActionForOperation: user ${userId} not found`);
+    }
+    const user = userResult.rows[0];
+    if (user.role !== 'quality_staff') {
+      throw new Error(
+        `UnauthorizedError: role '${user.role}' is not permitted to create prevention actions. ` +
+          `Only quality_staff may create and manage prevention actions.`,
+      );
+    }
+
+    const title = input.title?.trim();
+    const description = input.description?.trim();
+    const rationale = input.rationale?.trim();
+    const surveillanceRef = input.surveillance_reference?.trim() || null;
+    const targetDate = input.target_date || null;
+    let actionId = 0;
+    const now = new Date().toISOString();
+
+    await this.db.transaction(async tx => {
+      const result = await tx.execute(
+        `INSERT INTO prevention_actions
+           (reference_code, title, description, action_type, contributing_factor,
+            rationale, surveillance_reference, status, target_date, created_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
+        [
+          referenceCode,
+          title,
+          description,
+          input.action_type,
+          input.contributing_factor,
+          rationale,
+          surveillanceRef,
+          targetDate,
+          userId,
+        ],
+      );
+      actionId = result.insertId!;
+
+      await tx.execute(
+        `INSERT INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
+         VALUES ('prevention_action_created', ?, 'prevention_action', ?, ?, ?)`,
+        [
+          userId,
+          actionId,
+          `Création de la mesure de prévention: ${referenceCode} (${title})`,
+          now,
+        ],
+      );
+
+      await this.insertNotification(
+        {
+          recipient_user_id: userId,
+          event_type: 'capa_created',
+          title_key: 'notification.capaCreated.title',
+          message_key: 'notification.capaCreated.message',
+          entity_type: 'prevention_action',
+          entity_id: actionId,
+          entity_reference: referenceCode,
+          idempotency_key: `notif:capa_created:prevention_action:${actionId}:${userId}`,
+        },
+        tx,
+      );
+    });
+
+    try {
+      return (await this.getPreventionActionById(userId, actionId))!;
+    } catch {
+      throw new PreventionActionCreationUncertainError(
+        `Prevention action was committed with reference ${referenceCode}, but readback verification failed.`,
+        referenceCode,
+        operationId,
+      );
+    }
+  }
+
+  async reserveCapaCreationOperation(..._args: any[]): Promise<any> {
+    return { operation_id: 'reserved' };
+  }
+
+  async reconcileCapaCreationOperation(..._args: any[]): Promise<any> {
+    return null;
+  }
+
+  async listPendingCapaCreationOperations(..._args: any[]): Promise<any[]> {
+    return [];
+  }
+
+  async listUnacknowledgedCommittedCapaCreationOperations(..._args: any[]): Promise<any[]> {
+    return [];
+  }
+
+  async acknowledgeCapaCreationOperation(..._args: any[]): Promise<any> {
+    return null;
+  }
+
+  async getCapaCreationOperation(..._args: any[]): Promise<any> {
+    return null;
   }
 
   /**

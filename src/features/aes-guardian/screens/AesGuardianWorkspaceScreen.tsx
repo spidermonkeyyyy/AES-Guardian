@@ -24,6 +24,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../../theme/ThemeContext';
 import { spacing, typography, shapes } from '../../../theme/tokens';
+import type { ColorToken } from '../../../theme/tokens/colors';
 import {
   getDatabase,
   useDemoRoleStore,
@@ -39,6 +40,7 @@ interface ModuleCardProps {
   description: string;
   badge?: string;
   badgeColor?: string;
+  badgeTextColor?: string;
   onPress: () => void;
   accentColor?: string;
 }
@@ -165,7 +167,10 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         const versionRes = await db.query<{ version: number }>(
           `SELECT MAX(version) as version FROM schema_versions`,
         );
-        newStats.schemaVersion = versionRes.rows[0]?.version ?? 7;
+        const schemaVersion = versionRes.rows[0]?.version;
+        if (schemaVersion !== undefined && schemaVersion !== null) {
+          newStats.schemaVersion = schemaVersion;
+        }
       }
 
       setStats(newStats);
@@ -208,6 +213,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
     description,
     badge,
     badgeColor,
+    badgeTextColor,
     onPress,
     accentColor,
   }) => (
@@ -227,7 +233,9 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
             <Text style={styles.moduleTitle}>{title}</Text>
             {badge ? (
               <View style={[styles.badge, { backgroundColor: badgeColor ?? colors.primary }]}>
-                <Text style={styles.badgeText}>{badge}</Text>
+                <Text style={[styles.badgeText, badgeTextColor ? { color: badgeTextColor } : null]}>
+                  {badge}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -308,11 +316,10 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
       {/* Unified Demonstration Role Selector */}
       <View style={styles.roleSelectorSection}>
         <Text style={styles.sectionHeaderTitle}>{t('workspace.roleSelectorTitle')}</Text>
-        <Text style={styles.sectionHeaderSubtitle}>{t('workspace.roleSelectorSubtitle')}</Text>
-
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roleScrollView}>
           {DEMO_ROLE_DEFINITIONS.map((def) => {
             const isSelected = def.role === activeRole;
+            const roleLabel = t(def.labelKey as any) || def.defaultLabel;
             return (
               <TouchableOpacity
                 key={def.role}
@@ -322,7 +329,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
                 ]}
                 onPress={() => setRole(def.role)}
                 accessibilityRole="button"
-                accessibilityLabel={def.defaultLabel}
+                accessibilityLabel={roleLabel}
               >
                 <Text
                   style={[
@@ -330,7 +337,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
                     isSelected && styles.rolePillTextActive,
                   ]}
                 >
-                  {t(def.labelKey as any) || def.defaultLabel}
+                  {roleLabel}
                 </Text>
               </TouchableOpacity>
             );
@@ -386,7 +393,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconText="📝"
               title={t('workspace.module.newDeclaration')}
               description={t('workspace.module.newDeclarationDesc')}
-              accentColor="#10B981"
+              accentColor={colors.success}
               onPress={() => navigation.navigate('newDeclaration')}
             />
             <ModuleCard
@@ -412,8 +419,9 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               title={t('workspace.module.adminQueue')}
               description={t('workspace.module.adminQueueDesc')}
               badge={stats.adminQueueCount !== undefined ? `${stats.adminQueueCount} ${t('workspace.badgePending')}` : undefined}
-              badgeColor="#F59E0B"
-              accentColor="#F59E0B"
+              badgeColor={colors.warning}
+              badgeTextColor={colors.foreground}
+              accentColor={colors.warning}
               onPress={() => navigation.navigate('adminReviewQueue')}
             />
             <ModuleCard
@@ -426,7 +434,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconText="📊"
               title={t('workspace.module.surveillanceDashboard')}
               description={t('workspace.module.surveillanceDashboardDesc')}
-              accentColor="#6366F1"
+              accentColor={colors.info}
               onPress={() => navigation.navigate('surveillanceDashboard')}
             />
             <ModuleCard
@@ -446,8 +454,8 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               title={t('workspace.module.ohQueue')}
               description={t('workspace.module.ohQueueDesc')}
               badge={stats.ohQueueCount !== undefined ? `${stats.ohQueueCount} ${t('workspace.badgeActive')}` : undefined}
-              badgeColor="#0EA5E9"
-              accentColor="#0EA5E9"
+              badgeColor={colors.info}
+              accentColor={colors.info}
               onPress={() => navigation.navigate('ohCoordinationQueue')}
             />
             <ModuleCard
@@ -460,7 +468,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconText="📊"
               title={t('workspace.module.surveillanceDashboard')}
               description={t('workspace.module.surveillanceDashboardDesc')}
-              accentColor="#6366F1"
+              accentColor={colors.info}
               onPress={() => navigation.navigate('surveillanceDashboard')}
             />
             <ModuleCard
@@ -481,7 +489,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               description={t('workspace.module.surveillanceDashboardDesc')}
               badge={stats.surveillanceCount !== undefined ? `${stats.surveillanceCount} ${t('workspace.badgeIncidents')}` : undefined}
               badgeColor="#6366F1"
-              accentColor="#6366F1"
+              accentColor={colors.info}
               onPress={() => navigation.navigate('surveillanceDashboard')}
             />
             <ModuleCard
@@ -490,7 +498,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               description={t('workspace.module.preventionOverviewDesc')}
               badge={stats.capaCount !== undefined ? `${stats.capaCount} ${t('workspace.badgeActions')}` : undefined}
               badgeColor="#10B981"
-              accentColor="#10B981"
+              accentColor={colors.success}
               onPress={() => navigation.navigate('preventionOverview')}
             />
             <ModuleCard
@@ -520,15 +528,17 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               <Text style={styles.techCardTitle}>🔧 {t('workspace.tech.sqliteIntegrity')}</Text>
               <View style={styles.techRow}>
                 <Text style={styles.techLabel}>{t('workspace.tech.engine')} :</Text>
-                <Text style={styles.techValue}>Vanilla SQLite (@op-engineering/op-sqlite)</Text>
+                <Text style={styles.techValue}>op-sqlite</Text>
               </View>
               <View style={styles.techRow}>
                 <Text style={styles.techLabel}>{t('workspace.tech.schemaVersion')} :</Text>
-                <Text style={styles.techValue}>v{stats.schemaVersion ?? 7} (7/7 appliquées)</Text>
+                <Text style={styles.techValue}>
+                  {stats.schemaVersion != null ? `v${stats.schemaVersion}` : '—'}
+                </Text>
               </View>
               <View style={styles.techRow}>
                 <Text style={styles.techLabel}>{t('workspace.tech.fkCheck')} :</Text>
-                <Text style={[styles.techValue, { color: '#10B981', fontWeight: 'bold' }]}>
+                <Text style={[styles.techValue, { color: colors.success, fontWeight: 'bold' }]}>
                   {t('workspace.tech.fkOk')}
                 </Text>
               </View>
@@ -613,7 +623,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
   );
 };
 
-function createStyles(colors: any) {
+function createStyles(colors: ColorToken) {
   return StyleSheet.create({
     root: {
       flex: 1,
@@ -699,9 +709,9 @@ function createStyles(colors: any) {
       lineHeight: 11,
     },
     disclaimerBanner: {
-      backgroundColor: '#FEF3C7',
+      backgroundColor: colors.warningBackground,
       borderLeftWidth: 4,
-      borderLeftColor: '#F59E0B',
+      borderLeftColor: colors.warning,
       borderRadius: shapes.sm,
       padding: spacing.sm,
       marginBottom: spacing.md,
@@ -720,12 +730,12 @@ function createStyles(colors: any) {
     bannerTitle: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
-      color: '#92400E',
+      color: colors.warning,
       marginBottom: 2,
     },
     bannerSubtitle: {
       fontSize: typography.fontSize.xs - 1,
-      color: '#B45309',
+      color: colors.warning,
       lineHeight: 16,
     },
     roleSelectorSection: {
@@ -826,9 +836,9 @@ function createStyles(colors: any) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      backgroundColor: '#FEF2F2',
+      backgroundColor: colors.dangerBackground,
       borderLeftWidth: 4,
-      borderLeftColor: '#EF4444',
+      borderLeftColor: colors.danger,
       padding: spacing.sm,
       borderRadius: shapes.sm,
       marginBottom: spacing.md,
@@ -839,15 +849,15 @@ function createStyles(colors: any) {
     calloutTitle: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
-      color: '#991B1B',
+      color: colors.danger,
     },
     calloutText: {
       fontSize: typography.fontSize.xs - 1,
-      color: '#B91C1C',
+      color: colors.danger,
     },
     calloutArrow: {
       fontSize: 18,
-      color: '#991B1B',
+      color: colors.danger,
       fontWeight: 'bold',
     },
     modulesSection: {
@@ -898,7 +908,7 @@ function createStyles(colors: any) {
     },
     badgeText: {
       fontSize: typography.fontSize.xs - 2,
-      color: '#fff',
+      color: colors.primaryForeground,
       fontWeight: typography.fontWeight.bold,
     },
     moduleDescription: {
@@ -949,6 +959,9 @@ function createStyles(colors: any) {
     techValue: {
       fontSize: typography.fontSize.xs,
       color: colors.foreground,
+      flexShrink: 1,
+      marginStart: spacing.sm,
+      textAlign: 'right',
     },
     scenarioSection: {
       marginTop: spacing.xs,
@@ -1008,40 +1021,40 @@ function createStyles(colors: any) {
       fontWeight: typography.fontWeight.bold,
     },
     stepActiveBadge: {
-      backgroundColor: '#DCFCE7',
+      backgroundColor: colors.success,
       paddingHorizontal: spacing.xs,
       paddingVertical: 4,
       borderRadius: shapes.sm,
     },
     stepActiveBadgeText: {
       fontSize: typography.fontSize.xs - 2,
-      color: '#166534',
+      color: colors.successForeground,
       fontWeight: typography.fontWeight.bold,
     },
     techResetCard: {
-      backgroundColor: '#FEF2F2',
+      backgroundColor: colors.dangerBackground,
       borderRadius: shapes.md,
       borderWidth: 1,
-      borderColor: '#FCA5A5',
+      borderColor: colors.danger,
       borderLeftWidth: 4,
-      borderLeftColor: '#DC2626',
+      borderLeftColor: colors.danger,
       padding: spacing.md,
       marginBottom: spacing.sm,
     },
     techResetTitle: {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.bold,
-      color: '#991B1B',
+      color: colors.danger,
       marginBottom: spacing.xs,
     },
     techResetDesc: {
       fontSize: typography.fontSize.xs - 1,
-      color: '#B91C1C',
+      color: colors.danger,
       lineHeight: 16,
       marginBottom: spacing.sm,
     },
     techResetBtn: {
-      backgroundColor: '#DC2626',
+      backgroundColor: colors.danger,
       paddingVertical: spacing.sm,
       borderRadius: shapes.sm,
       alignItems: 'center',
@@ -1051,7 +1064,7 @@ function createStyles(colors: any) {
       opacity: 0.6,
     },
     techResetBtnText: {
-      color: '#ffffff',
+      color: colors.dangerForeground,
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
     },

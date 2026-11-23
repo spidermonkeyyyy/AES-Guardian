@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AES Guardian Localization
  *
  * Full localization for Phase 2C.2 declaration workflow.
@@ -21,6 +21,34 @@ export function isRTL(locale: SupportedLocale): boolean {
   return locale === 'ar';
 }
 
+export const LOCALE_STORAGE_KEY = '@sanad/locale';
+
+export type LayoutDirection = 'ltr' | 'rtl';
+
+export function resolveLayoutDirection(locale: unknown): LayoutDirection {
+  return locale === 'ar' ? 'rtl' : 'ltr';
+}
+
+export function getLayoutRowDirection(direction: LayoutDirection): 'row' | 'row-reverse' {
+  return direction === 'rtl' ? 'row-reverse' : 'row';
+}
+
+export function getLayoutTextAlign(direction: LayoutDirection): 'left' | 'right' {
+  return direction === 'rtl' ? 'right' : 'left';
+}
+
+export function getLayoutForwardChevron(direction: LayoutDirection): '›' | '‹' {
+  return direction === 'rtl' ? '‹' : '›';
+}
+
+export function getLayoutForwardArrow(direction: LayoutDirection): '→' | '←' {
+  return direction === 'rtl' ? '←' : '→';
+}
+
+export function getLayoutBackArrow(direction: LayoutDirection): '←' | '→' {
+  return direction === 'rtl' ? '→' : '←';
+}
+
 export const LOCALE_LABELS: Record<SupportedLocale, string> = {
   fr: 'Français',
   en: 'English',
@@ -30,10 +58,35 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
 // ─── Translation keys ─────────────────────────────────────────────────────────
 
 export type TranslationKey =
+  // Extra keys for pre-existing destination screens
+  | 'navigation.back'
+  | 'access.navigationTitle'
+  | 'workspace.nav.title'
+  | 'access.title'
+  | 'access.subtitle'
+  | 'access.signIn'
+  | 'access.signInDescription'
+  | 'access.demo'
+  | 'access.demoDescription'
+  | 'access.signInUnavailable.title'
+  | 'access.signInUnavailable.message'
+  | 'access.close'
+  | 'prevention.create.acknowledgement.confirm'
+  | 'prevention.create.acknowledgement.inProgress'
+  | 'prevention.create.acknowledgement.error'
+  | 'prevention.create.result.title'
+  | 'prevention.create.result.recovery'
+  | 'prevention.create.uncertain'
+  | 'prevention.create.reconcileAbsent'
+  | 'prevention.create.reference'
+  | 'prevention.create.reconcile'
+  | 'surveillance.filters.declarationCountLabel'
+  | 'surveillance.status.empty'
   // App
   | 'app.name'
   | 'app.loading'
   | 'app.back'
+  | 'app.ok'
   | 'app.offline'
   | 'db.initializing'
   | 'db.ready'
@@ -49,11 +102,13 @@ export type TranslationKey =
   | 'list.emptySubtitle'
   | 'list.newButton'
   | 'list.refNumber'
+  | 'list.refUnavailable'
   | 'list.incidentDate'
   | 'list.status'
   // Declaration form
   | 'form.title.new'
   | 'form.title.edit'
+  | 'form.unauthorized'
   | 'form.incidentDate'
   | 'form.incidentDate.placeholder'
   | 'form.incidentType'
@@ -143,8 +198,6 @@ export type TranslationKey =
   | 'confirm.message'
   | 'confirm.disclaimer'
   | 'confirm.backToList'
-  | 'confirm.copy'
-  | 'confirm.copied'
   // Errors
   | 'error.generic'
   | 'error.saveFailed'
@@ -192,6 +245,7 @@ export type TranslationKey =
   | 'review.historyTitle'
   | 'review.noHistory'
   | 'review.unauthorized'
+  | 'review.notReviewable'
   | 'review.correctionReasonRequired'
   | 'review.readOnlyNotice'
   // Phase 2C.3.1: Correction Response Workflow
@@ -203,8 +257,10 @@ export type TranslationKey =
   | 'correction.requestHeader'
   | 'correction.reasonLabel'
   | 'correction.commentsLabel'
+  | 'correction.demoContext'
   | 'correction.inputLabel'
   | 'correction.inputPlaceholder'
+  | 'correction.characterCount'
   | 'correction.submitButton'
   | 'correction.submitting'
   | 'correction.confirmTitle'
@@ -241,6 +297,7 @@ export type TranslationKey =
   | 'oh.create.submitting'
   | 'oh.create.success'
   | 'oh.detail.title'
+  | 'oh.detail.noReference'
   | 'oh.detail.status'
   | 'oh.detail.acknowledge'
   | 'oh.detail.complete'
@@ -258,6 +315,7 @@ export type TranslationKey =
   | 'oh.event.title'
   | 'oh.event.category'
   | 'oh.event.date'
+  | 'oh.event.datePlaceholder'
   | 'oh.event.note'
   | 'oh.event.notePlaceholder'
   | 'oh.event.submit'
@@ -506,6 +564,7 @@ export type TranslationKey =
   | 'helpGlossary.tabGlossary'
   | 'helpGlossary.disclaimer'
   | 'helpGlossary.searchPlaceholder'
+  | 'helpGlossary.clearSearch'
   | 'helpGlossary.categoryAll'
   | 'helpGlossary.categoryExposure'
   | 'helpGlossary.categoryDeclaration'
@@ -592,14 +651,15 @@ export type TranslationKey =
   | 'profile.navigationSection'
   | 'profile.helpCenterLink'
   | 'profile.glossaryLink'
+  | 'profile.guidedTourLink'
   | 'profile.privacySection'
   | 'profile.privacyContent'
   | 'profile.aboutSection'
   | 'profile.appNameLabel'
-  | 'profile.appVersionLabel'
-  | 'profile.schemaVersionLabel'
   | 'profile.dbEngineLabel'
   | 'profile.maintenanceSection'
+  | 'profile.error.techAdminOnly'
+  | 'profile.error.userIdMissing'
 
   // Role capability items for profile
   | 'profile.cap.declare'
@@ -681,6 +741,7 @@ export type TranslationKey =
   | 'notificationCentre.markAllReadConfirm'
   | 'notificationCentre.confirm'
   | 'notificationCentre.cancel'
+  | 'notificationCentre.retry'
   | 'notificationCentre.unread'
   | 'notificationCentre.read'
   | 'notificationCentre.today'
@@ -747,6 +808,62 @@ export type TranslationKey =
   | 'onboarding.picker.role5.code'
   | 'onboarding.picker.role5.title'
   | 'onboarding.picker.role5.desc'
+  | 'authGate.subtitle'
+  | 'authGate.getStarted'
+  | 'authGate.signIn'
+  | 'authGate.aesDemo'
+  | 'authGate.aesTour'
+  | 'authGate.moreDemoShortcuts'
+  | 'authGate.hideDemoShortcuts'
+  | 'authGate.declarations'
+  | 'authGate.adminReview'
+  | 'authGate.ohCoordination'
+  | 'authGate.surveillance'
+  | 'authGate.prevention'
+  | 'authGate.emergencyTitle'
+  | 'authGate.emergencyMessage'
+  | 'authGate.close'
+  | 'authGate.needImmediateHelp'
+  | 'auth.back'
+  | 'auth.email'
+  | 'auth.emailPlaceholder'
+  | 'auth.password'
+  | 'auth.passwordPlaceholder'
+  | 'auth.signIn'
+  | 'auth.createAccount'
+  | 'auth.error.emailRequired'
+  | 'auth.error.emailInvalid'
+  | 'auth.login.title'
+  | 'auth.login.subtitle'
+  | 'auth.login.forgotPassword'
+  | 'auth.login.noAccount'
+  | 'auth.login.demoAccounts'
+  | 'auth.login.patientDemo'
+  | 'auth.login.nurseDemo'
+  | 'auth.error.passwordRequired'
+  | 'auth.error.passwordMin6'
+  | 'auth.register.title'
+  | 'auth.register.subtitle'
+  | 'auth.register.fullName'
+  | 'auth.register.namePlaceholder'
+  | 'auth.register.passwordHelper'
+  | 'auth.register.confirmPassword'
+  | 'auth.register.terms'
+  | 'auth.register.submitting'
+  | 'auth.register.alreadyAccount'
+  | 'auth.error.nameRequired'
+  | 'auth.error.passwordMin8'
+  | 'auth.error.passwordComplex'
+  | 'auth.error.passwordMismatch'
+  | 'auth.error.termsRequired'
+  | 'auth.forgot.title'
+  | 'auth.forgot.subtitle'
+  | 'auth.forgot.emailSentTitle'
+  | 'auth.forgot.emailSentBody'
+  | 'auth.forgot.backToSignIn'
+  | 'auth.forgot.sending'
+  | 'auth.forgot.sendResetLink'
+  | 'auth.forgot.emailAccessibility'
 
   // ─── Phase 2E.1.4.3: Batch 4 Declaration List & Details ───
   | 'list.filter.all'
@@ -778,16 +895,266 @@ export type TranslationKey =
   | 'details.reviewAction'
   | 'details.createCoordination'
   | 'details.respondToCorrection'
-  | 'details.correctionPending';
+  | 'details.correctionPending'
+  // Patient home and care plan
+  | 'patient.home.greeting'
+  | 'patient.home.greetingGeneric'
+  | 'patient.home.profileButton'
+  | 'patient.home.demoNotice'
+  | 'patient.home.monitorTitle'
+  | 'patient.home.monitorSubtitle'
+  | 'patient.home.monitorAction'
+  | 'patient.home.carePlanTitle'
+  | 'patient.home.carePlanSubtitle'
+  | 'patient.home.carePlanAction'
+  | 'patient.home.careTeamTitle'
+  | 'patient.home.careTeamSubtitle'
+  | 'patient.home.messagesAction'
+  | 'patient.treatment.title'
+  | 'patient.treatment.demoNotice'
+  | 'patient.treatment.messagesAction'
+  | 'patient.messages.title'
+  | 'patient.messages.demoNotice'
+  | 'patient.messages.empty'
+  | 'patient.messages.composerPlaceholder'
+  | 'patient.messages.composerLabel'
+  | 'patient.messages.addPreview'
+  | 'patient.profile.title'
+  | 'patient.profile.nameUnavailable'
+  | 'patient.profile.emailUnavailable'
+  | 'patient.profile.role'
+  | 'patient.profile.themeSection'
+  | 'patient.profile.displayMode'
+  | 'patient.profile.theme.system'
+  | 'patient.profile.theme.dark'
+  | 'patient.profile.theme.light'
+  | 'patient.profile.languageSection'
+  | 'patient.profile.preferencesSection'
+  | 'patient.profile.preferencesNotice'
+  | 'patient.profile.logout'
+  | 'nurse.alerts.title'
+  | 'nurse.alerts.demoNotice'
+  | 'nurse.alerts.filter.all'
+  | 'nurse.alerts.filter.critical'
+  | 'nurse.alerts.filter.warning'
+  | 'nurse.alerts.patient.a'
+  | 'nurse.alerts.patient.b'
+  | 'nurse.alerts.patient.c'
+  | 'nurse.alerts.type.criticalSpo2'
+  | 'nurse.alerts.type.dyspnea'
+  | 'nurse.alerts.type.missedCheckIn'
+  | 'nurse.alerts.description.lowSpo2'
+  | 'nurse.alerts.description.dyspnea'
+  | 'nurse.alerts.description.missedCheckIn'
+  | 'nurse.alerts.time.minutesAgo'
+  | 'nurse.alerts.time.hoursAgo'
+  | 'nurse.alerts.severity.urgent'
+  | 'nurse.alerts.severity.warning'
+  | 'nurse.alerts.severity.info'
+  | 'nurse.alerts.acknowledge'
+  | 'nurse.alerts.acknowledged'
+  | 'nurse.alerts.empty'
+  | 'nurse.dashboard.title'
+  | 'nurse.dashboard.subtitle'
+  | 'nurse.dashboard.demoNotice'
+  | 'nurse.dashboard.greeting'
+  | 'nurse.dashboard.greetingGeneric'
+  | 'nurse.dashboard.rules'
+  | 'nurse.dashboard.attentionRequired'
+  | 'nurse.dashboard.attentionCount'
+  | 'nurse.dashboard.category.alerts'
+  | 'nurse.dashboard.category.tasks'
+  | 'nurse.dashboard.category.monitoring'
+  | 'nurse.dashboard.worklist'
+  | 'nurse.dashboard.filter.all'
+  | 'nurse.dashboard.filter.alerts'
+  | 'nurse.dashboard.filter.tasks'
+  | 'nurse.dashboard.filter.monitoring'
+  | 'nurse.dashboard.empty.title'
+  | 'nurse.dashboard.empty.subtitle'
+  | 'nurse.dashboard.error.load'
+  | 'nurse.dashboard.retry'
+  | 'nurse.dashboard.priorityPatients'
+  | 'nurse.dashboard.seeAll'
+  | 'nurse.dashboard.status.newCheckIn'
+  | 'nurse.dashboard.status.noNewCheckIn'
+  | 'nurse.dashboard.status.unavailable'
+  | 'nurse.dashboard.patientFallback'
+  | 'nurse.dashboard.conditionUnavailable'
+  | 'nurse.dashboard.demo.monitorTitle'
+  | 'nurse.dashboard.demo.monitorDescription'
+  | 'nurse.dashboard.demo.monitorStatus'
+  | 'nurse.dashboard.demo.alertTitle'
+  | 'nurse.dashboard.demo.alertDescription'
+  | 'nurse.dashboard.demo.alertStatus'
+  | 'nurse.dashboard.condition.copd'
+  | 'nurse.dashboard.condition.ckd'
+  | 'nurse.patients.title'
+  | 'nurse.patients.count'
+  | 'nurse.patients.searchPlaceholder'
+  | 'nurse.patients.filter.all'
+  | 'nurse.patients.filter.review'
+  | 'nurse.patients.filter.followed'
+  | 'nurse.patients.demoNotice'
+  | 'nurse.patients.status.newCheckIn'
+  | 'nurse.patients.status.noNewCheckIn'
+  | 'nurse.patients.measurement.spo2'
+  | 'nurse.patients.measurement.lastCheckIn'
+  | 'nurse.patients.measurement.priority'
+  | 'nurse.patients.notAvailable'
+  | 'nurse.patients.priority.high'
+  | 'nurse.patients.priority.review'
+  | 'nurse.patients.priority.info'
+  | 'nurse.patients.condition.copd'
+  | 'nurse.patients.condition.severeAsthma'
+  | 'nurse.patients.conditionUnavailable'
+  | 'nurse.patients.error.load'
+  | 'nurse.patients.error.search'
+  | 'nurse.patients.error.generic'
+  | 'nurse.patients.retry'
+  | 'nurse.patients.empty'
+  | 'nurse.profile.title'
+  | 'nurse.profile.nameUnavailable'
+  | 'nurse.profile.emailUnavailable'
+  | 'nurse.profile.role'
+  | 'nurse.profile.themeSection'
+  | 'nurse.profile.displayMode'
+  | 'nurse.profile.theme.system'
+  | 'nurse.profile.theme.dark'
+  | 'nurse.profile.theme.light'
+  | 'nurse.profile.languageSection'
+  | 'nurse.profile.toolsSection'
+  | 'nurse.profile.rules.title'
+  | 'nurse.profile.rules.subtitle'
+  | 'nurse.profile.design.title'
+  | 'nurse.profile.design.subtitle'
+  | 'nurse.profile.preferencesNotice'
+  | 'nurse.profile.logout'
+  | 'nurse.messages.title'
+  | 'nurse.messages.demoNotice'
+  | 'nurse.messages.empty'
+  | 'nurse.messages.previewOnly'
+  | 'nurse.patientDetail.loading'
+  | 'nurse.patientDetail.profileNotFound'
+  | 'nurse.patientDetail.notFound'
+  | 'nurse.patientDetail.retry'
+  | 'nurse.patientDetail.demoNotice'
+  | 'nurse.patientDetail.lastFollowUp'
+  | 'nurse.patientDetail.sentAgo'
+  | 'nurse.patientDetail.noFollowUp'
+  | 'nurse.patientDetail.observation'
+  | 'nurse.patientDetail.noObservation'
+  | 'nurse.patientDetail.data'
+  | 'nurse.patientDetail.spo2'
+  | 'nurse.patientDetail.dyspnea'
+  | 'nurse.patientDetail.cough'
+  | 'nurse.patientDetail.noMeasurement'
+  | 'nurse.patientDetail.education'
+  | 'nurse.patientDetail.educationUnavailable'
+  | 'nurse.patientDetail.history'
+  | 'nurse.patientDetail.noHistory'
+  | 'nurse.patientDetail.fictionalTimeline'
+  | 'nurse.rules.title'
+  | 'nurse.rules.summary'
+  | 'nurse.rules.filterAll'
+  | 'nurse.rules.filterActive'
+  | 'nurse.rules.loading'
+  | 'nurse.rules.retry'
+  | 'nurse.rules.emptyTitle'
+  | 'nurse.rules.emptyMessage'
+  | 'nurse.rules.active'
+  | 'nurse.rules.inactive'
+  | 'nurse.rules.priority'
+  | 'nurse.rules.action'
+  | 'nurse.rules.create'
+  | 'nurse.rules.detailNotFound'
+  | 'nurse.rules.condition'
+  | 'nurse.rules.conditions'
+  | 'nurse.rules.actionSection'
+  | 'nurse.rules.edit'
+  | 'nurse.rules.builderName'
+  | 'nurse.rules.builderDescription'
+  | 'nurse.rules.builderPriority'
+  | 'nurse.rules.builderLow'
+  | 'nurse.rules.builderMedium'
+  | 'nurse.rules.builderHigh'
+  | 'nurse.rules.save'
+  | 'nurse.rules.cancel'
+  // Patient monitoring questionnaire
+  | 'monitoring.headerTitle'
+  | 'monitoring.resultHeader'
+  | 'monitoring.introTitle'
+  | 'monitoring.introSubtitle'
+  | 'monitoring.demoDisclosure'
+  | 'monitoring.estimatedDuration'
+  | 'monitoring.start'
+  | 'monitoring.questionProgress'
+  | 'monitoring.next'
+  | 'monitoring.submit'
+  | 'monitoring.previous'
+  | 'monitoring.result.reviewTitle'
+  | 'monitoring.result.normalTitle'
+  | 'monitoring.result.reviewMessage'
+  | 'monitoring.result.normalMessage'
+  | 'monitoring.backHome'
+  | 'monitoring.question.dyspnea'
+  | 'monitoring.question.cough'
+  | 'monitoring.question.sputum'
+  | 'monitoring.question.spo2'
+  | 'monitoring.option.mmrc_0'
+  | 'monitoring.option.mmrc_1'
+  | 'monitoring.option.mmrc_2'
+  | 'monitoring.option.mmrc_3'
+  | 'monitoring.option.mmrc_4'
+  | 'monitoring.option.cough_normal'
+  | 'monitoring.option.cough_mild'
+  | 'monitoring.option.cough_severe'
+  | 'monitoring.option.sputum_normal'
+  | 'monitoring.option.sputum_amount'
+  | 'monitoring.option.sputum_color'
+  | 'monitoring.spo2.placeholder'
+  | 'monitoring.spo2.modeBluetooth'
+  | 'monitoring.spo2.modeManual'
+  | 'monitoring.spo2.errorRequired'
+  | 'monitoring.spo2.errorRange'
+  | 'monitoring.spo2.decrease'
+  | 'monitoring.spo2.increase'
+  | 'monitoring.spo2.accessibility'
+  | 'monitoring.spo2.noMeasurement';
 
 // ─── Translations ─────────────────────────────────────────────────────────────
 
 type TranslationMap = Record<TranslationKey, string>;
 
 const fr: TranslationMap = {
+  // Extra keys
+  'navigation.back': 'Retour',
+  'access.navigationTitle': 'Accès',
+  'workspace.nav.title': 'Espace de travail',
+  'access.title': 'Portail d\'accès',
+  'access.subtitle': 'Sélectionnez votre mode d\'accès',
+  'access.signIn': 'Se connecter',
+  'access.signInDescription': 'Connexion sécurisée avec identifiants',
+  'access.demo': 'Mode Démonstration',
+  'access.demoDescription': 'Explorer avec des données de test',
+  'access.signInUnavailable.title': 'Service non disponible',
+  'access.signInUnavailable.message': 'La connexion directe n\'est pas encore activée.',
+  'access.close': 'Fermer',
+  'prevention.create.acknowledgement.confirm': 'Confirmer la présentation',
+  'prevention.create.acknowledgement.inProgress': 'Confirmation en cours...',
+  'prevention.create.acknowledgement.error': 'Erreur lors de la confirmation',
+  'prevention.create.result.title': 'Action de prévention créée',
+  'prevention.create.result.recovery': 'Récupération de l\'action créée',
+  'prevention.create.uncertain': 'Création incertaine - statut en attente',
+  'prevention.create.reconcileAbsent': 'Action non trouvée lors de la réconciliation',
+  'prevention.create.reference': 'Référence',
+  'prevention.create.reconcile': 'Réconcilier',
+  'surveillance.filters.declarationCountLabel': 'Nombre de déclarations',
+  'surveillance.status.empty': 'Aucune donnée de surveillance disponible',
   'app.name': 'AES Guardian',
   'app.loading': 'Chargement…',
   'app.back': 'Retour',
+  'app.ok': 'OK',
   'app.offline': 'Hors ligne — Données locales disponibles',
   'db.initializing': 'Initialisation de la base de données…',
   'db.ready': 'Base de données prête',
@@ -803,11 +1170,13 @@ const fr: TranslationMap = {
   'list.emptySubtitle': 'Appuyez sur le bouton ci-dessous pour créer votre première déclaration.',
   'list.newButton': 'Nouvelle déclaration',
   'list.refNumber': 'Référence',
+  'list.refUnavailable': 'Référence indisponible',
   'list.incidentDate': 'Date de l\'incident',
   'list.status': 'Statut',
 
   'form.title.new': 'Nouvelle déclaration AES',
   'form.title.edit': 'Modifier le brouillon',
+  'form.unauthorized': "Cette étape est réservée au professionnel ayant déclaré l'incident.",
   'form.incidentDate': 'Date et heure de l\'incident',
   'form.incidentDate.placeholder': 'JJ/MM/AAAA',
   'form.incidentType': 'Type d\'exposition',
@@ -896,8 +1265,6 @@ const fr: TranslationMap = {
   'confirm.message': 'Votre déclaration a été soumise pour révision administrative. Conservez le numéro de référence pour le suivi.',
   'confirm.disclaimer': 'Note : cet enregistrement est local et n\'est pas envoyé automatiquement. Il n\'est pas juridiquement probant.',
   'confirm.backToList': 'Retour à mes déclarations',
-  'confirm.copy': 'Copier la référence',
-  'confirm.copied': 'Référence copiée',
 
   'error.generic': 'Une erreur s\'est produite',
   'error.saveFailed': 'Échec de l\'enregistrement',
@@ -946,6 +1313,7 @@ const fr: TranslationMap = {
   'review.historyTitle': 'Historique des révisions',
   'review.noHistory': 'Aucune révision enregistrée pour cette déclaration.',
   'review.unauthorized': 'Accès réservé exclusivement au rôle réviseur administratif.',
+  'review.notReviewable': "Cette déclaration n'est plus disponible pour une révision administrative.",
   'review.correctionReasonRequired': 'Le motif de correction est obligatoire lorsque vous demandez une correction.',
   'review.readOnlyNotice': 'Les déclarations soumises sont en lecture seule. La demande de correction consigne un motif sans altérer la déclaration originale.',
 
@@ -958,8 +1326,10 @@ const fr: TranslationMap = {
   'correction.requestHeader': 'Demande du réviseur administratif',
   'correction.reasonLabel': 'Motif de correction :',
   'correction.commentsLabel': 'Commentaires du réviseur :',
+  'correction.demoContext': 'Données de démonstration synthétiques uniquement.',
   'correction.inputLabel': 'Votre réponse / précisions (obligatoire)',
   'correction.inputPlaceholder': 'Apportez ici les précisions ou compléments demandés…',
+  'correction.characterCount': '{count} caractères',
   'correction.submitButton': 'Transmettre la réponse',
   'correction.submitting': 'Transmission en cours…',
   'correction.confirmTitle': 'Confirmer la transmission',
@@ -971,8 +1341,8 @@ const fr: TranslationMap = {
   'review.declarantResponseHeader': 'Dernière réponse du déclarant :',
   'review.rereviewButton': 'Enregistrer le réexamen',
   'reviewAction.declarationSummaryTitle': 'Résumé de la déclaration (Lecture seule)',
-  'reviewAction.outcome.approvedEffect': 'Statut résultant : En cours d\'examen (under_review)',
-  'reviewAction.outcome.correctionEffect': 'Statut résultant : Demande de correction (correction_requested)',
+  'reviewAction.outcome.approvedEffect': 'Statut résultant : En cours d\'examen',
+  'reviewAction.outcome.correctionEffect': 'Statut résultant : Demande de correction',
   'reviewAction.correctionReasonLabel': 'Motif : ',
   'reviewAction.commentsLabel': 'Notes : ',
   'reviewAction.unauthorizedNotice': 'Cette interface est réservée exclusivement aux réviseurs administratifs (admin_reviewer).',
@@ -997,6 +1367,7 @@ const fr: TranslationMap = {
   'oh.create.submitting': "Création en cours…",
   'oh.create.success': "Enregistrement de coordination créé.",
   'oh.detail.title': "Détail de la coordination",
+  'oh.detail.noReference': 'Référence indisponible',
   'oh.detail.status': "Statut",
   'oh.detail.acknowledge': "Prendre en charge",
   'oh.detail.complete': "Marquer le suivi comme terminé",
@@ -1014,6 +1385,7 @@ const fr: TranslationMap = {
   'oh.event.title': "Enregistrer un événement de suivi",
   'oh.event.category': "Catégorie d'événement",
   'oh.event.date': "Date de l'événement",
+  'oh.event.datePlaceholder': 'AAAA-MM-JJ',
   'oh.event.note': "Note administrative (optionnel)",
   'oh.event.notePlaceholder': "Brève note de coordination non clinique…",
   'oh.event.submit': "Enregistrer l'événement",
@@ -1233,7 +1605,7 @@ const fr: TranslationMap = {
   'workspace.notice.qualityRestrictions': "Protection de la vie privée : vous avez accès aux indicateurs agrégés dé-identifiés et au registre CAPA, mais aucun accès aux déclarations nominatives ni aux dossiers médicaux SST.",
   'workspace.notice.techRestrictions': "Cloisonnement strict : vous avez accès aux outils de diagnostic SQLite et d'intégrité technique, mais aucun accès aux données cliniques ou personnelles.",
   'workspace.tech.sqliteIntegrity': "Diagnostic SQLite Local",
-  'workspace.tech.engine': "Moteur : SQLite (expo-sqlite / op-sqlite)",
+  'workspace.tech.engine': 'Moteur',
   'workspace.tech.schemaVersion': "Version de Schéma",
   'workspace.tech.fkCheck': "Contrôle Clés Étrangères (PRAGMA foreign_key_check)",
   'workspace.tech.fkOk': "0 violation détectée",
@@ -1265,6 +1637,7 @@ const fr: TranslationMap = {
   'helpGlossary.tabGlossary': "Glossaire AES",
   'helpGlossary.disclaimer': "Cette application est un prototype de démonstration académique utilisant exclusivement des données synthétiques. Elle ne remplace pas les protocoles institutionnels, l'avis des professionnels compétents ni les procédures officielles de prise en charge.",
   'helpGlossary.searchPlaceholder': "Rechercher un terme ou une définition…",
+  'helpGlossary.clearSearch': "Effacer la recherche",
   'helpGlossary.categoryAll': "Tous",
   'helpGlossary.categoryExposure': "Exposition",
   'helpGlossary.categoryDeclaration': "Déclaration",
@@ -1351,14 +1724,15 @@ const fr: TranslationMap = {
   'profile.navigationSection': "Documentation & Ressources",
   'profile.helpCenterLink': "Centre d'Aide & Parcours",
   'profile.glossaryLink': "Glossaire Terminologique AES",
+  'profile.guidedTourLink': "Visite guidée et découverte",
   'profile.privacySection': "Confidentialité & Frontières Éthiques",
   'profile.privacyContent': "Ce prototype traite exclusivement des données synthétiques locales. Aucune donnée personnelle, médicale ou nominative réelle n'est enregistrée. Les données de surveillance présentées à la Qualité sont dé-identifiées dès leur conception.",
   'profile.aboutSection': "À Propos du Prototype",
   'profile.appNameLabel': "Application : AES Guardian (Module Sanad)",
-  'profile.appVersionLabel': "Version prototype : v2.4.0 (Démonstration PFE)",
-  'profile.schemaVersionLabel': "Version schéma SQLite : v7 (7/7 migrations)",
-  'profile.dbEngineLabel': "Moteur de base de données : SQLite Natif (@op-engineering/op-sqlite)",
+  'profile.dbEngineLabel': "Base de données : SQLite (@op-engineering/op-sqlite)",
   'profile.maintenanceSection': "Maintenance Technique (tech_admin)",
+  'profile.error.techAdminOnly': "Seul l'administrateur technique peut effectuer cette opération.",
+  'profile.error.userIdMissing': "Impossible de réinitialiser sans le contexte du compte actif.",
 
   // Role capability items for profile
   'profile.cap.declare': "Déclarer un nouvel AES et enregistrer des brouillons",
@@ -1393,7 +1767,7 @@ const fr: TranslationMap = {
   'reset.dialog2Confirm': "Confirmer la réinitialisation",
   'reset.inProgress': "Réinitialisation en cours…",
   'reset.successTitle': "Réinitialisation Réussie",
-  'reset.successMessage': "Le jeu de données de démonstration étalon a été restauré avec succès dans SQLite natif.",
+  'reset.successMessage': "Le scénario de démonstration a été restauré.",
   'reset.errorTitle': "Échec de la Réinitialisation",
   'reset.errorMessage': "Une erreur est survenue lors de la réinitialisation transactionnelle :",
 
@@ -1429,6 +1803,7 @@ const fr: TranslationMap = {
   'notificationCentre.markAllReadConfirm': "Marquer toutes les notifications comme lues ?",
   'notificationCentre.confirm': "Confirmer",
   'notificationCentre.cancel': "Annuler",
+  'notificationCentre.retry': "Réessayer",
   'notificationCentre.unread': "Non lu",
   'notificationCentre.read': "Lu",
   'notificationCentre.today': "Aujourd'hui",
@@ -1495,6 +1870,62 @@ const fr: TranslationMap = {
   'onboarding.picker.role5.code': 'ADMIN-TECH',
   'onboarding.picker.role5.title': 'Administration Technique',
   'onboarding.picker.role5.desc': 'Diagnostics du prototype et réinitialisation des données de démonstration.',
+  'authGate.subtitle': 'Suivi respiratoire assuré par une équipe infirmière',
+  'authGate.getStarted': 'Commencer',
+  'authGate.signIn': 'Se connecter',
+  'authGate.aesDemo': 'Démo AES Guardian',
+  'authGate.aesTour': 'Découvrir AES Guardian',
+  'authGate.moreDemoShortcuts': 'Autres raccourcis de démonstration',
+  'authGate.hideDemoShortcuts': 'Masquer les raccourcis de démonstration',
+  'authGate.declarations': 'Déclarations',
+  'authGate.adminReview': 'Revue administrative',
+  'authGate.ohCoordination': 'Coordination avec la médecine du travail',
+  'authGate.surveillance': 'Tableau de surveillance',
+  'authGate.prevention': 'Actions de prévention',
+  'authGate.emergencyTitle': 'Urgence',
+  'authGate.emergencyMessage': 'En cas de difficulté respiratoire sévère, appelez immédiatement les services d’urgence locaux. Sanad ne remplace pas les services médicaux d’urgence.',
+  'authGate.close': 'Fermer',
+  'authGate.needImmediateHelp': 'Besoin d’aide immédiate ?',
+  'auth.back': 'Retour',
+  'auth.email': 'Adresse e-mail',
+  'auth.emailPlaceholder': 'nom@exemple.com',
+  'auth.password': 'Mot de passe',
+  'auth.passwordPlaceholder': '••••••••',
+  'auth.signIn': 'Se connecter',
+  'auth.createAccount': 'Créer un compte',
+  'auth.error.emailRequired': 'Veuillez saisir votre adresse e-mail.',
+  'auth.error.emailInvalid': 'Veuillez saisir une adresse e-mail valide.',
+  'auth.login.title': 'Bienvenue',
+  'auth.login.subtitle': 'Connectez-vous à votre espace Sanad.',
+  'auth.login.forgotPassword': 'Mot de passe oublié ?',
+  'auth.login.noAccount': 'Pas encore de compte ?',
+  'auth.login.demoAccounts': 'Comptes de démonstration',
+  'auth.login.patientDemo': 'Compte patient',
+  'auth.login.nurseDemo': 'Compte infirmier',
+  'auth.error.passwordRequired': 'Veuillez saisir votre mot de passe.',
+  'auth.error.passwordMin6': 'Le mot de passe doit contenir au moins 6 caractères.',
+  'auth.register.title': 'Créer un compte Sanad',
+  'auth.register.subtitle': 'Créez votre compte pour commencer.',
+  'auth.register.fullName': 'Nom complet',
+  'auth.register.namePlaceholder': 'Ex. : Marie Dupont',
+  'auth.register.passwordHelper': 'Au moins 8 caractères, avec des lettres latines et des chiffres.',
+  'auth.register.confirmPassword': 'Confirmer le mot de passe',
+  'auth.register.terms': 'J’accepte les Conditions d’utilisation et la Politique de confidentialité.',
+  'auth.register.submitting': 'Création…',
+  'auth.register.alreadyAccount': 'Vous avez déjà un compte ?',
+  'auth.error.nameRequired': 'Veuillez saisir votre nom complet.',
+  'auth.error.passwordMin8': 'Le mot de passe doit contenir au moins 8 caractères.',
+  'auth.error.passwordComplex': 'Ajoutez au moins une lettre latine et un chiffre.',
+  'auth.error.passwordMismatch': 'Les mots de passe ne correspondent pas.',
+  'auth.error.termsRequired': 'Veuillez accepter les conditions pour continuer.',
+  'auth.forgot.title': 'Mot de passe oublié ?',
+  'auth.forgot.subtitle': 'Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation.',
+  'auth.forgot.emailSentTitle': 'Vérifiez votre e-mail',
+  'auth.forgot.emailSentBody': 'Un lien de réinitialisation a été envoyé à : {email}',
+  'auth.forgot.backToSignIn': 'Retour à la connexion',
+  'auth.forgot.sending': 'Envoi…',
+  'auth.forgot.sendResetLink': 'Envoyer le lien de réinitialisation',
+  'auth.forgot.emailAccessibility': 'Adresse e-mail pour la réinitialisation du mot de passe',
 
   // ─── Phase 2E.1.4.3: Batch 4 Declaration List & Details ───
   'list.filter.all': 'Toutes',
@@ -1527,12 +1958,260 @@ const fr: TranslationMap = {
   'details.createCoordination': 'Initier un suivi SST',
   'details.respondToCorrection': 'Répondre à la demande de correction',
   'details.correctionPending': 'Une correction est demandée pour cette déclaration.',
+  'patient.home.greeting': 'Bonjour, {name}',
+  'patient.home.greetingGeneric': 'Bonjour',
+  'patient.home.profileButton': 'Ouvrir mon profil',
+  'patient.home.demoNotice': 'Application de démonstration : aucune donnée de santé en temps réel n’est affichée.',
+  'patient.home.monitorTitle': 'Suivi quotidien',
+  'patient.home.monitorSubtitle': 'Renseignez vos symptômes du jour dans le questionnaire.',
+  'patient.home.monitorAction': 'Commencer le questionnaire',
+  'patient.home.carePlanTitle': 'Mon plan de soins',
+  'patient.home.carePlanSubtitle': 'Consultez les informations partagées par votre équipe soignante.',
+  'patient.home.carePlanAction': 'Voir mon plan de soins',
+  'patient.home.careTeamTitle': 'Équipe soignante',
+  'patient.home.careTeamSubtitle': 'Consultez ou envoyez un message à votre équipe.',
+  'patient.home.messagesAction': 'Ouvrir les messages',
+  'patient.treatment.title': 'Mon plan de soins',
+  'patient.treatment.demoNotice': 'Cette démonstration ne contient pas de plan de traitement personnel. Suivez les consignes de votre professionnel de santé.',
+  'patient.treatment.messagesAction': 'Contacter mon équipe soignante',
+  'patient.messages.title': 'Messages avec l’équipe soignante',
+  'patient.messages.demoNotice': 'Démonstration uniquement : les messages restent sur cet écran et ne sont ni enregistrés ni envoyés. N’y saisissez pas de données de santé personnelles.',
+  'patient.messages.empty': 'Aucun message dans cet aperçu. Vous pouvez ajouter un message de test ci-dessous.',
+  'patient.messages.composerPlaceholder': 'Saisir un message de test…',
+  'patient.messages.composerLabel': 'Message de test',
+  'patient.messages.addPreview': 'Ajouter à l’aperçu local',
+  'patient.profile.title': 'Mon profil',
+  'patient.profile.nameUnavailable': 'Nom non renseigné',
+  'patient.profile.emailUnavailable': 'Adresse e-mail non renseignée',
+  'patient.profile.role': 'Espace patient',
+  'patient.profile.themeSection': 'Apparence',
+  'patient.profile.displayMode': 'Mode d’affichage',
+  'patient.profile.theme.system': 'Système',
+  'patient.profile.theme.dark': 'Sombre',
+  'patient.profile.theme.light': 'Clair',
+  'patient.profile.languageSection': 'Langue',
+  'patient.profile.preferencesSection': 'Autres préférences',
+  'patient.profile.preferencesNotice': 'Les réglages des notifications et de la confidentialité ne sont pas disponibles dans cette démonstration.',
+  'patient.profile.logout': 'Se déconnecter',
+  'nurse.alerts.title': 'Centre d’alertes',
+  'nurse.alerts.demoNotice': 'Données fictives de démonstration. La prise en charge des alertes n’est pas enregistrée.',
+  'nurse.alerts.filter.all': 'Toutes',
+  'nurse.alerts.filter.critical': 'Critiques',
+  'nurse.alerts.filter.warning': 'Modérées',
+  'nurse.alerts.patient.a': 'Patient exemple A',
+  'nurse.alerts.patient.b': 'Patient exemple B',
+  'nurse.alerts.patient.c': 'Patient exemple C',
+  'nurse.alerts.type.criticalSpo2': 'Alerte SpO₂ de démonstration',
+  'nurse.alerts.type.dyspnea': 'Dyspnée déclarée',
+  'nurse.alerts.type.missedCheckIn': 'Suivi quotidien manquant',
+  'nurse.alerts.description.lowSpo2': 'Exemple fictif : SpO₂ à 88 % lors d’une mesure de démonstration.',
+  'nurse.alerts.description.dyspnea': 'Exemple fictif : niveau de dyspnée 3 sur 4 dans un suivi de démonstration.',
+  'nurse.alerts.description.missedCheckIn': 'Exemple fictif : aucun suivi de démonstration depuis 48 heures.',
+  'nurse.alerts.time.minutesAgo': 'Il y a {count} min',
+  'nurse.alerts.time.hoursAgo': 'Il y a {count} h',
+  'nurse.alerts.severity.urgent': 'Urgent',
+  'nurse.alerts.severity.warning': 'Avertissement',
+  'nurse.alerts.severity.info': 'Information',
+  'nurse.alerts.acknowledge': 'Prendre en charge',
+  'nurse.alerts.acknowledged': 'Pris en charge',
+  'nurse.alerts.empty': 'Aucune alerte pour ce filtre.',
+  'nurse.dashboard.title': 'Espace infirmier',
+  'nurse.dashboard.subtitle': 'Tableau de tri et file de travail',
+  'nurse.dashboard.demoNotice': 'Données fictives de démonstration ; ce tableau n’est pas connecté à des dossiers patients réels.',
+  'nurse.dashboard.greeting': 'Bonjour, {name}',
+  'nurse.dashboard.greetingGeneric': 'Bonjour',
+  'nurse.dashboard.rules': 'Règles de suivi',
+  'nurse.dashboard.attentionRequired': 'Attention requise',
+  'nurse.dashboard.attentionCount': '{count} à traiter',
+  'nurse.dashboard.category.alerts': 'Alertes',
+  'nurse.dashboard.category.tasks': 'Tâches',
+  'nurse.dashboard.category.monitoring': 'Suivis',
+  'nurse.dashboard.worklist': 'File de travail',
+  'nurse.dashboard.filter.all': 'Tous',
+  'nurse.dashboard.filter.alerts': 'Alertes',
+  'nurse.dashboard.filter.tasks': 'Tâches',
+  'nurse.dashboard.filter.monitoring': 'Suivis',
+  'nurse.dashboard.empty.title': 'Vous êtes à jour',
+  'nurse.dashboard.empty.subtitle': 'Aucun élément ne nécessite votre attention pour ce filtre.',
+  'nurse.dashboard.error.load': 'Impossible de charger le tableau de bord infirmier.',
+  'nurse.dashboard.retry': 'Réessayer',
+  'nurse.dashboard.priorityPatients': 'Patients prioritaires',
+  'nurse.dashboard.seeAll': 'Voir tous',
+  'nurse.dashboard.status.newCheckIn': 'Nouveau suivi',
+  'nurse.dashboard.status.noNewCheckIn': 'Aucun nouveau suivi',
+  'nurse.dashboard.status.unavailable': 'Statut non renseigné',
+  'nurse.dashboard.patientFallback': 'Patient exemple',
+  'nurse.dashboard.conditionUnavailable': 'Information non renseignée',
+  'nurse.dashboard.demo.monitorTitle': 'Mesures respiratoires à revoir',
+  'nurse.dashboard.demo.monitorDescription': 'Évolution respiratoire dans une donnée fictive.',
+  'nurse.dashboard.demo.monitorStatus': 'À revoir',
+  'nurse.dashboard.demo.alertTitle': 'Données respiratoires à revoir',
+  'nurse.dashboard.demo.alertDescription': 'Exemple fictif · BPCO',
+  'nurse.dashboard.demo.alertStatus': 'Non traitée',
+  'nurse.dashboard.condition.copd': 'BPCO',
+  'nurse.dashboard.condition.ckd': 'IRC',
+  'nurse.patients.title': 'Patients assignés',
+  'nurse.patients.count': '{count} patient(s)',
+  'nurse.patients.searchPlaceholder': 'Rechercher un patient ou une pathologie…',
+  'nurse.patients.filter.all': 'Tous',
+  'nurse.patients.filter.review': 'À revoir',
+  'nurse.patients.filter.followed': 'Suivis',
+  'nurse.patients.demoNotice': 'Dossiers fictifs de démonstration ; ces données ne proviennent pas de patients réels.',
+  'nurse.patients.status.newCheckIn': 'Nouveau suivi',
+  'nurse.patients.status.noNewCheckIn': 'Aucun nouveau suivi',
+  'nurse.patients.measurement.spo2': 'SpO₂ récent',
+  'nurse.patients.measurement.lastCheckIn': 'Dernier suivi',
+  'nurse.patients.measurement.priority': 'Priorité',
+  'nurse.patients.notAvailable': 'Non disponible',
+  'nurse.patients.priority.high': 'Élevée',
+  'nurse.patients.priority.review': 'À revoir',
+  'nurse.patients.priority.info': 'Information',
+  'nurse.patients.condition.copd': 'BPCO',
+  'nurse.patients.condition.severeAsthma': 'Asthme sévère',
+  'nurse.patients.conditionUnavailable': 'Pathologie non renseignée',
+  'nurse.patients.error.load': 'Impossible de charger la liste des patients.',
+  'nurse.patients.error.search': 'Impossible de filtrer la liste des patients.',
+  'nurse.patients.error.generic': 'Impossible de mettre à jour la liste des patients.',
+  'nurse.patients.retry': 'Réessayer',
+  'nurse.patients.empty': 'Aucun patient ne correspond à ces critères.',
+  'nurse.messages.title': 'Messages patients',
+  'nurse.messages.demoNotice': 'Aperçu local uniquement. Les conversations sont fictives et ne sont ni envoyées ni enregistrées.',
+  'nurse.messages.empty': 'Aucune conversation disponible dans cette démonstration.',
+  'nurse.messages.previewOnly': 'Aperçu fictif',
+  'nurse.patientDetail.loading': 'Chargement…',
+  'nurse.patientDetail.profileNotFound': 'Profil introuvable',
+  'nurse.patientDetail.notFound': 'Patient introuvable.',
+  'nurse.patientDetail.retry': 'Réessayer',
+  'nurse.patientDetail.demoNotice': 'Dossier fictif de démonstration ; les données ne proviennent pas d’un patient réel.',
+  'nurse.patientDetail.lastFollowUp': 'Dernier suivi',
+  'nurse.patientDetail.sentAgo': 'Envoyé il y a {duration}',
+  'nurse.patientDetail.noFollowUp': 'Aucun suivi disponible',
+  'nurse.patientDetail.observation': 'Dernière observation',
+  'nurse.patientDetail.noObservation': 'Pas d’observation récente.',
+  'nurse.patientDetail.data': 'Données',
+  'nurse.patientDetail.spo2': 'SpO₂',
+  'nurse.patientDetail.dyspnea': 'Dyspnée',
+  'nurse.patientDetail.cough': 'Toux',
+  'nurse.patientDetail.noMeasurement': 'Aucune mesure disponible',
+  'nurse.patientDetail.education': 'Éducation',
+  'nurse.patientDetail.educationUnavailable': 'Aucun programme personnel disponible dans cette démonstration.',
+  'nurse.patientDetail.history': 'Historique',
+  'nurse.patientDetail.noHistory': 'Aucun événement disponible.',
+  'nurse.patientDetail.fictionalTimeline': 'Événements fictifs',
+  'nurse.rules.title': 'Règles de surveillance',
+  'nurse.rules.summary': '{enabled} règle(s) active(s) sur {total}.',
+  'nurse.rules.filterAll': 'Toutes',
+  'nurse.rules.filterActive': 'Actives',
+  'nurse.rules.loading': 'Chargement…',
+  'nurse.rules.retry': 'Réessayer',
+  'nurse.rules.emptyTitle': 'Aucune règle',
+  'nurse.rules.emptyMessage': 'Ajoutez une règle pour préparer des alertes de surveillance.',
+  'nurse.rules.active': 'Active',
+  'nurse.rules.inactive': 'Inactive',
+  'nurse.rules.priority': 'Priorité',
+  'nurse.rules.action': 'Action',
+  'nurse.rules.create': '+ Nouvelle règle',
+  'nurse.rules.detailNotFound': 'Règle introuvable.',
+  'nurse.rules.condition': 'Condition',
+  'nurse.rules.conditions': 'condition(s)',
+  'nurse.rules.actionSection': 'Action',
+  'nurse.rules.edit': 'Modifier',
+  'nurse.rules.builderName': 'Nom de la règle',
+  'nurse.rules.builderDescription': 'Description',
+  'nurse.rules.builderPriority': 'Priorité',
+  'nurse.rules.builderLow': 'Basse',
+  'nurse.rules.builderMedium': 'Moyenne',
+  'nurse.rules.builderHigh': 'Haute',
+  'nurse.rules.save': 'Enregistrer',
+  'nurse.rules.cancel': 'Annuler',
+  'nurse.profile.title': 'Profil soignant',
+  'nurse.profile.nameUnavailable': 'Nom non renseigné',
+  'nurse.profile.emailUnavailable': 'Adresse e-mail non renseignée',
+  'nurse.profile.role': 'Espace infirmier',
+  'nurse.profile.themeSection': 'Apparence',
+  'nurse.profile.displayMode': 'Mode d’affichage',
+  'nurse.profile.theme.system': 'Système',
+  'nurse.profile.theme.dark': 'Sombre',
+  'nurse.profile.theme.light': 'Clair',
+  'nurse.profile.languageSection': 'Langue',
+  'nurse.profile.toolsSection': 'Outils',
+  'nurse.profile.rules.title': 'Règles de suivi',
+  'nurse.profile.rules.subtitle': 'Consulter les règles configurées',
+  'nurse.profile.design.title': 'Aperçu du système de design',
+  'nurse.profile.design.subtitle': 'Composants et palette',
+  'nurse.profile.preferencesNotice': 'Les réglages des notifications et de la répartition des patients ne sont pas disponibles dans cette démonstration.',
+  'nurse.profile.logout': 'Se déconnecter',
+  'monitoring.headerTitle': 'Suivi quotidien',
+  'monitoring.resultHeader': 'Résultat du suivi',
+  'monitoring.introTitle': 'Questionnaire de suivi',
+  'monitoring.introSubtitle': 'Renseignez vos symptômes et, si vous le souhaitez, une mesure du jour. Le questionnaire prend environ 3 minutes.',
+  'monitoring.demoDisclosure': 'Démonstration uniquement : vos réponses sont évaluées sur cet appareil, mais ne sont ni enregistrées ni envoyées à votre équipe soignante.',
+  'monitoring.estimatedDuration': 'Durée estimée : 2 à 3 minutes',
+  'monitoring.start': 'Commencer le questionnaire',
+  'monitoring.questionProgress': 'Question {current} sur {total}',
+  'monitoring.next': 'Suivant',
+  'monitoring.submit': 'Terminer',
+  'monitoring.previous': 'Retour',
+  'monitoring.result.reviewTitle': 'Vérification indiquée dans cette démonstration',
+  'monitoring.result.normalTitle': 'Évaluation de démonstration terminée',
+  'monitoring.result.reviewMessage': 'Les règles de démonstration indiquent qu’une vérification pourrait être nécessaire. Aucune réponse n’a été transmise. Contactez votre équipe soignante si vous avez besoin d’aide.',
+  'monitoring.result.normalMessage': 'Les règles de démonstration n’ont pas signalé vos réponses. Ce résultat n’est pas un avis médical. Aucune réponse n’a été transmise ou enregistrée.',
+  'monitoring.backHome': 'Retour à l’accueil',
+  'monitoring.question.dyspnea': 'Comment évaluez-vous votre essoufflement aujourd’hui ?',
+  'monitoring.question.cough': 'Avez-vous davantage toussé aujourd’hui ?',
+  'monitoring.question.sputum': 'Avez-vous remarqué un changement dans vos expectorations ?',
+  'monitoring.question.spo2': 'Votre saturation en oxygène (SpO₂)',
+  'monitoring.option.mmrc_0': 'Niveau 0',
+  'monitoring.option.mmrc_1': 'Niveau 1',
+  'monitoring.option.mmrc_2': 'Niveau 2',
+  'monitoring.option.mmrc_3': 'Niveau 3',
+  'monitoring.option.mmrc_4': 'Niveau 4',
+  'monitoring.option.cough_normal': 'Pas plus que d’habitude',
+  'monitoring.option.cough_mild': 'Un peu plus que d’habitude',
+  'monitoring.option.cough_severe': 'Beaucoup plus que d’habitude',
+  'monitoring.option.sputum_normal': 'Pas de changement',
+  'monitoring.option.sputum_amount': 'Quantité augmentée',
+  'monitoring.option.sputum_color': 'Aspect ou couleur modifiée',
+  'monitoring.spo2.placeholder': 'ex. : 95',
+  'monitoring.spo2.modeBluetooth': 'Mesure par oxymètre Bluetooth',
+  'monitoring.spo2.modeManual': 'Saisie manuelle',
+  'monitoring.spo2.errorRequired': 'Veuillez saisir une valeur de SpO₂.',
+  'monitoring.spo2.errorRange': 'Saisissez une valeur entre 70 % et 100 %.',
+  'monitoring.spo2.decrease': 'Diminuer la saturation',
+  'monitoring.spo2.increase': 'Augmenter la saturation',
+  'monitoring.spo2.accessibility': 'Valeur de SpO₂ en pourcentage',
+  'monitoring.spo2.noMeasurement': 'Je n’ai pas de mesure pour le moment',
 };
 
 const en: TranslationMap = {
+  // Extra keys
+  'navigation.back': 'Back',
+  'access.navigationTitle': 'Access',
+  'workspace.nav.title': 'Workspace',
+  'access.title': 'Access Portal',
+  'access.subtitle': 'Select your access mode',
+  'access.signIn': 'Sign In',
+  'access.signInDescription': 'Secure login with credentials',
+  'access.demo': 'Demo Mode',
+  'access.demoDescription': 'Explore with synthetic test data',
+  'access.signInUnavailable.title': 'Service Unavailable',
+  'access.signInUnavailable.message': 'Direct login is not yet enabled.',
+  'access.close': 'Close',
+  'prevention.create.acknowledgement.confirm': 'Confirm presentation',
+  'prevention.create.acknowledgement.inProgress': 'Confirming presentation...',
+  'prevention.create.acknowledgement.error': 'Error confirming presentation',
+  'prevention.create.result.title': 'Prevention action created',
+  'prevention.create.result.recovery': 'Recovery of created action',
+  'prevention.create.uncertain': 'Uncertain creation - status pending',
+  'prevention.create.reconcileAbsent': 'Action not found during reconciliation',
+  'prevention.create.reference': 'Reference',
+  'prevention.create.reconcile': 'Reconcile',
+  'surveillance.filters.declarationCountLabel': 'Declaration count',
+  'surveillance.status.empty': 'No surveillance data available',
   'app.name': 'AES Guardian',
   'app.loading': 'Loading…',
   'app.back': 'Back',
+  'app.ok': 'OK',
   'app.offline': 'Offline — Local data available',
   'db.initializing': 'Initializing database…',
   'db.ready': 'Database ready',
@@ -1548,11 +2227,13 @@ const en: TranslationMap = {
   'list.emptySubtitle': 'Tap the button below to create your first declaration.',
   'list.newButton': 'New Declaration',
   'list.refNumber': 'Reference',
+  'list.refUnavailable': 'Reference unavailable',
   'list.incidentDate': 'Incident Date',
   'list.status': 'Status',
 
   'form.title.new': 'New AES Declaration',
   'form.title.edit': 'Edit Draft',
+  'form.unauthorized': 'Only the reporting professional can use this screen.',
   'form.incidentDate': 'Incident Date and Time',
   'form.incidentDate.placeholder': 'DD/MM/YYYY',
   'form.incidentType': 'Type of Exposure',
@@ -1641,8 +2322,6 @@ const en: TranslationMap = {
   'confirm.message': 'Your declaration has been submitted for administrative review. Keep the reference number for follow-up.',
   'confirm.disclaimer': 'Note: this record is local and is not automatically transmitted. It is not a legally binding document.',
   'confirm.backToList': 'Back to My Declarations',
-  'confirm.copy': 'Copy reference',
-  'confirm.copied': 'Reference copied',
 
   'error.generic': 'An error occurred',
   'error.saveFailed': 'Save failed',
@@ -1691,6 +2370,7 @@ const en: TranslationMap = {
   'review.historyTitle': 'Review History',
   'review.noHistory': 'No reviews recorded for this declaration.',
   'review.unauthorized': 'Access restricted strictly to the Administrative Reviewer role.',
+  'review.notReviewable': 'This declaration is no longer available for administrative review.',
   'review.correctionReasonRequired': 'Correction reason is required when requesting a correction.',
   'review.readOnlyNotice': 'Submitted declarations are read-only. Requesting corrections records a reason without altering the original narrative.',
 
@@ -1703,8 +2383,10 @@ const en: TranslationMap = {
   'correction.requestHeader': 'Administrative Reviewer Request',
   'correction.reasonLabel': 'Correction Reason:',
   'correction.commentsLabel': 'Reviewer Comments:',
+  'correction.demoContext': 'Synthetic demonstration data only.',
   'correction.inputLabel': 'Your response / clarifications (required)',
   'correction.inputPlaceholder': 'Provide the requested details or clarifications here…',
+  'correction.characterCount': '{count} characters',
   'correction.submitButton': 'Submit Response',
   'correction.submitting': 'Submitting…',
   'correction.confirmTitle': 'Confirm Submission',
@@ -1716,8 +2398,8 @@ const en: TranslationMap = {
   'review.declarantResponseHeader': 'Declarant Response:',
   'review.rereviewButton': 'Record Re-Review',
   'reviewAction.declarationSummaryTitle': 'Declaration Summary (Read-Only)',
-  'reviewAction.outcome.approvedEffect': 'Resulting status: Under review (under_review)',
-  'reviewAction.outcome.correctionEffect': 'Resulting status: Correction requested (correction_requested)',
+  'reviewAction.outcome.approvedEffect': 'Resulting status: Under review',
+  'reviewAction.outcome.correctionEffect': 'Resulting status: Correction requested',
   'reviewAction.correctionReasonLabel': 'Reason: ',
   'reviewAction.commentsLabel': 'Notes: ',
   'reviewAction.unauthorizedNotice': 'This interface is strictly reserved for administrative reviewers (admin_reviewer).',
@@ -1742,6 +2424,7 @@ const en: TranslationMap = {
   'oh.create.submitting': "Creating…",
   'oh.create.success': "Coordination record created.",
   'oh.detail.title': "Coordination Detail",
+  'oh.detail.noReference': 'Reference unavailable',
   'oh.detail.status': "Status",
   'oh.detail.acknowledge': "Acknowledge Receipt",
   'oh.detail.complete': "Mark Follow-Up Complete",
@@ -1759,6 +2442,7 @@ const en: TranslationMap = {
   'oh.event.title': "Record Follow-Up Event",
   'oh.event.category': "Event Category",
   'oh.event.date': "Event Date",
+  'oh.event.datePlaceholder': 'YYYY-MM-DD',
   'oh.event.note': "Administrative Note (optional)",
   'oh.event.notePlaceholder': "Brief non-clinical coordination note…",
   'oh.event.submit': "Record Event",
@@ -1978,7 +2662,7 @@ const en: TranslationMap = {
   'workspace.notice.qualityRestrictions': "Privacy protection: You have access to de-identified aggregate indicators and the CAPA register, but no access to identifiable declarations or SST medical records.",
   'workspace.notice.techRestrictions': "Strict isolation: You have access to SQLite diagnostics and technical integrity tools, but no access to clinical or personal data.",
   'workspace.tech.sqliteIntegrity': "Local SQLite Diagnostics",
-  'workspace.tech.engine': "Engine: SQLite (expo-sqlite / op-sqlite)",
+  'workspace.tech.engine': 'Engine',
   'workspace.tech.schemaVersion': "Schema Version",
   'workspace.tech.fkCheck': "Foreign Key Check (PRAGMA foreign_key_check)",
   'workspace.tech.fkOk': "0 violations detected",
@@ -2010,6 +2694,7 @@ const en: TranslationMap = {
   'helpGlossary.tabGlossary': "AES Glossary",
   'helpGlossary.disclaimer': "This application is an academic demonstration prototype using synthetic data exclusively. It does not replace institutional protocols, professional medical advice, or official care procedures.",
   'helpGlossary.searchPlaceholder': "Search for a term or definition…",
+  'helpGlossary.clearSearch': "Clear search",
   'helpGlossary.categoryAll': "All",
   'helpGlossary.categoryExposure': "Exposure",
   'helpGlossary.categoryDeclaration': "Declaration",
@@ -2096,14 +2781,15 @@ const en: TranslationMap = {
   'profile.navigationSection': "Documentation & Resources",
   'profile.helpCenterLink': "Help Centre & Guided Workflow",
   'profile.glossaryLink': "AES Terminology Glossary",
+  'profile.guidedTourLink': "Guided tour and introduction",
   'profile.privacySection': "Privacy & Ethical Boundaries",
   'profile.privacyContent': "This prototype operates strictly with local synthetic data. No real personal or clinical information is stored. Surveillance data presented to Quality staff is de-identified by design.",
   'profile.aboutSection': "About the Prototype",
   'profile.appNameLabel': "Application: AES Guardian (Sanad Module)",
-  'profile.appVersionLabel': "Prototype Version: v2.4.0 (PFE Demonstration)",
-  'profile.schemaVersionLabel': "SQLite Schema: v7 (7/7 migrations applied)",
-  'profile.dbEngineLabel': "Database Engine: Native SQLite (@op-engineering/op-sqlite)",
+  'profile.dbEngineLabel': "Database: SQLite (@op-engineering/op-sqlite)",
   'profile.maintenanceSection': "Technical Maintenance (tech_admin)",
+  'profile.error.techAdminOnly': "Only the technical administrator can perform this operation.",
+  'profile.error.userIdMissing': "Cannot reset without an active account context.",
 
   // Role capability items for profile
   'profile.cap.declare': "Submit new AES declarations and manage drafts",
@@ -2138,7 +2824,7 @@ const en: TranslationMap = {
   'reset.dialog2Confirm': "Confirm Reset",
   'reset.inProgress': "Resetting demonstration database…",
   'reset.successTitle': "Reset Completed",
-  'reset.successMessage': "The baseline synthetic demonstration scenario was successfully restored in native SQLite.",
+  'reset.successMessage': "The demonstration scenario has been restored.",
   'reset.errorTitle': "Reset Failed",
   'reset.errorMessage': "An error occurred during atomic reset execution:",
 
@@ -2174,6 +2860,7 @@ const en: TranslationMap = {
   'notificationCentre.markAllReadConfirm': "Mark all notifications as read?",
   'notificationCentre.confirm': "Confirm",
   'notificationCentre.cancel': "Cancel",
+  'notificationCentre.retry': "Retry",
   'notificationCentre.unread': "Unread",
   'notificationCentre.read': "Read",
   'notificationCentre.today': "Today",
@@ -2240,6 +2927,62 @@ const en: TranslationMap = {
   'onboarding.picker.role5.code': 'ADMIN-TECH',
   'onboarding.picker.role5.title': 'Technical Administrator',
   'onboarding.picker.role5.desc': 'Prototype diagnostics and synthetic demonstration data reset.',
+  'authGate.subtitle': 'Nurse-led respiratory monitoring',
+  'authGate.getStarted': 'Get started',
+  'authGate.signIn': 'Sign in',
+  'authGate.aesDemo': 'AES Guardian demo',
+  'authGate.aesTour': 'Explore the AES Guardian tour',
+  'authGate.moreDemoShortcuts': 'More demo shortcuts',
+  'authGate.hideDemoShortcuts': 'Hide demo shortcuts',
+  'authGate.declarations': 'Declarations',
+  'authGate.adminReview': 'Administrative review',
+  'authGate.ohCoordination': 'Occupational health coordination',
+  'authGate.surveillance': 'Surveillance dashboard',
+  'authGate.prevention': 'Prevention actions',
+  'authGate.emergencyTitle': 'Emergency',
+  'authGate.emergencyMessage': 'If you are experiencing severe breathing difficulty, call your local emergency number now. Sanad is not a substitute for emergency medical services.',
+  'authGate.close': 'Close',
+  'authGate.needImmediateHelp': 'Need immediate help?',
+  'auth.back': 'Back',
+  'auth.email': 'Email',
+  'auth.emailPlaceholder': 'name@example.com',
+  'auth.password': 'Password',
+  'auth.passwordPlaceholder': '••••••••',
+  'auth.signIn': 'Sign in',
+  'auth.createAccount': 'Create account',
+  'auth.error.emailRequired': 'Enter your email address.',
+  'auth.error.emailInvalid': 'Enter a valid email address.',
+  'auth.login.title': 'Welcome',
+  'auth.login.subtitle': 'Sign in to your Sanad workspace.',
+  'auth.login.forgotPassword': 'Forgot password?',
+  'auth.login.noAccount': 'Don’t have an account?',
+  'auth.login.demoAccounts': 'Demo accounts',
+  'auth.login.patientDemo': 'Patient account',
+  'auth.login.nurseDemo': 'Nurse account',
+  'auth.error.passwordRequired': 'Enter your password.',
+  'auth.error.passwordMin6': 'Password must be at least 6 characters.',
+  'auth.register.title': 'Create a Sanad account',
+  'auth.register.subtitle': 'Create your account to get started.',
+  'auth.register.fullName': 'Full name',
+  'auth.register.namePlaceholder': 'Jane Doe',
+  'auth.register.passwordHelper': 'At least 8 characters, including Latin letters and numbers.',
+  'auth.register.confirmPassword': 'Confirm password',
+  'auth.register.terms': 'I agree to the Terms of Service and Privacy Policy.',
+  'auth.register.submitting': 'Creating…',
+  'auth.register.alreadyAccount': 'Already have an account?',
+  'auth.error.nameRequired': 'Enter your full name.',
+  'auth.error.passwordMin8': 'Password must be at least 8 characters.',
+  'auth.error.passwordComplex': 'Include at least one Latin letter and one number.',
+  'auth.error.passwordMismatch': 'Passwords do not match.',
+  'auth.error.termsRequired': 'Agree to the terms to continue.',
+  'auth.forgot.title': 'Forgot your password?',
+  'auth.forgot.subtitle': 'Enter your email to receive a password reset link.',
+  'auth.forgot.emailSentTitle': 'Check your email',
+  'auth.forgot.emailSentBody': 'A password reset link was sent to: {email}',
+  'auth.forgot.backToSignIn': 'Back to sign in',
+  'auth.forgot.sending': 'Sending…',
+  'auth.forgot.sendResetLink': 'Send reset link',
+  'auth.forgot.emailAccessibility': 'Email for password reset',
 
   // ─── Phase 2E.1.4.3: Batch 4 Declaration List & Details ───
   'list.filter.all': 'All',
@@ -2272,13 +3015,261 @@ const en: TranslationMap = {
   'details.createCoordination': 'Initiate OH Follow-up',
   'details.respondToCorrection': 'Respond to Correction Request',
   'details.correctionPending': 'A correction has been requested for this declaration.',
+  'patient.home.greeting': 'Hello, {name}',
+  'patient.home.greetingGeneric': 'Hello',
+  'patient.home.profileButton': 'Open my profile',
+  'patient.home.demoNotice': 'Demo app: no live health data is displayed.',
+  'patient.home.monitorTitle': 'Daily check-in',
+  'patient.home.monitorSubtitle': 'Record today’s symptoms in the questionnaire.',
+  'patient.home.monitorAction': 'Start questionnaire',
+  'patient.home.carePlanTitle': 'My care plan',
+  'patient.home.carePlanSubtitle': 'View information shared by your care team.',
+  'patient.home.carePlanAction': 'View my care plan',
+  'patient.home.careTeamTitle': 'Care team',
+  'patient.home.careTeamSubtitle': 'View or send a message to your team.',
+  'patient.home.messagesAction': 'Open messages',
+  'patient.treatment.title': 'My care plan',
+  'patient.treatment.demoNotice': 'This demo does not contain a personal treatment plan. Follow instructions from your healthcare professional.',
+  'patient.treatment.messagesAction': 'Contact my care team',
+  'patient.messages.title': 'Messages with the care team',
+  'patient.messages.demoNotice': 'Demo only: messages stay on this screen and are not saved or sent. Do not enter personal health information.',
+  'patient.messages.empty': 'No messages in this preview. You can add a test message below.',
+  'patient.messages.composerPlaceholder': 'Write a test message…',
+  'patient.messages.composerLabel': 'Test message',
+  'patient.messages.addPreview': 'Add to local preview',
+  'patient.profile.title': 'My profile',
+  'patient.profile.nameUnavailable': 'Name not provided',
+  'patient.profile.emailUnavailable': 'Email address not provided',
+  'patient.profile.role': 'Patient space',
+  'patient.profile.themeSection': 'Appearance',
+  'patient.profile.displayMode': 'Display mode',
+  'patient.profile.theme.system': 'System',
+  'patient.profile.theme.dark': 'Dark',
+  'patient.profile.theme.light': 'Light',
+  'patient.profile.languageSection': 'Language',
+  'patient.profile.preferencesSection': 'Other preferences',
+  'patient.profile.preferencesNotice': 'Notification and privacy settings are not available in this demo.',
+  'patient.profile.logout': 'Sign out',
+  'nurse.alerts.title': 'Alert center',
+  'nurse.alerts.demoNotice': 'Fictional demo data. Alert acknowledgements are not saved.',
+  'nurse.alerts.filter.all': 'All',
+  'nurse.alerts.filter.critical': 'Critical',
+  'nurse.alerts.filter.warning': 'Warnings',
+  'nurse.alerts.patient.a': 'Example patient A',
+  'nurse.alerts.patient.b': 'Example patient B',
+  'nurse.alerts.patient.c': 'Example patient C',
+  'nurse.alerts.type.criticalSpo2': 'Demo SpO₂ alert',
+  'nurse.alerts.type.dyspnea': 'Reported breathlessness',
+  'nurse.alerts.type.missedCheckIn': 'Missed daily check-in',
+  'nurse.alerts.description.lowSpo2': 'Fictional example: SpO₂ of 88% in a demo measurement.',
+  'nurse.alerts.description.dyspnea': 'Fictional example: breathlessness level 3 of 4 in a demo check-in.',
+  'nurse.alerts.description.missedCheckIn': 'Fictional example: no demo check-in for 48 hours.',
+  'nurse.alerts.time.minutesAgo': '{count} min ago',
+  'nurse.alerts.time.hoursAgo': '{count} hr ago',
+  'nurse.alerts.severity.urgent': 'Urgent',
+  'nurse.alerts.severity.warning': 'Warning',
+  'nurse.alerts.severity.info': 'Information',
+  'nurse.alerts.acknowledge': 'Acknowledge',
+  'nurse.alerts.acknowledged': 'Acknowledged',
+  'nurse.alerts.empty': 'No alerts for this filter.',
+  'nurse.dashboard.title': 'Nurse workspace',
+  'nurse.dashboard.subtitle': 'Triage dashboard and worklist',
+  'nurse.dashboard.demoNotice': 'Fictional demo data; this dashboard is not connected to real patient records.',
+  'nurse.dashboard.greeting': 'Hello, {name}',
+  'nurse.dashboard.greetingGeneric': 'Hello',
+  'nurse.dashboard.rules': 'Monitoring rules',
+  'nurse.dashboard.attentionRequired': 'Needs attention',
+  'nurse.dashboard.attentionCount': '{count} to review',
+  'nurse.dashboard.category.alerts': 'Alerts',
+  'nurse.dashboard.category.tasks': 'Tasks',
+  'nurse.dashboard.category.monitoring': 'Check-ins',
+  'nurse.dashboard.worklist': 'Worklist',
+  'nurse.dashboard.filter.all': 'All',
+  'nurse.dashboard.filter.alerts': 'Alerts',
+  'nurse.dashboard.filter.tasks': 'Tasks',
+  'nurse.dashboard.filter.monitoring': 'Check-ins',
+  'nurse.dashboard.empty.title': 'You’re all caught up',
+  'nurse.dashboard.empty.subtitle': 'No items need attention for this filter.',
+  'nurse.dashboard.error.load': 'Unable to load the nurse dashboard.',
+  'nurse.dashboard.retry': 'Retry',
+  'nurse.dashboard.priorityPatients': 'Priority patients',
+  'nurse.dashboard.seeAll': 'View all',
+  'nurse.dashboard.status.newCheckIn': 'New check-in',
+  'nurse.dashboard.status.noNewCheckIn': 'No new check-in',
+  'nurse.dashboard.status.unavailable': 'Status not provided',
+  'nurse.dashboard.patientFallback': 'Example patient',
+  'nurse.dashboard.conditionUnavailable': 'Information not provided',
+  'nurse.dashboard.demo.monitorTitle': 'Respiratory readings for review',
+  'nurse.dashboard.demo.monitorDescription': 'Respiratory changes in a fictional record.',
+  'nurse.dashboard.demo.monitorStatus': 'Review needed',
+  'nurse.dashboard.demo.alertTitle': 'Respiratory data for review',
+  'nurse.dashboard.demo.alertDescription': 'Fictional example · COPD',
+  'nurse.dashboard.demo.alertStatus': 'Unresolved',
+  'nurse.dashboard.condition.copd': 'COPD',
+  'nurse.dashboard.condition.ckd': 'CKD',
+  'nurse.patients.title': 'Assigned patients',
+  'nurse.patients.count': '{count} patient(s)',
+  'nurse.patients.searchPlaceholder': 'Search by patient or condition…',
+  'nurse.patients.filter.all': 'All',
+  'nurse.patients.filter.review': 'Needs review',
+  'nurse.patients.filter.followed': 'Monitored',
+  'nurse.patients.demoNotice': 'Fictional demo records; this data does not come from real patients.',
+  'nurse.patients.status.newCheckIn': 'New check-in',
+  'nurse.patients.status.noNewCheckIn': 'No new check-in',
+  'nurse.patients.measurement.spo2': 'Latest SpO₂',
+  'nurse.patients.measurement.lastCheckIn': 'Last check-in',
+  'nurse.patients.measurement.priority': 'Priority',
+  'nurse.patients.notAvailable': 'Not available',
+  'nurse.patients.priority.high': 'High',
+  'nurse.patients.priority.review': 'Review',
+  'nurse.patients.priority.info': 'Information',
+  'nurse.patients.condition.copd': 'COPD',
+  'nurse.patients.condition.severeAsthma': 'Severe asthma',
+  'nurse.patients.conditionUnavailable': 'Condition not provided',
+  'nurse.patients.error.load': 'Unable to load the patient list.',
+  'nurse.patients.error.search': 'Unable to filter the patient list.',
+  'nurse.patients.error.generic': 'Unable to update the patient list.',
+  'nurse.patients.retry': 'Retry',
+  'nurse.patients.empty': 'No patients match these filters.',
+  'nurse.messages.title': 'Patient messages',
+  'nurse.messages.demoNotice': 'Local preview only. Conversations are fictional and are not sent or saved.',
+  'nurse.messages.empty': 'No conversations are available in this demo.',
+  'nurse.messages.previewOnly': 'Fictional preview',
+  'nurse.patientDetail.loading': 'Loading…',
+  'nurse.patientDetail.profileNotFound': 'Profile not found',
+  'nurse.patientDetail.notFound': 'Patient not found.',
+  'nurse.patientDetail.retry': 'Retry',
+  'nurse.patientDetail.demoNotice': 'Fictional demo record; this data does not come from a real patient.',
+  'nurse.patientDetail.lastFollowUp': 'Latest check-in',
+  'nurse.patientDetail.sentAgo': 'Sent {duration} ago',
+  'nurse.patientDetail.noFollowUp': 'No check-in available',
+  'nurse.patientDetail.observation': 'Latest observation',
+  'nurse.patientDetail.noObservation': 'No recent observation.',
+  'nurse.patientDetail.data': 'Data',
+  'nurse.patientDetail.spo2': 'SpO₂',
+  'nurse.patientDetail.dyspnea': 'Dyspnea',
+  'nurse.patientDetail.cough': 'Cough',
+  'nurse.patientDetail.noMeasurement': 'No measurements available',
+  'nurse.patientDetail.education': 'Education',
+  'nurse.patientDetail.educationUnavailable': 'No personal education plan is available in this demo.',
+  'nurse.patientDetail.history': 'History',
+  'nurse.patientDetail.noHistory': 'No events available.',
+  'nurse.patientDetail.fictionalTimeline': 'Fictional events',
+  'nurse.rules.title': 'Monitoring rules',
+  'nurse.rules.summary': '{enabled} active rule(s) out of {total}.',
+  'nurse.rules.filterAll': 'All',
+  'nurse.rules.filterActive': 'Active',
+  'nurse.rules.loading': 'Loading…',
+  'nurse.rules.retry': 'Retry',
+  'nurse.rules.emptyTitle': 'No rules',
+  'nurse.rules.emptyMessage': 'Add a rule to prepare monitoring alerts.',
+  'nurse.rules.active': 'Active',
+  'nurse.rules.inactive': 'Inactive',
+  'nurse.rules.priority': 'Priority',
+  'nurse.rules.action': 'Action',
+  'nurse.rules.create': '+ New rule',
+  'nurse.rules.detailNotFound': 'Rule not found.',
+  'nurse.rules.condition': 'Condition',
+  'nurse.rules.conditions': 'condition(s)',
+  'nurse.rules.actionSection': 'Action',
+  'nurse.rules.edit': 'Edit',
+  'nurse.rules.builderName': 'Rule name',
+  'nurse.rules.builderDescription': 'Description',
+  'nurse.rules.builderPriority': 'Priority',
+  'nurse.rules.builderLow': 'Low',
+  'nurse.rules.builderMedium': 'Medium',
+  'nurse.rules.builderHigh': 'High',
+  'nurse.rules.save': 'Save',
+  'nurse.rules.cancel': 'Cancel',
+  'nurse.profile.title': 'Clinician profile',
+  'nurse.profile.nameUnavailable': 'Name not provided',
+  'nurse.profile.emailUnavailable': 'Email address not provided',
+  'nurse.profile.role': 'Nurse workspace',
+  'nurse.profile.themeSection': 'Appearance',
+  'nurse.profile.displayMode': 'Display mode',
+  'nurse.profile.theme.system': 'System',
+  'nurse.profile.theme.dark': 'Dark',
+  'nurse.profile.theme.light': 'Light',
+  'nurse.profile.languageSection': 'Language',
+  'nurse.profile.toolsSection': 'Tools',
+  'nurse.profile.rules.title': 'Monitoring rules',
+  'nurse.profile.rules.subtitle': 'View configured rules',
+  'nurse.profile.design.title': 'Design system preview',
+  'nurse.profile.design.subtitle': 'Components and palette',
+  'nurse.profile.preferencesNotice': 'Notification and patient assignment settings are not available in this demo.',
+  'nurse.profile.logout': 'Sign out',
+  'monitoring.headerTitle': 'Daily monitoring',
+  'monitoring.resultHeader': 'Monitoring result',
+  'monitoring.introTitle': 'Daily check-in',
+  'monitoring.introSubtitle': 'Record today’s symptoms and, if you wish, a measurement. The questionnaire takes about 3 minutes.',
+  'monitoring.demoDisclosure': 'Demo only: your answers are evaluated on this device, but are not saved or sent to your care team.',
+  'monitoring.estimatedDuration': 'Estimated time: 2–3 minutes',
+  'monitoring.start': 'Start questionnaire',
+  'monitoring.questionProgress': 'Question {current} of {total}',
+  'monitoring.next': 'Next',
+  'monitoring.submit': 'Finish',
+  'monitoring.previous': 'Back',
+  'monitoring.result.reviewTitle': 'Demo indicates a review may be needed',
+  'monitoring.result.normalTitle': 'Demo evaluation complete',
+  'monitoring.result.reviewMessage': 'The demo rules indicate that a review may be needed. No answers were sent. Contact your care team if you need help.',
+  'monitoring.result.normalMessage': 'The demo rules did not flag these answers. This is not medical advice. No answers were sent or saved.',
+  'monitoring.backHome': 'Back to home',
+  'monitoring.question.dyspnea': 'How would you describe your breathlessness today?',
+  'monitoring.question.cough': 'Have you been coughing more than usual today?',
+  'monitoring.question.sputum': 'Have you noticed a change in your sputum?',
+  'monitoring.question.spo2': 'Your oxygen saturation (SpO₂)',
+  'monitoring.option.mmrc_0': 'Level 0',
+  'monitoring.option.mmrc_1': 'Level 1',
+  'monitoring.option.mmrc_2': 'Level 2',
+  'monitoring.option.mmrc_3': 'Level 3',
+  'monitoring.option.mmrc_4': 'Level 4',
+  'monitoring.option.cough_normal': 'No more than usual',
+  'monitoring.option.cough_mild': 'A little more than usual',
+  'monitoring.option.cough_severe': 'Much more than usual',
+  'monitoring.option.sputum_normal': 'No change',
+  'monitoring.option.sputum_amount': 'Increased amount',
+  'monitoring.option.sputum_color': 'Change in appearance or color',
+  'monitoring.spo2.placeholder': 'e.g. 95',
+  'monitoring.spo2.modeBluetooth': 'Bluetooth oximeter reading',
+  'monitoring.spo2.modeManual': 'Manual entry',
+  'monitoring.spo2.errorRequired': 'Enter an SpO₂ value.',
+  'monitoring.spo2.errorRange': 'Enter a value between 70% and 100%.',
+  'monitoring.spo2.decrease': 'Decrease oxygen saturation',
+  'monitoring.spo2.increase': 'Increase oxygen saturation',
+  'monitoring.spo2.accessibility': 'SpO₂ value as a percentage',
+  'monitoring.spo2.noMeasurement': 'I don’t have a measurement right now',
 };
 
 const ar: TranslationMap = {
+  // Extra keys
+  'navigation.back': 'رجوع',
+  'access.navigationTitle': 'الوصول',
+  'workspace.nav.title': 'مساحة العمل',
+  'access.title': 'بوابة الوصول',
+  'access.subtitle': 'اختر وضع الوصول',
+  'access.signIn': 'تسجيل الدخول',
+  'access.signInDescription': 'تسجيل دخول آمن باستخدام بيانات الاعتماد',
+  'access.demo': 'وضع العرض التوضيحي',
+  'access.demoDescription': 'استكشاف باستخدام بيانات اختبار تجريبية',
+  'access.signInUnavailable.title': 'الخدمة غير متوفرة',
+  'access.signInUnavailable.message': 'تسجيل الدخول المباشر غير مفعل بعد.',
+  'access.close': 'إغلاق',
+  'prevention.create.acknowledgement.confirm': 'تأكيد العرض',
+  'prevention.create.acknowledgement.inProgress': 'جاري تأكيد العرض...',
+  'prevention.create.acknowledgement.error': 'خطأ أثناء تأكيد العرض',
+  'prevention.create.result.title': 'تم إنشاء إجراء الوقاية',
+  'prevention.create.result.recovery': 'استرداد الإجراء المنشأ',
+  'prevention.create.uncertain': 'إنشاء غير مؤكد - الحالة معلقة',
+  'prevention.create.reconcileAbsent': 'لم يتم العثور على الإجراء أثناء المطابقة',
+  'prevention.create.reference': 'المرجع',
+  'prevention.create.reconcile': 'مطابقة',
+  'surveillance.filters.declarationCountLabel': 'عدد التصريحات',
+  'surveillance.status.empty': 'لا توجد بيانات مراقبة متاحة',
   // REQUIRES_VALIDATION: Arabic translations should be reviewed by a qualified professional.
   'app.name': 'حارس AES',
   'app.loading': '…جارٍ التحميل',
   'app.back': 'رجوع',
+  'app.ok': 'حسنًا',
   'app.offline': 'غير متصل — البيانات المحلية متاحة',
   'db.initializing': '…جارٍ تهيئة قاعدة البيانات',
   'db.ready': 'قاعدة البيانات جاهزة',
@@ -2294,11 +3285,13 @@ const ar: TranslationMap = {
   'list.emptySubtitle': 'اضغط على الزر أدناه لإنشاء أول تصريح.',
   'list.newButton': 'تصريح جديد',
   'list.refNumber': 'المرجع',
+  'list.refUnavailable': 'المرجع غير متاح',
   'list.incidentDate': 'تاريخ الحادثة',
   'list.status': 'الحالة',
 
   'form.title.new': 'تصريح AES جديد',
   'form.title.edit': 'تعديل المسودة',
+  'form.unauthorized': 'هذه الشاشة مخصصة للممارس الذي أبلغ عن الحادث.',
   'form.incidentDate': 'تاريخ ووقت الحادثة',
   'form.incidentDate.placeholder': 'يي/شش/سسسس',
   'form.incidentType': 'نوع التعرض',
@@ -2387,8 +3380,6 @@ const ar: TranslationMap = {
   'confirm.message': 'تم تقديم تصريحك للمراجعة الإدارية. احتفظ بالرقم المرجعي للمتابعة.',
   'confirm.disclaimer': 'ملاحظة: هذا السجل محلي ولا يُرسَل تلقائيًا. وهو غير ملزم قانونيًا.',
   'confirm.backToList': 'العودة إلى تصريحاتي',
-  'confirm.copy': 'نسخ المرجع',
-  'confirm.copied': 'تم نسخ المرجع',
 
   'error.generic': 'حدث خطأ',
   'error.saveFailed': 'فشل الحفظ',
@@ -2437,6 +3428,7 @@ const ar: TranslationMap = {
   'review.historyTitle': 'سجل المراجعات',
   'review.noHistory': 'لا توجد مراجعات مسجلة لهذا التصريح.',
   'review.unauthorized': 'الوصول مقتصر حصريًا على المراجع الإداري.',
+  'review.notReviewable': 'لم يعد هذا التصريح متاحاً للمراجعة الإدارية.',
   'review.correctionReasonRequired': 'سبب التصحيح مطلوب عند طلب تصحيح.',
   'review.readOnlyNotice': 'التصريحات المُقدَّمة للقراءة فقط. طلب التصحيح يسجل سببًا دون المساس بالبيانات الأصلية.',
 
@@ -2449,8 +3441,10 @@ const ar: TranslationMap = {
   'correction.requestHeader': 'طلب التصحيح من المراجع الإداري',
   'correction.reasonLabel': 'سبب طلب التصحيح:',
   'correction.commentsLabel': 'ملاحظات المراجع:',
+  'correction.demoContext': 'بيانات تجريبية اصطناعية فقط.',
   'correction.inputLabel': 'ردّك / توضيحاتك (مطلوب)',
   'correction.inputPlaceholder': '…اكتب التفاصيل المطلوبة أو توضيحاتك هنا',
+  'correction.characterCount': '{count} حرف',
   'correction.submitButton': 'إرسال الرد',
   'correction.submitting': '…جارٍ الإرسال',
   'correction.confirmTitle': 'تأكيد الإرسال',
@@ -2462,8 +3456,8 @@ const ar: TranslationMap = {
   'review.declarantResponseHeader': 'رد المُصرّح:',
   'review.rereviewButton': 'تسجيل إعادة المراجعة',
   'reviewAction.declarationSummaryTitle': 'ملخص الإخطار (للقراءة فقط)',
-  'reviewAction.outcome.approvedEffect': 'الحالة الناتجة: قيد المراجعة (under_review)',
-  'reviewAction.outcome.correctionEffect': 'الحالة الناتجة: طلب تصحيح (correction_requested)',
+  'reviewAction.outcome.approvedEffect': 'الحالة الناتجة: قيد المراجعة',
+  'reviewAction.outcome.correctionEffect': 'الحالة الناتجة: طلب تصحيح',
   'reviewAction.correctionReasonLabel': 'السبب: ',
   'reviewAction.commentsLabel': 'ملاحظات: ',
   'reviewAction.unauthorizedNotice': 'هذه الواجهة مخصصة حصرياً للمراجعين الإداريين (admin_reviewer).',
@@ -2488,6 +3482,7 @@ const ar: TranslationMap = {
   'oh.create.submitting': "جارٍ الإنشاء…",
   'oh.create.success': "تم إنشاء سجل التنسيق.",
   'oh.detail.title': "تفاصيل التنسيق",
+  'oh.detail.noReference': 'المرجع غير متاح',
   'oh.detail.status': "الحالة",
   'oh.detail.acknowledge': "تأكيد الاستلام",
   'oh.detail.complete': "وضع علامة اكتمال المتابعة",
@@ -2505,6 +3500,7 @@ const ar: TranslationMap = {
   'oh.event.title': "تسجيل حدث متابعة",
   'oh.event.category': "فئة الحدث",
   'oh.event.date': "تاريخ الحدث",
+  'oh.event.datePlaceholder': 'YYYY-MM-DD',
   'oh.event.note': "ملاحظة إدارية (اختياري)",
   'oh.event.notePlaceholder': "ملاحظة تنسيق إدارية مختصرة وغير سريرية…",
   'oh.event.submit': "تسجيل الحدث",
@@ -2725,7 +3721,7 @@ const ar: TranslationMap = {
   'workspace.notice.qualityRestrictions': "حماية الخصوصية: يمكنك الوصول إلى المؤشرات المجمعة وسجل CAPA، دون الوصول للبلاغات الاسمية أو الملفات الطبية.",
   'workspace.notice.techRestrictions': "عزل تقني صارم: يمكنك الوصول لأدوات تشخيص SQLite وسلامة النظام فقط دون أي وصول للبيانات السريرية.",
   'workspace.tech.sqliteIntegrity': "تشخيص قاعدة بيانات SQLite المحلية",
-  'workspace.tech.engine': "المحرك: SQLite (expo-sqlite / op-sqlite)",
+  'workspace.tech.engine': 'المحرك',
   'workspace.tech.schemaVersion': "إصدار المخطط",
   'workspace.tech.fkCheck': "فحص المفاتيح الخارجية (PRAGMA foreign_key_check)",
   'workspace.tech.fkOk': "تم اكتشاف 0 انتهاك",
@@ -2757,6 +3753,7 @@ const ar: TranslationMap = {
   'helpGlossary.tabGlossary': "مسرد مصطلحات AES",
   'helpGlossary.disclaimer': "هذا التطبيق نموذج أولي للعرض الأكاديمي يستخدم بيانات تركيبية حصرياً. وهو لا يغني عن البروتوكولات المؤسسية أو استشارة الممارسين المؤهلين أو الإجراءات الرسمية للتكفل.",
   'helpGlossary.searchPlaceholder': "البحث عن مصطلح أو تعريف…",
+  'helpGlossary.clearSearch': "مسح البحث",
   'helpGlossary.categoryAll': "الكل",
   'helpGlossary.categoryExposure': "التعرض",
   'helpGlossary.categoryDeclaration': "الإبلاغ",
@@ -2843,14 +3840,15 @@ const ar: TranslationMap = {
   'profile.navigationSection': "التوثيق والمصادر",
   'profile.helpCenterLink': "مركز المساعدة ومسار العمل",
   'profile.glossaryLink': "مسرد مصطلحات الحوادث",
+  'profile.guidedTourLink': "جولة تعريفية",
   'profile.privacySection': "الخصوصية والحدود الأخلاقية",
   'profile.privacyContent': "يتعامل هذا النموذج حصرياً مع بيانات تركيبية محلية. لا تُحفظ أي بيانات حقيقية للمرضى أو الكوادر. مؤشرات الترصد مجردة من الهوية افتراضياً.",
   'profile.aboutSection': "عن النموذج التجريبي",
   'profile.appNameLabel': "التطبيق: AES Guardian (وحدة مساند)",
-  'profile.appVersionLabel': "إصدار النموذج: v2.4.0 (عرض PFE الأكاديمي)",
-  'profile.schemaVersionLabel': "مخطط SQLite: الإصدار 7 (7 ترقيات مطبقة)",
-  'profile.dbEngineLabel': "محرك قاعدة البيانات: SQLite الأصلي (@op-engineering/op-sqlite)",
+  'profile.dbEngineLabel': "قاعدة البيانات: SQLite (@op-engineering/op-sqlite)",
   'profile.maintenanceSection': "الصيانة التقنية (tech_admin)",
+  'profile.error.techAdminOnly': "هذا الإجراء متاح للمسؤول التقني فقط.",
+  'profile.error.userIdMissing': "تعذرت إعادة الضبط لعدم توفر سياق الحساب النشط.",
 
   // Role capability items for profile
   'profile.cap.declare': "الإبلاغ عن حادث جديد وحفظ المسودات",
@@ -2885,7 +3883,7 @@ const ar: TranslationMap = {
   'reset.dialog2Confirm': "تأكيد إعادة الضبط",
   'reset.inProgress': "جارٍ إعادة ضبط قاعدة البيانات…",
   'reset.successTitle': "تمت إعادة الضبط بنجاح",
-  'reset.successMessage': "تمت استعادة سيناريو العرض التجريبي القياسي بنجاح في SQLite.",
+  'reset.successMessage': "تمت استعادة سيناريو العرض التجريبي.",
   'reset.errorTitle': "فشل إعادة الضبط",
   'reset.errorMessage': "حدث خطأ أثناء تنفيذ عملية إعادة الضبط المعاملاتية:",
 
@@ -2921,6 +3919,7 @@ const ar: TranslationMap = {
   'notificationCentre.markAllReadConfirm': "هل تريد تحديد جميع الإشعارات كمقروءة؟",
   'notificationCentre.confirm': "تأكيد",
   'notificationCentre.cancel': "إلغاء",
+  'notificationCentre.retry': "إعادة المحاولة",
   'notificationCentre.unread': "غير مقروء",
   'notificationCentre.read': "مقروء",
   'notificationCentre.today': "اليوم",
@@ -2987,6 +3986,62 @@ const ar: TranslationMap = {
   'onboarding.picker.role5.code': 'ADMIN-TECH',
   'onboarding.picker.role5.title': 'الإدارة التقنية',
   'onboarding.picker.role5.desc': 'تشخيص النموذج وإعادة تعيين بيانات العرض التوضيحي.',
+  'authGate.subtitle': 'متابعة تنفسية بقيادة طاقم التمريض',
+  'authGate.getStarted': 'ابدأ',
+  'authGate.signIn': 'تسجيل الدخول',
+  'authGate.aesDemo': 'عرض AES Guardian',
+  'authGate.aesTour': 'استكشف جولة AES Guardian',
+  'authGate.moreDemoShortcuts': 'مزيد من اختصارات العرض التوضيحي',
+  'authGate.hideDemoShortcuts': 'إخفاء اختصارات العرض التوضيحي',
+  'authGate.declarations': 'التصريحات',
+  'authGate.adminReview': 'المراجعة الإدارية',
+  'authGate.ohCoordination': 'تنسيق طب العمل',
+  'authGate.surveillance': 'لوحة المراقبة',
+  'authGate.prevention': 'إجراءات الوقاية',
+  'authGate.emergencyTitle': 'حالة طارئة',
+  'authGate.emergencyMessage': 'إذا كنت تعاني من صعوبة شديدة في التنفس، فاتصل برقم الطوارئ المحلي فورًا. لا يحل Sanad محل خدمات الطوارئ الطبية.',
+  'authGate.close': 'إغلاق',
+  'authGate.needImmediateHelp': 'هل تحتاج إلى مساعدة فورية؟',
+  'auth.back': 'رجوع',
+  'auth.email': 'البريد الإلكتروني',
+  'auth.emailPlaceholder': 'name@example.com',
+  'auth.password': 'كلمة المرور',
+  'auth.passwordPlaceholder': '••••••••',
+  'auth.signIn': 'تسجيل الدخول',
+  'auth.createAccount': 'إنشاء حساب',
+  'auth.error.emailRequired': 'يرجى إدخال عنوان بريدك الإلكتروني.',
+  'auth.error.emailInvalid': 'يرجى إدخال عنوان بريد إلكتروني صالح.',
+  'auth.login.title': 'مرحبًا',
+  'auth.login.subtitle': 'سجّل الدخول إلى مساحة Sanad الخاصة بك.',
+  'auth.login.forgotPassword': 'هل نسيت كلمة المرور؟',
+  'auth.login.noAccount': 'ليس لديك حساب؟',
+  'auth.login.demoAccounts': 'حسابات تجريبية',
+  'auth.login.patientDemo': 'حساب المريض',
+  'auth.login.nurseDemo': 'حساب الممرض',
+  'auth.error.passwordRequired': 'يرجى إدخال كلمة المرور.',
+  'auth.error.passwordMin6': 'يجب ألا تقل كلمة المرور عن 6 أحرف.',
+  'auth.register.title': 'إنشاء حساب Sanad',
+  'auth.register.subtitle': 'أنشئ حسابك للبدء.',
+  'auth.register.fullName': 'الاسم الكامل',
+  'auth.register.namePlaceholder': 'الاسم الكامل',
+  'auth.register.passwordHelper': '8 أحرف على الأقل، مع أحرف لاتينية وأرقام.',
+  'auth.register.confirmPassword': 'تأكيد كلمة المرور',
+  'auth.register.terms': 'أوافق على شروط الخدمة وسياسة الخصوصية.',
+  'auth.register.submitting': 'جارٍ الإنشاء…',
+  'auth.register.alreadyAccount': 'لديك حساب بالفعل؟',
+  'auth.error.nameRequired': 'يرجى إدخال الاسم الكامل.',
+  'auth.error.passwordMin8': 'يجب ألا تقل كلمة المرور عن 8 أحرف.',
+  'auth.error.passwordComplex': 'أضف حرفًا لاتينيًا واحدًا ورقمًا واحدًا على الأقل.',
+  'auth.error.passwordMismatch': 'كلمتا المرور غير متطابقتين.',
+  'auth.error.termsRequired': 'يرجى الموافقة على الشروط للمتابعة.',
+  'auth.forgot.title': 'هل نسيت كلمة المرور؟',
+  'auth.forgot.subtitle': 'أدخل بريدك الإلكتروني لاستلام رابط إعادة تعيين كلمة المرور.',
+  'auth.forgot.emailSentTitle': 'تحقق من بريدك الإلكتروني',
+  'auth.forgot.emailSentBody': 'تم إرسال رابط إعادة تعيين كلمة المرور إلى: {email}',
+  'auth.forgot.backToSignIn': 'العودة إلى تسجيل الدخول',
+  'auth.forgot.sending': 'جارٍ الإرسال…',
+  'auth.forgot.sendResetLink': 'إرسال رابط إعادة التعيين',
+  'auth.forgot.emailAccessibility': 'البريد الإلكتروني لإعادة تعيين كلمة المرور',
 
   // ─── Phase 2E.1.4.3: Batch 4 Declaration List & Details ───
   'list.filter.all': 'الكل',
@@ -3019,6 +4074,229 @@ const ar: TranslationMap = {
   'details.createCoordination': 'بدء متابعة الصحة المهنية',
   'details.respondToCorrection': 'الرد على طلب التصحيح',
   'details.correctionPending': 'تم طلب تصحيح لهذا التصريح.',
+  'patient.home.greeting': 'مرحبًا، {name}',
+  'patient.home.greetingGeneric': 'مرحبًا',
+  'patient.home.profileButton': 'فتح ملفي الشخصي',
+  'patient.home.demoNotice': 'تطبيق تجريبي: لا تُعرض فيه بيانات صحية مباشرة.',
+  'patient.home.monitorTitle': 'المتابعة اليومية',
+  'patient.home.monitorSubtitle': 'سجّل أعراض اليوم في الاستبيان.',
+  'patient.home.monitorAction': 'بدء الاستبيان',
+  'patient.home.carePlanTitle': 'خطة الرعاية',
+  'patient.home.carePlanSubtitle': 'اطّلع على المعلومات التي يشاركها فريق الرعاية.',
+  'patient.home.carePlanAction': 'عرض خطة الرعاية',
+  'patient.home.careTeamTitle': 'فريق الرعاية',
+  'patient.home.careTeamSubtitle': 'اطّلع على الرسائل أو أرسل رسالة إلى فريقك.',
+  'patient.home.messagesAction': 'فتح الرسائل',
+  'patient.treatment.title': 'خطة الرعاية',
+  'patient.treatment.demoNotice': 'لا تتضمن هذه النسخة التجريبية خطة علاج شخصية. اتبع تعليمات اختصاصي الرعاية الصحية.',
+  'patient.treatment.messagesAction': 'التواصل مع فريق الرعاية',
+  'patient.messages.title': 'الرسائل مع فريق الرعاية',
+  'patient.messages.demoNotice': 'نسخة تجريبية فقط: تبقى الرسائل على هذه الشاشة ولا تُحفظ أو تُرسل. لا تُدخل معلومات صحية شخصية.',
+  'patient.messages.empty': 'لا توجد رسائل في هذه المعاينة. يمكنك إضافة رسالة اختبار أدناه.',
+  'patient.messages.composerPlaceholder': 'اكتب رسالة اختبار…',
+  'patient.messages.composerLabel': 'رسالة اختبار',
+  'patient.messages.addPreview': 'إضافة إلى المعاينة المحلية',
+  'patient.profile.title': 'ملفي الشخصي',
+  'patient.profile.nameUnavailable': 'الاسم غير متوفر',
+  'patient.profile.emailUnavailable': 'البريد الإلكتروني غير متوفر',
+  'patient.profile.role': 'مساحة المريض',
+  'patient.profile.themeSection': 'المظهر',
+  'patient.profile.displayMode': 'وضع العرض',
+  'patient.profile.theme.system': 'النظام',
+  'patient.profile.theme.dark': 'داكن',
+  'patient.profile.theme.light': 'فاتح',
+  'patient.profile.languageSection': 'اللغة',
+  'patient.profile.preferencesSection': 'تفضيلات أخرى',
+  'patient.profile.preferencesNotice': 'إعدادات الإشعارات والخصوصية غير متاحة في هذه النسخة التجريبية.',
+  'patient.profile.logout': 'تسجيل الخروج',
+  'nurse.alerts.title': 'مركز التنبيهات',
+  'nurse.alerts.demoNotice': 'بيانات تجريبية غير حقيقية. لا تُحفظ إجراءات التعامل مع التنبيهات.',
+  'nurse.alerts.filter.all': 'الكل',
+  'nurse.alerts.filter.critical': 'حرجة',
+  'nurse.alerts.filter.warning': 'تحذيرات',
+  'nurse.alerts.patient.a': 'مريض تجريبي أ',
+  'nurse.alerts.patient.b': 'مريض تجريبي ب',
+  'nurse.alerts.patient.c': 'مريض تجريبي ج',
+  'nurse.alerts.type.criticalSpo2': 'تنبيه SpO₂ تجريبي',
+  'nurse.alerts.type.dyspnea': 'ضيق تنفس مُبلّغ عنه',
+  'nurse.alerts.type.missedCheckIn': 'المتابعة اليومية غير مكتملة',
+  'nurse.alerts.description.lowSpo2': 'مثال غير حقيقي: SpO₂ بنسبة 88٪ في قياس تجريبي.',
+  'nurse.alerts.description.dyspnea': 'مثال غير حقيقي: مستوى ضيق التنفس 3 من 4 في متابعة تجريبية.',
+  'nurse.alerts.description.missedCheckIn': 'مثال غير حقيقي: لم تُسجّل متابعة تجريبية منذ 48 ساعة.',
+  'nurse.alerts.time.minutesAgo': 'قبل {count} دقيقة',
+  'nurse.alerts.time.hoursAgo': 'قبل {count} ساعة',
+  'nurse.alerts.severity.urgent': 'عاجل',
+  'nurse.alerts.severity.warning': 'تحذير',
+  'nurse.alerts.severity.info': 'معلومة',
+  'nurse.alerts.acknowledge': 'تأكيد الاستلام',
+  'nurse.alerts.acknowledged': 'تم تأكيد الاستلام',
+  'nurse.alerts.empty': 'لا توجد تنبيهات لهذا المرشح.',
+  'nurse.dashboard.title': 'مساحة التمريض',
+  'nurse.dashboard.subtitle': 'لوحة الفرز وقائمة العمل',
+  'nurse.dashboard.demoNotice': 'بيانات تجريبية غير حقيقية؛ هذه اللوحة غير متصلة بملفات مرضى حقيقية.',
+  'nurse.dashboard.greeting': 'مرحبًا، {name}',
+  'nurse.dashboard.greetingGeneric': 'مرحبًا',
+  'nurse.dashboard.rules': 'قواعد المتابعة',
+  'nurse.dashboard.attentionRequired': 'تتطلب الانتباه',
+  'nurse.dashboard.attentionCount': '{count} للمراجعة',
+  'nurse.dashboard.category.alerts': 'تنبيهات',
+  'nurse.dashboard.category.tasks': 'مهام',
+  'nurse.dashboard.category.monitoring': 'متابعات',
+  'nurse.dashboard.worklist': 'قائمة العمل',
+  'nurse.dashboard.filter.all': 'الكل',
+  'nurse.dashboard.filter.alerts': 'تنبيهات',
+  'nurse.dashboard.filter.tasks': 'مهام',
+  'nurse.dashboard.filter.monitoring': 'متابعات',
+  'nurse.dashboard.empty.title': 'لا توجد عناصر معلقة',
+  'nurse.dashboard.empty.subtitle': 'لا توجد عناصر تتطلب الانتباه لهذا المرشح.',
+  'nurse.dashboard.error.load': 'تعذر تحميل لوحة التمريض.',
+  'nurse.dashboard.retry': 'إعادة المحاولة',
+  'nurse.dashboard.priorityPatients': 'المرضى ذوو الأولوية',
+  'nurse.dashboard.seeAll': 'عرض الكل',
+  'nurse.dashboard.status.newCheckIn': 'متابعة جديدة',
+  'nurse.dashboard.status.noNewCheckIn': 'لا توجد متابعة جديدة',
+  'nurse.dashboard.status.unavailable': 'الحالة غير متوفرة',
+  'nurse.dashboard.patientFallback': 'مريض تجريبي',
+  'nurse.dashboard.conditionUnavailable': 'المعلومة غير متوفرة',
+  'nurse.dashboard.demo.monitorTitle': 'قياسات تنفسية للمراجعة',
+  'nurse.dashboard.demo.monitorDescription': 'تغيرات تنفسية في سجل تجريبي.',
+  'nurse.dashboard.demo.monitorStatus': 'تتطلب المراجعة',
+  'nurse.dashboard.demo.alertTitle': 'بيانات تنفسية للمراجعة',
+  'nurse.dashboard.demo.alertDescription': 'مثال غير حقيقي · مرض الانسداد الرئوي المزمن',
+  'nurse.dashboard.demo.alertStatus': 'غير محلول',
+  'nurse.dashboard.condition.copd': 'مرض الانسداد الرئوي المزمن',
+  'nurse.dashboard.condition.ckd': 'مرض كلوي مزمن',
+  'nurse.patients.title': 'المرضى المعيّنون',
+  'nurse.patients.count': '{count} مريض',
+  'nurse.patients.searchPlaceholder': 'ابحث عن مريض أو حالة مرضية…',
+  'nurse.patients.filter.all': 'الكل',
+  'nurse.patients.filter.review': 'تتطلب المراجعة',
+  'nurse.patients.filter.followed': 'تتم متابعتهم',
+  'nurse.patients.demoNotice': 'سجلات تجريبية غير حقيقية؛ هذه البيانات ليست لمرضى فعليين.',
+  'nurse.patients.status.newCheckIn': 'متابعة جديدة',
+  'nurse.patients.status.noNewCheckIn': 'لا توجد متابعة جديدة',
+  'nurse.patients.measurement.spo2': 'أحدث SpO₂',
+  'nurse.patients.measurement.lastCheckIn': 'آخر متابعة',
+  'nurse.patients.measurement.priority': 'الأولوية',
+  'nurse.patients.notAvailable': 'غير متاح',
+  'nurse.patients.priority.high': 'مرتفعة',
+  'nurse.patients.priority.review': 'للمراجعة',
+  'nurse.patients.priority.info': 'معلومات',
+  'nurse.patients.condition.copd': 'مرض الانسداد الرئوي المزمن',
+  'nurse.patients.condition.severeAsthma': 'ربو شديد',
+  'nurse.patients.conditionUnavailable': 'الحالة المرضية غير متوفرة',
+  'nurse.patients.error.load': 'تعذر تحميل قائمة المرضى.',
+  'nurse.patients.error.search': 'تعذر تصفية قائمة المرضى.',
+  'nurse.patients.error.generic': 'تعذر تحديث قائمة المرضى.',
+  'nurse.patients.retry': 'إعادة المحاولة',
+  'nurse.patients.empty': 'لا يوجد مرضى يطابقون هذه المرشحات.',
+  'nurse.messages.title': 'رسائل المرضى',
+  'nurse.messages.demoNotice': 'معاينة محلية فقط. المحادثات افتراضية ولا تُرسل أو تُحفظ.',
+  'nurse.messages.empty': 'لا تتوفر محادثات في هذه النسخة التجريبية.',
+  'nurse.messages.previewOnly': 'معاينة افتراضية',
+  'nurse.patientDetail.loading': 'جارٍ التحميل…',
+  'nurse.patientDetail.profileNotFound': 'الملف غير موجود',
+  'nurse.patientDetail.notFound': 'المريض غير موجود.',
+  'nurse.patientDetail.retry': 'إعادة المحاولة',
+  'nurse.patientDetail.demoNotice': 'سجل تجريبي افتراضي؛ هذه البيانات ليست لمريض فعلي.',
+  'nurse.patientDetail.lastFollowUp': 'آخر متابعة',
+  'nurse.patientDetail.sentAgo': 'أُرسل قبل {duration}',
+  'nurse.patientDetail.noFollowUp': 'لا توجد متابعة متاحة',
+  'nurse.patientDetail.observation': 'آخر ملاحظة',
+  'nurse.patientDetail.noObservation': 'لا توجد ملاحظة حديثة.',
+  'nurse.patientDetail.data': 'البيانات',
+  'nurse.patientDetail.spo2': 'تشبع الأكسجين',
+  'nurse.patientDetail.dyspnea': 'ضيق التنفس',
+  'nurse.patientDetail.cough': 'السعال',
+  'nurse.patientDetail.noMeasurement': 'لا توجد قياسات متاحة',
+  'nurse.patientDetail.education': 'التثقيف',
+  'nurse.patientDetail.educationUnavailable': 'لا يتوفر برنامج تثقيف شخصي في هذه النسخة التجريبية.',
+  'nurse.patientDetail.history': 'السجل',
+  'nurse.patientDetail.noHistory': 'لا توجد أحداث متاحة.',
+  'nurse.patientDetail.fictionalTimeline': 'أحداث افتراضية',
+  'nurse.rules.title': 'قواعد المتابعة',
+  'nurse.rules.summary': '{enabled} قاعدة نشطة من أصل {total}.',
+  'nurse.rules.filterAll': 'الكل',
+  'nurse.rules.filterActive': 'النشطة',
+  'nurse.rules.loading': 'جارٍ التحميل…',
+  'nurse.rules.retry': 'إعادة المحاولة',
+  'nurse.rules.emptyTitle': 'لا توجد قواعد',
+  'nurse.rules.emptyMessage': 'أضف قاعدة لتجهيز تنبيهات المتابعة.',
+  'nurse.rules.active': 'نشطة',
+  'nurse.rules.inactive': 'غير نشطة',
+  'nurse.rules.priority': 'الأولوية',
+  'nurse.rules.action': 'الإجراء',
+  'nurse.rules.create': '+ قاعدة جديدة',
+  'nurse.rules.detailNotFound': 'القاعدة غير موجودة.',
+  'nurse.rules.condition': 'الشرط',
+  'nurse.rules.conditions': 'شرط/شروط',
+  'nurse.rules.actionSection': 'الإجراء',
+  'nurse.rules.edit': 'تعديل',
+  'nurse.rules.builderName': 'اسم القاعدة',
+  'nurse.rules.builderDescription': 'الوصف',
+  'nurse.rules.builderPriority': 'الأولوية',
+  'nurse.rules.builderLow': 'منخفضة',
+  'nurse.rules.builderMedium': 'متوسطة',
+  'nurse.rules.builderHigh': 'مرتفعة',
+  'nurse.rules.save': 'حفظ',
+  'nurse.rules.cancel': 'إلغاء',
+  'nurse.profile.title': 'الملف المهني',
+  'nurse.profile.nameUnavailable': 'الاسم غير متوفر',
+  'nurse.profile.emailUnavailable': 'البريد الإلكتروني غير متوفر',
+  'nurse.profile.role': 'مساحة التمريض',
+  'nurse.profile.themeSection': 'المظهر',
+  'nurse.profile.displayMode': 'وضع العرض',
+  'nurse.profile.theme.system': 'النظام',
+  'nurse.profile.theme.dark': 'داكن',
+  'nurse.profile.theme.light': 'فاتح',
+  'nurse.profile.languageSection': 'اللغة',
+  'nurse.profile.toolsSection': 'الأدوات',
+  'nurse.profile.rules.title': 'قواعد المتابعة',
+  'nurse.profile.rules.subtitle': 'عرض القواعد المهيأة',
+  'nurse.profile.design.title': 'معاينة نظام التصميم',
+  'nurse.profile.design.subtitle': 'المكونات ولوحة الألوان',
+  'nurse.profile.preferencesNotice': 'إعدادات الإشعارات وتوزيع المرضى غير متاحة في هذه النسخة التجريبية.',
+  'nurse.profile.logout': 'تسجيل الخروج',
+  'monitoring.headerTitle': 'المتابعة اليومية',
+  'monitoring.resultHeader': 'نتيجة المتابعة',
+  'monitoring.introTitle': 'استبيان المتابعة اليومية',
+  'monitoring.introSubtitle': 'سجّل أعراض اليوم، ويمكنك إضافة قياس إذا رغبت. يستغرق الاستبيان نحو 3 دقائق.',
+  'monitoring.demoDisclosure': 'نسخة تجريبية فقط: تُقيّم إجاباتك على هذا الجهاز، لكنها لا تُحفظ ولا تُرسل إلى فريق الرعاية.',
+  'monitoring.estimatedDuration': 'الوقت المتوقع: من دقيقتين إلى 3 دقائق',
+  'monitoring.start': 'بدء الاستبيان',
+  'monitoring.questionProgress': 'السؤال {current} من {total}',
+  'monitoring.next': 'التالي',
+  'monitoring.submit': 'إنهاء',
+  'monitoring.previous': 'رجوع',
+  'monitoring.result.reviewTitle': 'تشير النسخة التجريبية إلى احتمال الحاجة للمراجعة',
+  'monitoring.result.normalTitle': 'اكتمل التقييم التجريبي',
+  'monitoring.result.reviewMessage': 'تشير قواعد النسخة التجريبية إلى احتمال الحاجة للمراجعة. لم تُرسل أي إجابات. تواصل مع فريق الرعاية إذا احتجت إلى المساعدة.',
+  'monitoring.result.normalMessage': 'لم ترصد قواعد النسخة التجريبية مؤشرات في الإجابات. هذه النتيجة ليست نصيحة طبية. لم تُرسل الإجابات أو تُحفظ.',
+  'monitoring.backHome': 'العودة إلى الرئيسية',
+  'monitoring.question.dyspnea': 'كيف تقيّم ضيق التنفس لديك اليوم؟',
+  'monitoring.question.cough': 'هل سعلت أكثر من المعتاد اليوم؟',
+  'monitoring.question.sputum': 'هل لاحظت تغيرًا في البلغم؟',
+  'monitoring.question.spo2': 'تشبع الأكسجين (SpO₂)',
+  'monitoring.option.mmrc_0': 'المستوى 0',
+  'monitoring.option.mmrc_1': 'المستوى 1',
+  'monitoring.option.mmrc_2': 'المستوى 2',
+  'monitoring.option.mmrc_3': 'المستوى 3',
+  'monitoring.option.mmrc_4': 'المستوى 4',
+  'monitoring.option.cough_normal': 'ليس أكثر من المعتاد',
+  'monitoring.option.cough_mild': 'أكثر قليلًا من المعتاد',
+  'monitoring.option.cough_severe': 'أكثر بكثير من المعتاد',
+  'monitoring.option.sputum_normal': 'لا تغيير',
+  'monitoring.option.sputum_amount': 'زيادة الكمية',
+  'monitoring.option.sputum_color': 'تغير المظهر أو اللون',
+  'monitoring.spo2.placeholder': 'مثال: 95',
+  'monitoring.spo2.modeBluetooth': 'قراءة مقياس التأكسج عبر بلوتوث',
+  'monitoring.spo2.modeManual': 'إدخال يدوي',
+  'monitoring.spo2.errorRequired': 'أدخل قيمة SpO₂.',
+  'monitoring.spo2.errorRange': 'أدخل قيمة بين 70٪ و100٪.',
+  'monitoring.spo2.decrease': 'خفض تشبع الأكسجين',
+  'monitoring.spo2.increase': 'رفع تشبع الأكسجين',
+  'monitoring.spo2.accessibility': 'قيمة SpO₂ كنسبة مئوية',
+  'monitoring.spo2.noMeasurement': 'ليس لدي قياس الآن',
 };
 
 export let currentLocale: SupportedLocale = DEFAULT_LOCALE;
@@ -3064,6 +4342,22 @@ export function useLocale(): SupportedLocale {
     return subscribeLocale((newLocale) => setLocaleState(newLocale));
   }, []);
   return locale;
+}
+
+export function useLayoutDirection(): LayoutDirection {
+  return resolveLayoutDirection(useLocale());
+}
+
+export async function initializeLocale(): Promise<void> {
+  try {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const savedLocale = await AsyncStorage.getItem(LOCALE_STORAGE_KEY);
+    if (SUPPORTED_LOCALES.includes(savedLocale as SupportedLocale)) {
+      setLocale(savedLocale as SupportedLocale);
+    }
+  } catch (err) {
+    console.error('[Localization] Failed to load saved locale:', err);
+  }
 }
 
 export const translations: Record<SupportedLocale, TranslationMap> = { fr, en, ar };

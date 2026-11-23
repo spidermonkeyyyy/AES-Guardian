@@ -1,5 +1,6 @@
+import AppText from './AppText';
 import React from 'react';
-import { View, Image, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, Image, StyleSheet, ViewStyle } from 'react-native';
 import { typography, spacing } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -27,8 +28,7 @@ export const SanadLogo: React.FC<SanadLogoProps> = ({
       />
       {showText && (
         <View style={styles.textContainer}>
-          <Text style={[styles.title, { fontSize: textSize, color: colors.primary }]}>Sanad</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>سند — RespiraCare</Text>
+          <AppText style={[styles.title, { fontSize: textSize, color: colors.primary }]}>SANAD</AppText>
         </View>
       )}
     </View>
@@ -46,10 +46,5 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: typography.fontFamily.urbanist,
     fontWeight: typography.fontWeight.bold,
-  },
-  subtitle: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.xs,
-    marginTop: -2,
   },
 });

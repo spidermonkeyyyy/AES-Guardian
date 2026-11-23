@@ -1,146 +1,159 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { spacing, typography } from '../../../theme/tokens';
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { spacing } from '../../../theme/tokens';
 import { BreathingAnimation } from '../widgets/BreathingAnimation';
 import { AppButton } from '../../../components';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
+import { AppText } from '../../../components/AppText';
 import { useTheme } from '../../../theme/ThemeContext';
+import { t, useLocale } from '../../../localization';
 
 export default function AuthGateScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const locale = useLocale();
   const styles = createStyles(colors);
+  const [showDemoShortcuts, setShowDemoShortcuts] = useState(false);
   const navigateToSignUp = () => navigation.navigate('signUp');
   const navigateToSignIn = () => navigation.navigate('signIn');
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.spacer} />
-      <View style={styles.logoContainer}>
-        <BreathingAnimation size={140} />
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
+      <View style={styles.brand}>
+        <BreathingAnimation size={112} />
+        <AppText variant="display" style={{ color: colors.primary }}>Sanad</AppText>
+        <AppText variant="body" tone="muted" style={styles.subtitle}>
+          {t('authGate.subtitle', locale)}
+        </AppText>
       </View>
-      <Text style={[styles.title, { color: colors.primary }]}>Sanad</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Nurse-led respiratory monitoring</Text>
-      <View style={styles.spacer} />
-      
-      <View style={styles.buttonContainer}>
+
+      <View style={styles.actions}>
+        <AppButton title={t('authGate.getStarted', locale)} onPress={navigateToSignUp} variant="primary" fullWidth />
+        <AppButton title={t('authGate.signIn', locale)} onPress={navigateToSignIn} variant="outline" fullWidth />
         <AppButton
-          title="Get Started"
-          onPress={navigateToSignUp}
-          variant="primary"
-          fullWidth
-        />
-        <AppButton
-          title="I already have an account"
-          onPress={navigateToSignIn}
-          variant="outline"
-          fullWidth
-        />
-        <AppButton
-          title="🛡️ Espace AES Guardian (Démonstration PFE)"
+          title={t('authGate.aesDemo', locale)}
           onPress={() => navigation.navigate('aesGuardianWorkspace')}
           variant="secondary"
           fullWidth
         />
-        <AppButton
-          title="✨ Découverte & Onboarding AES (Visite Guidée)"
+        <TouchableOpacity
+          style={styles.secondaryLink}
           onPress={() => navigation.navigate('aesSplash')}
-          variant="outline"
-          fullWidth
-        />
-        <AppButton
-          title="Déclarations AES (Prototype)"
-          onPress={() => navigation.navigate('declarations')}
-          variant="secondary"
-          fullWidth
-        />
-        <AppButton
-          title="File d'attente administrative (Admin Démo)"
-          onPress={() => navigation.navigate('adminReviewQueue')}
-          variant="outline"
-          fullWidth
-        />
-        <AppButton
-          title="Coordination Santé au Travail (OH Démo)"
-          onPress={() => navigation.navigate('ohCoordinationQueue')}
-          variant="outline"
-          fullWidth
-        />
-        <AppButton
-          title="Tableau de bord de surveillance (Qualité Démo)"
-          onPress={() => navigation.navigate('surveillanceDashboard')}
-          variant="outline"
-          fullWidth
-        />
-        <AppButton
-          title="Prévention & Actions Correctives (Qualité Démo)"
-          onPress={() => navigation.navigate('preventionOverview')}
-          variant="outline"
-          fullWidth
-        />
+          accessibilityRole="button"
+        >
+          <AppText variant="label" tone="secondary">{t('authGate.aesTour', locale)}</AppText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.demoToggle}
+          onPress={() => setShowDemoShortcuts((visible) => !visible)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showDemoShortcuts }}
+          accessibilityLabel={t(
+            showDemoShortcuts ? 'authGate.hideDemoShortcuts' : 'authGate.moreDemoShortcuts',
+            locale,
+          )}
+          testID="auth-demo-shortcuts-toggle"
+        >
+          <AppText variant="label" tone="muted">
+            {t(
+              showDemoShortcuts ? 'authGate.hideDemoShortcuts' : 'authGate.moreDemoShortcuts',
+              locale,
+            )}
+          </AppText>
+          <AppIcon
+            name={showDemoShortcuts ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={colors.mutedForeground}
+          />
+        </TouchableOpacity>
+        {showDemoShortcuts ? (
+          <View style={styles.demoShortcuts}>
+            <AppButton title={t('authGate.declarations', locale)} onPress={() => navigation.navigate('declarations')} variant="ghost" fullWidth />
+            <AppButton title={t('authGate.adminReview', locale)} onPress={() => navigation.navigate('adminReviewQueue')} variant="ghost" fullWidth />
+            <AppButton title={t('authGate.ohCoordination', locale)} onPress={() => navigation.navigate('ohCoordinationQueue')} variant="ghost" fullWidth />
+            <AppButton title={t('authGate.surveillance', locale)} onPress={() => navigation.navigate('surveillanceDashboard')} variant="ghost" fullWidth />
+            <AppButton title={t('authGate.prevention', locale)} onPress={() => navigation.navigate('preventionOverview')} variant="ghost" fullWidth />
+          </View>
+        ) : null}
       </View>
 
       <TouchableOpacity
         style={styles.emergencyButton}
-        onPress={() =>
-          Alert.alert(
-            'Emergency',
-            'If you are experiencing severe breathing difficulty, please call your local emergency number immediately.\n\nSanad is not a replacement for emergency medical services.',
-            [{ text: 'Close' }]
-          )
-        }
+        onPress={() => Alert.alert(
+          t('authGate.emergencyTitle', locale),
+          t('authGate.emergencyMessage', locale),
+          [{ text: t('authGate.close', locale) }],
+        )}
+        accessibilityRole="button"
       >
         <View style={styles.emergencyRow}>
-          <Icon name="alert-circle" size={16} color="colors.destructive" />
-          <Text style={styles.emergencyText}>Need immediate help?</Text>
+          <AppIcon name="alert-circle" size={16} color={colors.destructive} />
+          <AppText variant="label" style={styles.emergencyText}>
+            {t('authGate.needImmediateHelp', locale)}
+          </AppText>
         </View>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 function createStyles(colors: any) {
-  return {
-  container: {
-    flex: 1,
-    padding: spacing.lg,
-    justifyContent: 'center',
-  },
-  spacer: { flex: 1 },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontFamily: typography.fontFamily.urbanist,
-    fontSize: typography.fontSize['3xl'],
-    fontWeight: typography.fontWeight.bold,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.md,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-  buttonContainer: {
-    gap: spacing.sm,
-    width: '100%',
-  },
-  emergencyButton: {
-    marginTop: spacing.lg,
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  emergencyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  emergencyText: {
-    color: colors.destructive,
-    fontWeight: typography.fontWeight.medium,
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.sm,
-  },
-}
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    content: {
+      flexGrow: 1,
+      padding: spacing.lg,
+      justifyContent: 'space-between',
+    },
+    brand: {
+      alignItems: 'center',
+      paddingTop: spacing.xl,
+      paddingBottom: spacing.lg,
+    },
+    subtitle: {
+      marginTop: spacing.xs,
+      textAlign: 'center',
+    },
+    actions: {
+      gap: spacing.sm,
+      width: '100%',
+    },
+    secondaryLink: {
+      minHeight: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    demoToggle: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      marginTop: spacing.xs,
+    },
+    demoShortcuts: {
+      gap: spacing.xs,
+      paddingTop: spacing.xs,
+    },
+    emergencyButton: {
+      marginTop: spacing.md,
+      alignItems: 'center',
+      paddingVertical: spacing.xs,
+    },
+    emergencyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    emergencyText: {
+      color: colors.destructive,
+    },
+  });
 }

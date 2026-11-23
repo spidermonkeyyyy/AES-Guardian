@@ -10,7 +10,7 @@
  * 5. Remediation E: Notification Payload Privacy & Reference Audit
  */
 
-import { AesGuardianDatabase } from '../AesGuardianDatabase';
+import { AesGuardianDatabase, PreventionActionCreationUncertainError } from '../AesGuardianDatabase';
 import { NativeSQLiteAdapter } from '../NativeSQLiteAdapter';
 import type {
   AesDeclaration,
@@ -892,6 +892,70 @@ describe('AES Guardian — Phase 2D.2C.1: Hardening & Remediation Verification',
       expect(notifs.length).toBe(0);
 
       await assertZeroForeignKeyViolations();
+    });
+
+    test('stable CAPA reference reconciles a committed action after readback failure without duplicates', async () => {
+      const input = {
+        title: 'Review protective equipment stock',
+        description: 'Review the availability of protective equipment.',
+        action_type: 'preventive' as const,
+        contributing_factor: 'protective_equipment' as const,
+        rationale: 'Maintain availability at each station.',
+      };
+      const referenceCode = 'CAPA-2026-90001';
+      const operationId = '10101010-1010-4010-8010-101010101010';
+      const readback = jest
+        .spyOn(db, 'getPreventionActionById')
+        .mockRejectedValueOnce(new Error('Simulated post-commit readback failure'));
+
+      await expect(db.createPreventionActionForOperation(qualityStaffId, input, operationId, referenceCode, 'new'))
+        .rejects.toBeInstanceOf(PreventionActionCreationUncertainError);
+      readback.mockRestore();
+
+      const reconciled = await db.reconcilePreventionActionCreation(
+        qualityStaffId,
+        input,
+        referenceCode,
+      );
+      expect(reconciled?.id).toBeGreaterThan(0);
+      expect(reconciled?.reference_code).toBe(referenceCode);
+      const retried = await db.createPreventionActionForOperation(qualityStaffId, input, operationId, referenceCode, 'retry');
+      expect(retried.id).toBe(reconciled?.id);
+
+      const persisted = await db.query<{ action_count: number; audit_count: number; notification_count: number }>(
+        `SELECT
+           (SELECT COUNT(*) FROM prevention_actions WHERE reference_code = ?) AS action_count,
+           (SELECT COUNT(*) FROM audit_events WHERE entity_id = ? AND event_type = 'prevention_action_created') AS audit_count,
+           (SELECT COUNT(*) FROM in_app_notifications WHERE entity_id = ? AND event_type = 'capa_created') AS notification_count`,
+        [referenceCode, reconciled?.id, reconciled?.id],
+      );
+      expect(persisted.rows[0]).toEqual({ action_count: 1, audit_count: 1, notification_count: 1 });
+    });
+
+    test.each([
+      [
+        'creation audit',
+        `DELETE FROM audit_events WHERE entity_id = ? AND event_type = 'prevention_action_created'`,
+      ],
+      [
+        'creation notification',
+        `DELETE FROM in_app_notifications WHERE entity_id = ? AND event_type = 'capa_created'`,
+      ],
+    ])('refuses reconciliation without the required %s evidence', async (_label, deleteSql) => {
+      const input = {
+        title: 'Update the equipment review process',
+        description: 'Review equipment stocks monthly.',
+        action_type: 'preventive' as const,
+        contributing_factor: 'protective_equipment' as const,
+        rationale: 'Ensure equipment remains available.',
+      };
+      const referenceCode = 'CAPA-2026-90002';
+      const action = await db.createPreventionAction(qualityStaffId, input, referenceCode);
+      await db.run(deleteSql, [action.id]);
+
+      await expect(
+        db.reconcilePreventionActionCreation(qualityStaffId, input, referenceCode),
+      ).rejects.toBeInstanceOf(PreventionActionCreationUncertainError);
     });
 
     test('updatePreventionActionStatus: rolls back if notification fails', async () => {

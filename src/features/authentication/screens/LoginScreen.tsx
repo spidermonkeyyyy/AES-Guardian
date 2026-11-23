@@ -6,9 +6,11 @@ import { login } from '../hooks/use-auth';
 import { SanadLogo, AppInput, AppButton } from '../../../components';
 import Icon from 'react-native-vector-icons/Feather';
 import { useTheme } from '../../../theme/ThemeContext';
+import { t, useLocale } from '../../../localization';
 
 export default function LoginScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const locale = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [clientError, setClientError] = useState<string | null>(null);
@@ -18,14 +20,14 @@ export default function LoginScreen({ navigation }: any) {
   const displayError = clientError || errorMessage;
 
   const validateEmail = (value: string) => {
-    if (!value.trim()) return 'Veuillez saisir votre adresse e-mail';
-    if (!value.includes('@') || !value.includes('.')) return 'Veuillez saisir une adresse e-mail valide';
+    if (!value.trim()) return t('auth.error.emailRequired', locale);
+    if (!value.includes('@') || !value.includes('.')) return t('auth.error.emailInvalid', locale);
     return null;
   };
 
   const validatePassword = (value: string) => {
-    if (!value.trim()) return 'Veuillez saisir votre mot de passe';
-    if (value.length < 6) return 'Le mot de passe doit contenir au moins 6 caractères';
+    if (!value.trim()) return t('auth.error.passwordRequired', locale);
+    if (value.length < 6) return t('auth.error.passwordMin6', locale);
     return null;
   };
 
@@ -55,8 +57,8 @@ export default function LoginScreen({ navigation }: any) {
         <SanadLogo size="medium" />
       </View>
 
-      <Text style={[styles.title, { color: colors.foreground }]}>Bienvenue</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Connectez-vous à votre espace Sanad</Text>
+      <Text style={[styles.title, { color: colors.foreground }]}>{t('auth.login.title', locale)}</Text>
+      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{t('auth.login.subtitle', locale)}</Text>
 
       {displayError && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + '14', borderColor: colors.destructive + '4D' }]}>
@@ -66,8 +68,8 @@ export default function LoginScreen({ navigation }: any) {
       )}
 
       <AppInput
-        label="Adresse e-mail"
-        placeholder="nom@exemple.com"
+        label={t('auth.email', locale)}
+        placeholder={t('auth.emailPlaceholder', locale)}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -76,8 +78,8 @@ export default function LoginScreen({ navigation }: any) {
       />
 
       <AppInput
-        label="Mot de passe"
-        placeholder="••••••••"
+        label={t('auth.password', locale)}
+        placeholder={t('auth.passwordPlaceholder', locale)}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -89,11 +91,13 @@ export default function LoginScreen({ navigation }: any) {
         onPress={() => navigation.navigate('forgotPassword')}
         accessibilityRole="button"
       >
-        <Text style={[styles.forgotText, { color: colors.primary }]}>Mot de passe oublié ?</Text>
+        <Text style={[styles.forgotText, { color: colors.primary }]}>
+          {t('auth.login.forgotPassword', locale)}
+        </Text>
       </TouchableOpacity>
 
       <AppButton
-        title="Se connecter"
+        title={t('auth.signIn', locale)}
         onPress={handleLogin}
         loading={isLoading}
         disabled={isLoading}
@@ -102,14 +106,20 @@ export default function LoginScreen({ navigation }: any) {
       />
 
       <View style={styles.registerRow}>
-        <Text style={[styles.registerText, { color: colors.mutedForeground }]}>Pas encore de compte ? </Text>
+        <Text style={[styles.registerText, { color: colors.mutedForeground }]}>
+          {t('auth.login.noAccount', locale)}{' '}
+        </Text>
         <TouchableOpacity onPress={() => navigation.navigate('signUp')} accessibilityRole="button">
-          <Text style={[styles.registerLink, { color: colors.primary }]}>Créer un compte</Text>
+          <Text style={[styles.registerLink, { color: colors.primary }]}>
+            {t('auth.createAccount', locale)}
+          </Text>
         </TouchableOpacity>
       </View>
 
       <View style={[styles.mockBar, { backgroundColor: colors.secondary }]}>
-        <Text style={[styles.mockTitle, { color: colors.foreground }]}>Comptes de démonstration (Test rapide)</Text>
+        <Text style={[styles.mockTitle, { color: colors.foreground }]}>
+          {t('auth.login.demoAccounts', locale)}
+        </Text>
         <View style={styles.mockRow}>
           <TouchableOpacity
             style={[styles.mockButton, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -117,7 +127,9 @@ export default function LoginScreen({ navigation }: any) {
             accessibilityRole="button"
           >
             <Icon name="user" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-            <Text style={[styles.mockButtonText, { color: colors.foreground }]}>Compte Patient</Text>
+            <Text style={[styles.mockButtonText, { color: colors.foreground }]}>
+              {t('auth.login.patientDemo', locale)}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.mockButton, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -125,7 +137,9 @@ export default function LoginScreen({ navigation }: any) {
             accessibilityRole="button"
           >
             <Icon name="activity" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-            <Text style={[styles.mockButtonText, { color: colors.foreground }]}>Compte Infirmier</Text>
+            <Text style={[styles.mockButtonText, { color: colors.foreground }]}>
+              {t('auth.login.nurseDemo', locale)}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

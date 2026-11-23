@@ -116,7 +116,7 @@ export const OhFollowUpEventScreen: React.FC = () => {
       });
       Alert.alert('', t('oh.create.success'), [
         {
-          text: 'OK',
+          text: t('app.ok'),
           onPress: () => navigation.goBack(),
         },
       ]);
@@ -160,7 +160,6 @@ export const OhFollowUpEventScreen: React.FC = () => {
     <AesScreenContainer scrollable testID="record-follow-up-event-screen">
       <AesScreenHeader
         title={t('oh.event.title')}
-        subtitle={`${t('oh.detail.title')} #${coordinationId}`}
         onBack={() => navigation.goBack()}
       />
 
@@ -194,7 +193,7 @@ export const OhFollowUpEventScreen: React.FC = () => {
             ]}
             value={eventDate}
             onChangeText={handleDateChange}
-            placeholder="AAAA-MM-JJ"
+            placeholder={t('oh.event.datePlaceholder')}
             placeholderTextColor={aesColors.textPlaceholder}
             maxLength={10}
             accessibilityLabel={t('oh.event.date')}

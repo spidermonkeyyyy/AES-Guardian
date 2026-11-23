@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native';
+import AppText from '../../../components/AppText';
+import { View, StyleSheet } from 'react-native';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 
@@ -14,10 +15,10 @@ export default function MonitoringProgress({ currentStep, totalSteps }: Monitori
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={[styles.label, { color: colors.primary }]}>Suivi respiratoire</Text>
-        <Text style={[styles.stepCount, { color: colors.mutedForeground }]}>
+        <AppText style={[styles.label, { color: colors.primary }]}>Suivi respiratoire</AppText>
+        <AppText style={[styles.stepCount, { color: colors.mutedForeground }]}>
           Étape {currentStep} sur {totalSteps}
-        </Text>
+        </AppText>
       </View>
       <View style={[styles.track, { backgroundColor: colors.muted }]}>
         <View style={[styles.fill, { width: `${Math.max(0, Math.min(1, progress)) * 100}%`, backgroundColor: colors.primary }]} />

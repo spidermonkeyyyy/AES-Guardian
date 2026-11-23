@@ -1,20 +1,19 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useRuleStore } from '../state/use-rule-store';
 import { useTheme } from '../../../../theme/ThemeContext';
 import { MonitoringRule, RuleCondition, ConditionGroupMode, AlertPriority } from '../../../../types/rule';
-
-interface RuleBuilderScreenProps {
-  // Navigation params injected by React Navigation
-}
+import { isRTL, t, useLocale } from '../../../../localization';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
 
 const AVAILABLE_METRICS = [
   { id: 'spo2', label: 'SpO₂ (%)' },
@@ -27,8 +26,10 @@ const AVAILABLE_METRICS = [
 
 const OPERATORS = ['<', '<=', '==', '>=', '>'] as const;
 
-export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
+export default function RuleBuilderScreen() {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
   const styles = createStyles(colors);
   const route = useRoute();
   const navigation = useNavigation();
@@ -52,6 +53,11 @@ export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
   const createRule = useRuleStore((s) => s.createRule);
   const updateRule = useRuleStore((s) => s.updateRule);
   const toRule = useRuleStore((s) => s.toRule);
+  const loadMetrics = useRuleStore((s) => s.loadMetrics);
+
+  useEffect(() => {
+    void loadMetrics();
+  }, [loadMetrics]);
 
   const existingRule = existingRuleId ? ruleById(existingRuleId) : undefined;
 
@@ -138,35 +144,31 @@ export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
     <ScrollView style={styles.container}>
       <View style={styles.form}>
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Nom de la règle</Text>
-          <TouchableOpacity
-            style={styles.textInput}
-            onPress={() => {
-              // In a real implementation, use a TextInput component
-            }}
-          >
-            <Text style={draft.name ? styles.inputText : styles.inputPlaceholder}>
-              {draft.name || 'Entrez le nom de la règle...'}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.fieldLabel}>{t('nurse.rules.builderName', locale)}</Text>
+          <TextInput
+            style={[styles.textInput, rtl && { textAlign: 'right', writingDirection: 'rtl' }]}
+            value={draft.name}
+            onChangeText={setName}
+            placeholder={t('nurse.rules.builderName', locale)}
+            placeholderTextColor={colors.mutedForeground}
+          />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Description</Text>
-          <TouchableOpacity
-            style={[styles.textInput, styles.textInputMultiline]}
-            onPress={() => {
-              // In a real implementation, use a TextInput component
-            }}
-          >
-            <Text style={draft.description ? styles.inputText : styles.inputPlaceholder}>
-              {draft.description || 'Entrez une description (optionnel)...'}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.fieldLabel}>{t('nurse.rules.builderDescription', locale)}</Text>
+          <TextInput
+            style={[styles.textInput, styles.textInputMultiline, rtl && { textAlign: 'right', writingDirection: 'rtl' }]}
+            value={draft.description}
+            onChangeText={setDescription}
+            placeholder={t('nurse.rules.builderDescription', locale)}
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            textAlignVertical="top"
+          />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Priorité</Text>
+          <Text style={styles.fieldLabel}>{t('nurse.rules.builderPriority', locale)}</Text>
           <View style={styles.chipRow}>
             {(['low', 'medium', 'high'] as AlertPriority[]).map((priority) => (
               <TouchableOpacity
@@ -175,7 +177,7 @@ export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
                 onPress={() => setDraftPriority(priority)}
               >
                 <Text style={[styles.chipText, draft.priority === priority && styles.chipTextSelected]}>
-                  {priority === 'low' ? 'Basse' : priority === 'medium' ? 'Moyenne' : 'Haute'}
+                  {t(priority === 'low' ? 'nurse.rules.builderLow' : priority === 'medium' ? 'nurse.rules.builderMedium' : 'nurse.rules.builderHigh', locale)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -260,16 +262,14 @@ export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
 
                     <View style={styles.conditionField}>
                       <Text style={styles.conditionFieldLabel}>Valeur</Text>
-                      <TouchableOpacity
-                        style={styles.textInput}
-                        onPress={() => {
-                          // In a real implementation, use a TextInput or picker component
-                        }}
-                      >
-                        <Text style={condition.value ? styles.inputText : styles.inputPlaceholder}>
-                          {condition.value || 'Entrez une valeur...'}
-                        </Text>
-                      </TouchableOpacity>
+                      <TextInput
+                        style={[styles.textInput, rtl && { textAlign: 'right', writingDirection: 'rtl' }]}
+                        value={condition.value}
+                        onChangeText={(value) => handleChangeCondition(condition.id, 'value', value)}
+                        editable={condition.operator !== 'changed'}
+                        placeholder={condition.unit ? `${condition.unit}` : '0'}
+                        placeholderTextColor={colors.mutedForeground}
+                      />
                     </View>
 
                     <TouchableOpacity
@@ -326,7 +326,7 @@ export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
             accessibilityRole="button"
             accessibilityLabel="Enregistrer la règle"
           >
-            <Text style={styles.primaryButtonText}>Enregistrer</Text>
+            <Text style={styles.primaryButtonText}>{t('nurse.rules.save', locale)}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -335,7 +335,7 @@ export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
             accessibilityRole="button"
             accessibilityLabel="Annuler"
           >
-            <Text style={styles.outlinedButtonText}>Annuler</Text>
+            <Text style={styles.outlinedButtonText}>{t('nurse.rules.cancel', locale)}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -344,7 +344,7 @@ export default function RuleBuilderScreen(_props: RuleBuilderScreenProps) {
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -567,5 +567,5 @@ function createStyles(colors: any) {
   buttonDisabled: {
     opacity: 0.6,
   },
-}
+});
 }

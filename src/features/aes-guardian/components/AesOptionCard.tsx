@@ -6,16 +6,16 @@
  * Section 5.1 & Section 5.2 (used in DemoAccountPickerScreen and form steps).
  */
 
+import AppText from '../../../components/AppText';
 import React from 'react';
 import {
   TouchableOpacity,
   View,
-  Text,
   StyleSheet,
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -23,7 +23,10 @@ import {
   aesRadii,
   aesShadows,
 } from '../../../theme/tokens';
-import { useLocale, isRTL } from '../../../localization';
+import {
+  getLayoutTextAlign,
+  useLayoutDirection,
+} from '../../../localization';
 
 export type AesOptionCardVariant = 'radio' | 'checkbox';
 
@@ -52,13 +55,15 @@ export const AesOptionCard: React.FC<AesOptionCardProps> = ({
   testID,
   accessibilityLabel,
 }) => {
-  const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rtl = layoutDirection === 'rtl';
+  const textAlign = getLayoutTextAlign(layoutDirection);
 
   return (
     <TouchableOpacity
       style={[
         styles.container,
+        rtl && styles.containerRtl,
         selected ? styles.selectedContainer : styles.unselectedContainer,
         disabled && styles.disabledContainer,
         style,
@@ -104,36 +109,36 @@ export const AesOptionCard: React.FC<AesOptionCardProps> = ({
                 selected ? styles.badgeSelected : styles.badgeUnselected,
               ]}
             >
-              <Text
+              <AppText
                 style={[
                   styles.badgeText,
                   selected && styles.badgeTextSelected,
                 ]}
               >
                 {badgeCode}
-              </Text>
+              </AppText>
             </View>
           ) : null}
-          <Text
+          <AppText
             style={[
               styles.title,
-              { textAlign: rtl ? 'right' : 'left' },
+              { textAlign },
               selected && styles.titleSelected,
             ]}
           >
             {title}
-          </Text>
+          </AppText>
         </View>
 
         {subtitle ? (
-          <Text
+          <AppText
             style={[
               styles.subtitle,
-              { textAlign: rtl ? 'right' : 'left' },
+              { textAlign },
             ]}
           >
             {subtitle}
-          </Text>
+          </AppText>
         ) : null}
       </View>
     </TouchableOpacity>
@@ -151,6 +156,9 @@ const styles = StyleSheet.create({
     marginVertical: aesSpacing.xs,
     ...aesShadows.card,
   },
+  containerRtl: {
+    flexDirection: 'row-reverse',
+  },
   unselectedContainer: {
     borderColor: aesColors.borderSubdued,
   },
@@ -163,7 +171,7 @@ const styles = StyleSheet.create({
   },
   indicatorSlot: {
     marginTop: 2,
-    marginRight: aesSpacing.md,
+    marginEnd: aesSpacing.md,
   },
   contentColumn: {
     flex: 1,

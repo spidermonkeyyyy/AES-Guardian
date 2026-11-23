@@ -255,7 +255,7 @@ describe('Migration 8 — In-App Notifications Schema Regression', () => {
     const versions = await freshDb.getAppliedVersions();
     const versionNumbers = versions.map((v: any) => v.version);
     expect(versionNumbers).toContain(8);
-    expect(versionNumbers.length).toBe(8);
+    expect(versionNumbers.length).toBe(10);
 
     const fkViolations = await freshDb.all(`PRAGMA foreign_key_check`);
     expect(fkViolations).toEqual([]);

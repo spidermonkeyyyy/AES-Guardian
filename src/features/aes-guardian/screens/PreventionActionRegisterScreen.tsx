@@ -5,13 +5,13 @@
  * oh_professional. Only quality_staff receives the create action.
  */
 
+import AppText from '../../../components/AppText';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,8 +29,16 @@ import {
   ContributingFactorCategory,
   useDemoRoleStore,
 } from '../../../core';
-import { isRTL, t, useLocale, type TranslationKey } from '../../../localization';
+import {
+  t,
+  useLocale,
+  useLayoutDirection,
+  getLayoutRowDirection,
+  getLayoutTextAlign,
+  type TranslationKey,
+} from '../../../localization';
 import { RootStackParamList } from '../../../navigation/routes';
+import { formatPreventionDate } from '../prevention-date-format';
 import {
   aesColors,
   aesRadii,
@@ -89,16 +97,19 @@ const FilterChip: React.FC<FilterChipProps> = ({
     style={[styles.filterChip, selected && styles.filterChipSelected]}
     testID={testID}
   >
-    <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected, { textAlign: rtl ? 'right' : 'left' }]}>
+    <AppText style={[styles.filterChipText, selected && styles.filterChipTextSelected, { textAlign: rtl ? 'right' : 'left' }]}>
       {label}
-    </Text>
+    </AppText>
   </Pressable>
 );
 
 export const PreventionActionRegisterScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
   const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rtl = layoutDirection === 'rtl';
+  const rowDirection = getLayoutRowDirection(layoutDirection);
+  const textAlign = getLayoutTextAlign(layoutDirection);
   const activeContext = useDemoRoleStore(state => state.activeContext);
   const userId = activeContext.userId;
   const isAuthorized = canViewPreventionActions(activeContext);
@@ -152,12 +163,12 @@ export const PreventionActionRegisterScreen: React.FC = () => {
   }, [loadActions]);
 
   const filterLabel = (label: string, testID: string) => (
-    <Text
-      style={[styles.filterLabel, { textAlign: rtl ? 'right' : 'left' }]}
+    <AppText
+      style={[styles.filterLabel, { textAlign }]}
       testID={`${testID}-label`}
     >
       {label}
-    </Text>
+    </AppText>
   );
 
   const renderFilterGroup = (
@@ -166,7 +177,7 @@ export const PreventionActionRegisterScreen: React.FC = () => {
     chips: React.ReactNode,
   ) => (
     <View
-      style={[styles.filterGroup, rtl && styles.filterGroupRtl]}
+      style={[styles.filterGroup, { flexDirection: rowDirection }]}
       testID={`${testID}-group`}
     >
       {filterLabel(title, testID)}
@@ -176,7 +187,7 @@ export const PreventionActionRegisterScreen: React.FC = () => {
         contentContainerStyle={styles.filterScrollContent}
       >
         <View
-          style={[styles.filterOptions, rtl && styles.filterOptionsRtl]}
+          style={[styles.filterOptions, { flexDirection: rowDirection }]}
           testID={`${testID}-options`}
         >
           {chips}
@@ -199,9 +210,9 @@ export const PreventionActionRegisterScreen: React.FC = () => {
           accentBorderColor={aesColors.banners.error.border}
           testID="prevention-register-unauthorized-card"
         >
-          <Text style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
+          <AppText style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('prevention.unauthorized')}
-          </Text>
+          </AppText>
         </AesCard>
       </AesScreenContainer>
     );
@@ -295,7 +306,7 @@ export const PreventionActionRegisterScreen: React.FC = () => {
       {loading && (
         <View style={styles.centeredState} testID="prevention-register-loading">
           <ActivityIndicator size="large" color={aesColors.accentGreen} />
-          <Text style={styles.stateText}>{t('app.loading')}</Text>
+          <AppText style={styles.stateText}>{t('app.loading')}</AppText>
         </View>
       )}
 
@@ -305,9 +316,9 @@ export const PreventionActionRegisterScreen: React.FC = () => {
           accentBorderColor={aesColors.banners.error.border}
           testID="prevention-register-error"
         >
-          <Text style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
+          <AppText style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('error.generic')}
-          </Text>
+          </AppText>
           <AesButton
             title={t('prevention.register.retry')}
             onPress={() => void loadActions()}
@@ -320,9 +331,9 @@ export const PreventionActionRegisterScreen: React.FC = () => {
 
       {!loading && !error && actions.length === 0 && (
         <AesCard elevated testID="prevention-register-empty">
-          <Text style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
+          <AppText style={[styles.stateText, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('prevention.register.empty')}
-          </Text>
+          </AppText>
         </AesCard>
       )}
 
@@ -332,50 +343,50 @@ export const PreventionActionRegisterScreen: React.FC = () => {
           elevated
           testID={`prevention-register-action-${action.id}`}
         >
-          <View style={[styles.actionHeader, rtl && styles.actionHeaderRtl]}>
-            <Text style={[styles.reference, { textAlign: rtl ? 'right' : 'left' }]}>
+          <View style={[styles.actionHeader, { flexDirection: rowDirection }]}>
+            <AppText style={[styles.reference, { textAlign: rtl ? 'right' : 'left' }]}>
               {action.reference_code}
-            </Text>
+            </AppText>
             <AesStatusBadge
               status={action.status}
               domain="capa"
               testID={`prevention-register-status-${action.id}`}
             />
           </View>
-          <Text style={[styles.actionTitle, { textAlign: rtl ? 'right' : 'left' }]}>
+          <AppText style={[styles.actionTitle, { textAlign: rtl ? 'right' : 'left' }]}>
             {action.title}
-          </Text>
-          <Text
+          </AppText>
+          <AppText
             numberOfLines={3}
             style={[styles.description, { textAlign: rtl ? 'right' : 'left' }]}
           >
             {action.description}
-          </Text>
-          <View style={[styles.actionContext, rtl && styles.actionContextRtl]}>
-            <Text
+          </AppText>
+          <View style={[styles.actionContext, { flexDirection: rowDirection }]}>
+            <AppText
               style={styles.contextText}
               testID={`prevention-register-action-type-${action.id}`}
             >
               {t(action.action_type === 'corrective'
                 ? 'prevention.detail.type.corrective'
                 : 'prevention.detail.type.preventive')}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={styles.contextText}
               testID={`prevention-register-action-factor-${action.id}`}
             >
               {t(FACTOR_TRANSLATION_KEYS[action.contributing_factor])}
-            </Text>
+            </AppText>
           </View>
-          {action.target_date ? (
-            <Text
+          {formatPreventionDate(action.target_date, locale) ? (
+            <AppText
               style={[styles.targetDate, { textAlign: rtl ? 'right' : 'left' }]}
               testID={`prevention-register-action-target-date-${action.id}`}
             >
-              {t('prevention.detail.targetDate')}: {action.target_date}
-            </Text>
+              {t('prevention.detail.targetDate')}: {formatPreventionDate(action.target_date, locale)}
+            </AppText>
           ) : null}
-          <View style={[styles.detailAction, rtl && styles.detailActionRtl]}>
+          <View style={[styles.detailAction, { flexDirection: rowDirection }]}>
             <AesRoundArrowButton
               onPress={() => navigation.navigate('preventionActionDetail', { actionId: action.id })}
               variant="green"

@@ -16,6 +16,8 @@ import {
 } from '../../../theme/tokens/aesColors';
 import { aesTypography } from '../../../theme/tokens';
 import { t } from '../../../localization';
+import { useTheme } from '../../../theme/ThemeContext';
+import { getThemeColors } from '../../../theme/tokens/colors';
 
 export type BadgeDomain = 'declaration' | 'ohCoordination' | 'capa';
 
@@ -26,24 +28,14 @@ export interface AesStatusBadgeProps {
   testID?: string;
 }
 
-const FALLBACK_COLORS = { bg: '#EEEEEE', text: '#616161', border: '#E0E0E0' };
-
 export const AesStatusBadge: React.FC<AesStatusBadgeProps> = ({
   status,
   domain,
   accessibilityLabel,
   testID,
 }) => {
-  const colorMap =
-    domain === 'declaration'
-      ? aesDeclarationStatusColors
-      : domain === 'ohCoordination'
-      ? aesOhCoordinationStatusColors
-      : aesCapaStatusColors;
-
-  const colors =
-    (colorMap as Record<string, { bg: string; text: string; border: string }>)[status] ??
-    FALLBACK_COLORS;
+  const { colors, isDark } = useTheme();
+  const statusColors = getStatusColors(status, domain, colors, isDark);
 
   let label: string;
   if (domain === 'declaration') {
@@ -69,8 +61,8 @@ export const AesStatusBadge: React.FC<AesStatusBadgeProps> = ({
       style={[
         styles.badge,
         {
-          backgroundColor: colors.bg,
-          borderColor: colors.border,
+          backgroundColor: statusColors.bg,
+          borderColor: statusColors.border,
         },
       ]}
       accessible
@@ -79,7 +71,7 @@ export const AesStatusBadge: React.FC<AesStatusBadgeProps> = ({
       testID={testID ?? 'aes-status-badge'}
     >
       <Text
-        style={[styles.text, { color: colors.text }]}
+        style={[styles.text, { color: statusColors.text }]}
         testID={`${testID ?? 'aes-status-badge'}-text`}
       >
         {label}
@@ -91,13 +83,75 @@ export const AesStatusBadge: React.FC<AesStatusBadgeProps> = ({
 const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
   },
   text: {
     fontSize: aesTypography.labelSmall?.fontSize ?? 11,
     fontWeight: '600',
   },
 });
+
+function getStatusColors(
+  status: string,
+  domain: BadgeDomain,
+  colors: ReturnType<typeof getThemeColors>,
+  isDark: boolean,
+) {
+  if (!isDark) {
+    const colorMap =
+      domain === 'declaration'
+        ? aesDeclarationStatusColors
+        : domain === 'ohCoordination'
+          ? aesOhCoordinationStatusColors
+          : aesCapaStatusColors;
+    return (
+      (colorMap as Record<string, { bg: string; text: string; border: string }>)[status] ?? {
+        bg: '#EEEEEE',
+        text: '#616161',
+        border: '#E0E0E0',
+      }
+    );
+  }
+
+  if (status === 'closed' || status === 'completed') {
+    return {
+      bg: colors.secondary,
+      text: colors.secondaryForeground,
+      border: colors.success,
+    };
+  }
+  if (status === 'cancelled' || status === 'correction_requested') {
+    return {
+      bg: isDark ? colors.destructive : colors.dangerBackground,
+      text: isDark ? colors.destructiveForeground : colors.danger,
+      border: colors.destructive,
+    };
+  }
+  if (
+    status === 'under_review' ||
+    status === 'pending_acknowledgement' ||
+    status === 'in_progress' ||
+    status === 'proposed'
+  ) {
+    return {
+      bg: colors.warningBackground,
+      text: colors.warning,
+      border: colors.warning,
+    };
+  }
+  if (status === 'submitted' || status === 'resubmitted' || status === 'acknowledged') {
+    return {
+      bg: colors.infoBackground,
+      text: colors.info,
+      border: colors.info,
+    };
+  }
+  return {
+    bg: colors.muted,
+    text: colors.mutedForeground,
+    border: colors.border,
+  };
+}

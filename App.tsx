@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import * as eva from '@ui-kitten/eva';
+import { ApplicationProvider } from '@ui-kitten/components';
 import AppNavigator from './src/navigation/AppNavigator';
 import { restoreSession } from './src/features/authentication/hooks/use-auth';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
@@ -88,7 +90,18 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <ThemeProvider>
-      <MainApp />
+      <ThemedApplicationProvider>
+        <MainApp />
+      </ThemedApplicationProvider>
     </ThemeProvider>
+  );
+}
+
+function ThemedApplicationProvider({ children }: { children: React.ReactNode }) {
+  const { isDark } = useTheme();
+  return (
+    <ApplicationProvider {...eva} theme={isDark ? eva.dark : eva.light}>
+      {children}
+    </ApplicationProvider>
   );
 }

@@ -1,7 +1,7 @@
+import AppText from '../../../components/AppText';
 import { useCallback } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -68,15 +68,15 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
       >
         <View style={styles.groupHeader}>
           <View style={styles.patientInfo}>
-            <Text style={[styles.patientName, { color: colors.foreground }]}>{item.patientName}</Text>
+            <AppText style={[styles.patientName, { color: colors.foreground }]}>{item.patientName}</AppText>
             {item.patientSummary ? (
-              <Text style={[styles.patientSummary, { color: colors.mutedForeground }]}>{item.patientSummary}</Text>
+              <AppText style={[styles.patientSummary, { color: colors.mutedForeground }]}>{item.patientSummary}</AppText>
             ) : null}
           </View>
           <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '20' }]}>
-            <Text style={[styles.priorityText, { color: priorityColor }]}>
+            <AppText style={[styles.priorityText, { color: priorityColor }]}>
               {mostUrgent.priority === AlertPriority.high ? 'Haute' : mostUrgent.priority === AlertPriority.medium ? 'Moyenne' : 'Basse'}
-            </Text>
+            </AppText>
           </View>
         </View>
 
@@ -84,20 +84,20 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
           {item.alerts.map((alert) => (
             <View key={alert.id} style={[styles.alertRow, { borderTopColor: colors.border }]}>
               <View style={styles.alertInfo}>
-                <Text style={[styles.alertReason, { color: colors.foreground }]} numberOfLines={2}>
+                <AppText style={[styles.alertReason, { color: colors.foreground }]} numberOfLines={2}>
                   {alert.reason}
-                </Text>
-                <Text style={[styles.alertMeta, { color: colors.mutedForeground }]}>
+                </AppText>
+                <AppText style={[styles.alertMeta, { color: colors.mutedForeground }]}>
                   {new Date(alert.createdAt).toLocaleString('fr-FR', {
                     day: '2-digit',
                     month: '2-digit',
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
-                </Text>
+                </AppText>
               </View>
               <View style={[styles.statusBadge, { backgroundColor: colors.muted }]}>
-                <Text style={[styles.statusText, { color: colors.mutedForeground }]}>
+                <AppText style={[styles.statusText, { color: colors.mutedForeground }]}>
                   {alert.status === AlertStatus.unread
                     ? 'Non lue'
                     : alert.status === AlertStatus.acknowledged
@@ -105,7 +105,7 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
                       : alert.status === AlertStatus.inProgress
                         ? 'En cours'
                         : 'Résolue'}
-                </Text>
+                </AppText>
               </View>
             </View>
           ))}
@@ -118,7 +118,7 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Chargement des alertes...</Text>
+        <AppText style={[styles.loadingText, { color: colors.mutedForeground }]}>Chargement des alertes...</AppText>
       </View>
     );
   }
@@ -126,8 +126,8 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
   if (errorMessage) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorTitle, { color: colors.foreground }]}>Impossible de charger les alertes</Text>
-        <Text style={[styles.errorMessage, { color: colors.mutedForeground }]}>{errorMessage}</Text>
+        <AppText style={[styles.errorTitle, { color: colors.foreground }]}>Impossible de charger les alertes</AppText>
+        <AppText style={[styles.errorMessage, { color: colors.mutedForeground }]}>{errorMessage}</AppText>
         <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           onPress={() => {
@@ -137,7 +137,7 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
           accessibilityRole="button"
           accessibilityLabel="Réessayer"
         >
-          <Text style={[styles.retryButtonText, { color: colors.primaryForeground }]}>Réessayer</Text>
+          <AppText style={[styles.retryButtonText, { color: colors.primaryForeground }]}>Réessayer</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -149,9 +149,9 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {openCount > 0 && (
         <View style={[styles.openCountBanner, { backgroundColor: colors.destructive + '20' }]}>
-          <Text style={[styles.openCountText, { color: colors.destructive }]}>
+          <AppText style={[styles.openCountText, { color: colors.destructive }]}>
             {openCount} ouverte{openCount > 1 ? 's' : ''}
-          </Text>
+          </AppText>
         </View>
       )}
 
@@ -175,13 +175,13 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
                 accessibilityLabel={`Filtrer: ${item.label}`}
                 accessibilityState={{ selected: isSelected }}
               >
-                <Text style={[
+                <AppText style={[
                   styles.filterChipText,
                   { color: colors.foreground },
                   isSelected && { color: colors.primary, fontWeight: typography.fontWeight.semibold },
                 ]}>
                   {item.label}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           }}
@@ -190,8 +190,8 @@ export default function AlertsListScreen({ repository }: AlertsListScreenProps) 
 
       {groups.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Aucune alerte</Text>
-          <Text style={[styles.emptyMessage, { color: colors.mutedForeground }]}>Les alertes de surveillance s'afficheront ici.</Text>
+          <AppText style={[styles.emptyTitle, { color: colors.foreground }]}>Aucune alerte</AppText>
+          <AppText style={[styles.emptyMessage, { color: colors.mutedForeground }]}>Les alertes de surveillance s'afficheront ici.</AppText>
         </View>
       ) : (
         <FlatList

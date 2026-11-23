@@ -1,9 +1,9 @@
+import AppTextInput from '../../../components/AppTextInput';
+import AppText from '../../../components/AppText';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,7 +18,13 @@ import {
   useDemoRoleStore,
   isValidPreventionTransition,
 } from '../../../core';
-import { isRTL, t, useLocale } from '../../../localization';
+import {
+  t,
+  useLocale,
+  useLayoutDirection,
+  getLayoutRowDirection,
+  getLayoutTextAlign,
+} from '../../../localization';
 import {
   aesColors,
   aesRadii,
@@ -26,6 +32,7 @@ import {
   aesTypography,
 } from '../../../theme/tokens';
 import { RootStackParamList } from '../../../navigation/routes';
+import { formatPreventionDate } from '../prevention-date-format';
 import {
   AesButton,
   AesCard,
@@ -42,7 +49,10 @@ export const PreventionActionDetailScreen: React.FC = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavProp>();
   const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rtl = layoutDirection === 'rtl';
+  const rowDirection = getLayoutRowDirection(layoutDirection);
+  const textAlign = getLayoutTextAlign(layoutDirection);
   const styles = createStyles(rtl);
   const { activeContext } = useDemoRoleStore();
   const canView = canViewPreventionActions(activeContext);
@@ -218,10 +228,29 @@ export const PreventionActionDetailScreen: React.FC = () => {
     testID,
   }) => {
     if (!value) return null;
+    const technical =
+      testID === 'prevention-detail-reference' ||
+      testID === 'prevention-detail-surveillance-reference' ||
+      testID === 'prevention-detail-target-date' ||
+      testID === 'prevention-detail-created-at' ||
+      testID === 'prevention-detail-updated-at' ||
+      testID === 'prevention-detail-completed-at';
     return (
-      <View style={styles.infoRow} testID={testID}>
-        <Text style={[styles.infoLabel, rtl && styles.rtlText]}>{label}</Text>
-        <Text style={[styles.infoValue, rtl && styles.rtlText]}>{value}</Text>
+      <View
+        style={[styles.infoRow, { flexDirection: rowDirection }]}
+        testID={testID}
+      >
+        <AppText style={[styles.infoLabel, { textAlign }]}>{label}</AppText>
+        <AppText
+          style={[
+            styles.infoValue,
+            technical
+              ? { textAlign: 'left', writingDirection: 'ltr' }
+              : { textAlign },
+          ]}
+        >
+          {value}
+        </AppText>
       </View>
     );
   };
@@ -238,6 +267,7 @@ export const PreventionActionDetailScreen: React.FC = () => {
         overline={t('prevention.overview.title', locale)}
         rightElement={
           <AesRoundArrowButton
+            direction="back"
             testID="prevention-detail-back"
             onPress={() => navigation.goBack()}
             accessibilityLabel={t('app.back', locale)}
@@ -247,20 +277,20 @@ export const PreventionActionDetailScreen: React.FC = () => {
 
       {!canView ? (
         <AesCard testID="prevention-detail-denied" style={styles.outerCard}>
-          <Text style={[styles.bodyText, rtl && styles.rtlText]}>
+          <AppText style={[styles.bodyText, rtl && styles.rtlText]}>
             {t('prevention.unauthorized', locale)}
-          </Text>
+          </AppText>
         </AesCard>
       ) : loading ? (
         <View testID="prevention-detail-loading" style={styles.stateContainer}>
           <ActivityIndicator size="large" color={aesColors.accentGreen} />
-          <Text style={[styles.bodyText, rtl && styles.rtlText]}>{t('app.loading', locale)}</Text>
+          <AppText style={[styles.bodyText, rtl && styles.rtlText]}>{t('app.loading', locale)}</AppText>
         </View>
       ) : loadError ? (
         <AesCard testID="prevention-detail-error" style={styles.outerCard}>
-          <Text style={[styles.errorText, rtl && styles.rtlText]}>
+          <AppText style={[styles.errorText, rtl && styles.rtlText]}>
             {t('prevention.detail.loadError', locale)}
-          </Text>
+          </AppText>
           <AesButton
             testID="prevention-detail-retry"
             title={t('prevention.detail.retry', locale)}
@@ -270,36 +300,39 @@ export const PreventionActionDetailScreen: React.FC = () => {
         </AesCard>
       ) : !action ? (
         <AesCard testID="prevention-detail-not-found" style={styles.outerCard}>
-          <Text style={[styles.bodyText, rtl && styles.rtlText]}>
+          <AppText style={[styles.bodyText, rtl && styles.rtlText]}>
             {t('prevention.detail.notFound', locale)}
-          </Text>
+          </AppText>
         </AesCard>
       ) : (
         <View style={styles.contentBody}>
           <AesCard testID="prevention-detail-summary" style={styles.summaryCard}>
-            <View style={[styles.referenceRow, rtl && styles.rowReverse]}>
-              <Text testID="prevention-detail-reference" style={styles.reference}>
+            <View style={[styles.referenceRow, { flexDirection: rowDirection }]}>
+              <AppText
+                testID="prevention-detail-reference"
+                style={[styles.reference, { textAlign: 'left', writingDirection: 'ltr' }]}
+              >
                 {action.reference_code}
-              </Text>
+              </AppText>
               <AesStatusBadge
                 status={action.status}
                 domain="capa"
                 testID="prevention-detail-status"
               />
             </View>
-            <Text
+            <AppText
               testID="prevention-detail-title"
               style={[styles.title, rtl && styles.rtlText]}
             >
               {action.title}
-            </Text>
-            <Text style={[styles.description, rtl && styles.rtlText]}>{action.description}</Text>
+            </AppText>
+            <AppText style={[styles.description, rtl && styles.rtlText]}>{action.description}</AppText>
           </AesCard>
 
           <AesCard style={styles.detailCard}>
-            <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+            <AppText style={[styles.sectionTitle, rtl && styles.rtlText]}>
               {t('prevention.detail.actionInformation', locale)}
-            </Text>
+            </AppText>
             <InfoRow
               testID="prevention-detail-type"
               label={t('prevention.create.action_type', locale)}
@@ -328,28 +361,28 @@ export const PreventionActionDetailScreen: React.FC = () => {
             <InfoRow
               testID="prevention-detail-target-date"
               label={t('prevention.detail.targetDate', locale)}
-              value={action.target_date}
+              value={formatPreventionDate(action.target_date, locale)}
             />
           </AesCard>
 
           <AesCard style={styles.detailCard}>
-            <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+            <AppText style={[styles.sectionTitle, rtl && styles.rtlText]}>
               {t('prevention.detail.recordInformation', locale)}
-            </Text>
+            </AppText>
             <InfoRow
               testID="prevention-detail-created-at"
               label={t('prevention.detail.createdAt', locale)}
-              value={action.created_at}
+              value={formatPreventionDate(action.created_at, locale, true)}
             />
             <InfoRow
               testID="prevention-detail-updated-at"
               label={t('prevention.detail.updatedAt', locale)}
-              value={action.updated_at}
+              value={formatPreventionDate(action.updated_at, locale, true)}
             />
             <InfoRow
               testID="prevention-detail-completed-at"
               label={t('prevention.detail.completedAt', locale)}
-              value={action.completed_at}
+              value={formatPreventionDate(action.completed_at, locale, true)}
             />
             <InfoRow
               testID="prevention-detail-completion-notes"
@@ -360,10 +393,10 @@ export const PreventionActionDetailScreen: React.FC = () => {
 
           {canManage ? (
             <AesCard testID="prevention-detail-actions" style={styles.detailCard}>
-              <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+              <AppText style={[styles.sectionTitle, rtl && styles.rtlText]}>
                 {t('prevention.detail.lifecycleActions', locale)}
-              </Text>
-              <View style={[styles.actionRow, rtl && styles.rowReverse]}>
+              </AppText>
+              <View style={[styles.actionRow, { flexDirection: rowDirection }]}>
                 {isValidPreventionTransition(action.status, 'in_progress') ? (
                   <AesButton
                     testID="prevention-detail-start"
@@ -398,9 +431,9 @@ export const PreventionActionDetailScreen: React.FC = () => {
               </View>
               {transitionError ? (
                 <View testID="prevention-detail-transition-error" style={styles.errorBanner}>
-                  <Text style={[styles.errorText, rtl && styles.rtlText]}>
+                  <AppText style={[styles.errorText, rtl && styles.rtlText]}>
                     {t('prevention.detail.transitionError', locale)}
-                  </Text>
+                  </AppText>
                   <AesButton
                     testID="prevention-detail-transition-retry"
                     title={t('prevention.detail.refreshRetry', locale)}
@@ -412,17 +445,17 @@ export const PreventionActionDetailScreen: React.FC = () => {
               ) : null}
               {transitionStatus === 'completed' || transitionStatus === 'cancelled' ? (
                 <View testID="prevention-detail-transition-panel" style={styles.transitionPanel}>
-                  <Text style={[styles.panelTitle, rtl && styles.rtlText]}>
+                  <AppText style={[styles.panelTitle, rtl && styles.rtlText]}>
                     {transitionStatus === 'completed'
                       ? t('prevention.detail.completion_note_prompt', locale)
                       : t('prevention.detail.cancelConfirmation', locale)}
-                  </Text>
-                  <Text style={[styles.fieldLabel, rtl && styles.rtlText]}>
+                  </AppText>
+                  <AppText style={[styles.fieldLabel, rtl && styles.rtlText]}>
                     {transitionStatus === 'completed'
                       ? t('prevention.detail.completionNoteLabel', locale)
                       : t('prevention.detail.cancelNoteLabel', locale)}
-                  </Text>
-                  <TextInput
+                  </AppText>
+                  <AppTextInput
                     testID={
                       transitionStatus === 'completed'
                         ? 'prevention-detail-completion-note'
@@ -444,11 +477,11 @@ export const PreventionActionDetailScreen: React.FC = () => {
                     }
                   />
                   {validationError ? (
-                    <Text testID="prevention-detail-transition-validation" style={styles.errorText}>
+                    <AppText testID="prevention-detail-transition-validation" style={styles.errorText}>
                       {t('prevention.detail.validation.completionNote', locale)}
-                    </Text>
+                    </AppText>
                   ) : null}
-                  <View style={[styles.actionRow, rtl && styles.rowReverse]}>
+                  <View style={[styles.actionRow, { flexDirection: rowDirection }]}>
                     <AesButton
                       testID="prevention-detail-transition-confirm"
                       title={
@@ -477,32 +510,37 @@ export const PreventionActionDetailScreen: React.FC = () => {
           ) : null}
 
           <AesCard style={styles.detailCard}>
-            <Text style={[styles.sectionTitle, rtl && styles.rtlText]}>
+            <AppText style={[styles.sectionTitle, rtl && styles.rtlText]}>
               {t('prevention.detail.audit_history', locale)}
-            </Text>
+            </AppText>
             {action.audit_history.length === 0 ? (
-              <Text style={[styles.bodyText, rtl && styles.rtlText]}>
+              <AppText style={[styles.bodyText, rtl && styles.rtlText]}>
                 {t('prevention.detail.auditEmpty', locale)}
-              </Text>
+              </AppText>
             ) : (
               action.audit_history.map((event) => (
-                <View key={event.id} style={[styles.auditRow, rtl && styles.rowReverse]}>
+                <View key={event.id} style={[styles.auditRow, { flexDirection: rowDirection }]}>
                   <View style={styles.auditMarker} />
                   <View style={styles.auditContent}>
-                    <Text style={[styles.auditDescription, rtl && styles.rtlText]}>
+                    <AppText style={[styles.auditDescription, rtl && styles.rtlText]}>
                       {event.description}
-                    </Text>
-                    <Text style={[styles.auditDate, rtl && styles.rtlText]}>
-                      {event.occurred_at}
-                    </Text>
+                    </AppText>
+                    <AppText
+                      style={[
+                        styles.auditDate,
+                        { textAlign: 'left', writingDirection: 'ltr' },
+                      ]}
+                    >
+                      {formatPreventionDate(event.occurred_at, locale, true)}
+                    </AppText>
                   </View>
                 </View>
               ))
             )}
           </AesCard>
-          <Text style={[styles.disclaimer, rtl && styles.rtlText]}>
+          <AppText style={[styles.disclaimer, rtl && styles.rtlText]}>
             {t('prevention.disclaimer', locale)}
-          </Text>
+          </AppText>
         </View>
       )}
     </AesScreenContainer>

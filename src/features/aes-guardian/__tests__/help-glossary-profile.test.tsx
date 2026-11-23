@@ -74,6 +74,7 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
       const keysToCheck = [
         'helpGlossary.title',
         'helpGlossary.disclaimer',
+        'helpGlossary.clearSearch',
         'help.section1.title',
         'help.section1.content',
         'help.section8.title',
@@ -86,6 +87,12 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
         'profile.accountSection',
         'profile.authorizedCapabilities',
         'profile.restrictedCapabilities',
+        'profile.guidedTourLink',
+        'profile.error.techAdminOnly',
+        'profile.error.userIdMissing',
+        'correction.demoContext',
+        'correction.characterCount',
+        'review.notReviewable',
         'reset.sectionTitle',
         'reset.dialog1Title',
         'reset.dialog2Title',
@@ -170,6 +177,7 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
       // Check that glossary terms appear
       expect(getByText("AES (Accident d'Exposition au Sang)")).toBeTruthy();
       expect(getByText('Exposition percutanée')).toBeTruthy();
+      expect(queryByText(/Lésion pénétrante causée/)).toBeNull();
 
       // Type search query
       const searchInput = getByPlaceholderText('Rechercher un terme ou une définition…');
@@ -187,6 +195,25 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
         fireEvent.changeText(searchInput, 'terme_inexistant_xyz');
       });
       expect(getByText('Aucun terme correspondant à votre recherche.')).toBeTruthy();
+    });
+
+    test('starts glossary definitions collapsed and supports accent-insensitive search', () => {
+      const { getByTestId, getByPlaceholderText, getByText, queryByText } = render(
+        <ThemeProvider>
+          <HelpGlossaryScreen />
+        </ThemeProvider>,
+      );
+
+      fireEvent.press(getByTestId('tab-glossary'));
+      expect(queryByText(/Examens de biologie médicale/)).toBeNull();
+
+      const searchInput = getByPlaceholderText('Rechercher un terme ou une définition…');
+      fireEvent.changeText(searchInput, 'serologie');
+      expect(getByText('Sérologie')).toBeTruthy();
+      expect(queryByText("AES (Accident d'Exposition au Sang)")).toBeNull();
+
+      fireEvent.press(getByTestId('glossary-t8'));
+      expect(getByText(/Examens de biologie médicale/)).toBeTruthy();
     });
 
     test('filters glossary by category chip', async () => {
@@ -232,7 +259,7 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
     test('renders account info and capabilities for exposed_professional', async () => {
       useDemoRoleStore.getState().setRole('exposed_professional');
 
-      const { getByText } = render(
+      const { getByText, queryByText } = render(
         <ThemeProvider>
           <AesGuardianProfileScreen />
         </ThemeProvider>,
@@ -240,7 +267,7 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
 
       expect(getByText('Profil & Réglages Démonstrateur')).toBeTruthy();
       expect(getByText('Professionnel Démo (Synthétique)')).toBeTruthy();
-      expect(getByText('ID #1')).toBeTruthy();
+      expect(queryByText(/ID #/)).toBeNull();
       expect(getByText(/Déclarer un nouvel AES/i)).toBeTruthy();
       expect(getByText(/Accès interdit au tableau de bord épidémiologique/i)).toBeTruthy();
     });
@@ -280,16 +307,19 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
 
       // Header is now in English
       expect(getByText('Demonstrator Profile & Settings')).toBeTruthy();
+      expect(getByText('Guided tour and introduction')).toBeTruthy();
 
       // Tap Arabic button
       fireEvent.press(getByText(/العربية/i));
       expect(getLocale()).toBe('ar');
       expect(getByText('ملف وإعدادات العارض')).toBeTruthy();
+      expect(getByText('جولة تعريفية')).toBeTruthy();
 
       // Switch back to French
       fireEvent.press(getByText(/Français/i));
       expect(getLocale()).toBe('fr');
       expect(getByText('Profil & Réglages Démonstrateur')).toBeTruthy();
+      expect(getByText('Visite guidée et découverte')).toBeTruthy();
     });
 
     test('hides technical data reset card for non-tech_admin roles', async () => {
@@ -357,7 +387,7 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
       // Success alert is shown
       expect(alertSpy).toHaveBeenCalledWith(
         'Réinitialisation Réussie',
-        expect.stringContaining('Le jeu de données de démonstration étalon a été restauré avec succès'),
+        'Le scénario de démonstration a été restauré.',
       );
 
       alertSpy.mockRestore();

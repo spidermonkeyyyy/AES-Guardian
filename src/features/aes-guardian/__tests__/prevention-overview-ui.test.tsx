@@ -1,18 +1,14 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { PreventionOverviewScreen } from '../screens/PreventionOverviewScreen';
-import {
-  SYNTHETIC_QUALITY_STAFF_CONTEXT,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
-  SYNTHETIC_OH_PROFESSIONAL_CONTEXT,
-  SYNTHETIC_DEMO_CONTEXT,
-  SYNTHETIC_TECH_ADMIN_CONTEXT,
-} from '../../../core/auth/boundaries';
+import { useDemoRoleStore } from '../../../core/auth/use-demo-role';
 import { setLocale, t } from '../../../localization';
 
 jest.setTimeout(15000);
 
 const mockNavigate = jest.fn();
+const mockGetPreventionOverview = jest.fn();
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -22,13 +18,11 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
-const mockGetPreventionOverview = jest.fn();
-
 jest.mock('../../../core', () => {
   const actual = jest.requireActual('../../../core');
   return {
     ...actual,
-    getDatabase: jest.fn(() => Promise.resolve({
+    getDatabase: jest.fn(() => ({
       getPreventionOverview: mockGetPreventionOverview,
     })),
   };
@@ -46,6 +40,7 @@ describe('PreventionOverviewScreen AES UI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setLocale('fr');
+    useDemoRoleStore.getState().setRole('quality_staff');
     mockGetPreventionOverview.mockResolvedValue(overview);
   });
 
@@ -58,61 +53,72 @@ describe('PreventionOverviewScreen AES UI', () => {
     expect(getByTestId('prevention-overview-count-cancelled').props.children).toBe(1);
   });
 
-  test('admin reviewer renders the overview read-only', async () => {
+  test('Overview reads the globally active identity and has no independent role selector', async () => {
+    const screen = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalledWith(4));
+    expect(screen.queryByTestId('prevention-role-switcher')).toBeNull();
+    expect(screen.queryByTestId('prevention-role-quality_staff')).toBeNull();
+
+    act(() => useDemoRoleStore.getState().setRole('admin_reviewer'));
+    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenLastCalledWith(2));
+    expect(screen.queryByTestId('prevention-overview-create-action')).toBeNull();
+    expect(screen.getByTestId('prevention-overview-active-role').props.children).toBeTruthy();
+  });
+
+  test.each([
+    ['oh_professional', 3],
+    ['admin_reviewer', 2],
+  ] as const)('%s renders the overview read-only from global state', async (role, userId) => {
+    act(() => useDemoRoleStore.getState().setRole(role));
     const { getByTestId, queryByTestId } = render(<PreventionOverviewScreen />);
-    fireEvent.press(getByTestId('prevention-role-admin_reviewer'));
-    await waitFor(() => expect(getByTestId('prevention-overview')).toBeTruthy());
+    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalledWith(userId));
+    expect(getByTestId('prevention-overview')).toBeTruthy();
     expect(queryByTestId('prevention-overview-create-action')).toBeNull();
   });
 
-  test('OH professional renders the overview read-only', async () => {
-    const { getByTestId, queryByTestId } = render(<PreventionOverviewScreen />);
-    fireEvent.press(getByTestId('prevention-role-oh_professional'));
-    await waitFor(() => expect(getByTestId('prevention-overview')).toBeTruthy());
-    expect(queryByTestId('prevention-overview-create-action')).toBeNull();
-  });
-
-  test('exposed professional is denied', async () => {
+  test.each(['exposed_professional', 'tech_admin'] as const)('%s is denied from global state', (role) => {
+    act(() => useDemoRoleStore.getState().setRole(role));
     const { getByTestId } = render(<PreventionOverviewScreen />);
-    fireEvent.press(getByTestId('prevention-role-exposed_professional'));
-    await waitFor(() => expect(getByTestId('prevention-overview-unauthorized')).toBeTruthy());
+    expect(getByTestId('prevention-overview-unauthorized')).toBeTruthy();
+    expect(mockGetPreventionOverview).not.toHaveBeenCalled();
   });
 
-  test('tech admin is denied', async () => {
+  test.each([
+    ['fr', 'quality_staff'],
+    ['en', 'admin_reviewer'],
+    ['ar', 'oh_professional'],
+  ] as const)('localizes the active %s role label', async (locale, role) => {
+    await act(async () => setLocale(locale));
+    act(() => useDemoRoleStore.getState().setRole(role));
     const { getByTestId } = render(<PreventionOverviewScreen />);
-    fireEvent.press(getByTestId('prevention-role-tech_admin'));
-    await waitFor(() => expect(getByTestId('prevention-overview-unauthorized')).toBeTruthy());
+    const roleKey = `role.${role}` as const;
+    await waitFor(() => expect(getByTestId('prevention-overview-active-role').children).toBeTruthy());
+    expect(getByTestId('prevention-overview-active-role').props.children.props.children).toBe(
+      t(roleKey, locale),
+    );
   });
 
-  test('calls getPreventionOverview with the active quality staff identity', async () => {
-    render(<PreventionOverviewScreen />);
-    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalledWith(
-      SYNTHETIC_QUALITY_STAFF_CONTEXT.userId,
-    ));
+  test('does not let a stale request replace data for a newer active role', async () => {
+    let resolveQuality: ((value: typeof overview) => void) | undefined;
+    let resolveAdmin: ((value: typeof overview) => void) | undefined;
+    mockGetPreventionOverview
+      .mockImplementationOnce(() => new Promise(resolve => { resolveQuality = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { resolveAdmin = resolve; }));
+
+    const screen = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalledTimes(1));
+    act(() => useDemoRoleStore.getState().setRole('admin_reviewer'));
+    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalledTimes(2));
+
+    const adminOverview = { ...overview, total: 5, proposed: 5 };
+    await act(async () => resolveAdmin?.(adminOverview));
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(5));
+
+    await act(async () => resolveQuality?.({ ...overview, total: 99, proposed: 99 }));
+    expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(5);
   });
 
-  test('calls getPreventionOverview with the active admin identity', async () => {
-    const { getByTestId } = render(<PreventionOverviewScreen />);
-    fireEvent.press(getByTestId('prevention-role-admin_reviewer'));
-    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalledWith(
-      SYNTHETIC_ADMIN_REVIEWER_CONTEXT.userId,
-    ));
-  });
-
-  test('calls getPreventionOverview with the active OH identity', async () => {
-    const { getByTestId } = render(<PreventionOverviewScreen />);
-    fireEvent.press(getByTestId('prevention-role-oh_professional'));
-    await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalledWith(
-      SYNTHETIC_OH_PROFESSIONAL_CONTEXT.userId,
-    ));
-  });
-
-  test('displays total count', async () => {
-    const { getByTestId } = render(<PreventionOverviewScreen />);
-    await waitFor(() => expect(getByTestId('prevention-overview-total')).toBeTruthy());
-  });
-
-  test('renders CAPA status badges with canonical status values', async () => {
+  test('renders canonical CAPA status badges', async () => {
     const { getByTestId } = render(<PreventionOverviewScreen />);
     await waitFor(() => expect(getByTestId('prevention-overview-badge-proposed')).toBeTruthy());
     expect(getByTestId('prevention-overview-badge-in_progress')).toBeTruthy();
@@ -120,7 +126,7 @@ describe('PreventionOverviewScreen AES UI', () => {
     expect(getByTestId('prevention-overview-badge-cancelled')).toBeTruthy();
   });
 
-  test('quality staff can navigate to existing create route', async () => {
+  test('quality staff can navigate to the existing create route', async () => {
     const { getByTestId } = render(<PreventionOverviewScreen />);
     await waitFor(() => expect(getByTestId('prevention-overview-create-action')).toBeTruthy());
     fireEvent.press(getByTestId('prevention-overview-create-action'));
@@ -134,25 +140,12 @@ describe('PreventionOverviewScreen AES UI', () => {
     expect(mockNavigate).toHaveBeenCalledWith('preventionRegister');
   });
 
-  test('admin and OH roles do not receive create actions', async () => {
-    const admin = render(<PreventionOverviewScreen />);
-    fireEvent.press(admin.getByTestId('prevention-role-admin_reviewer'));
-    await waitFor(() => expect(admin.queryByTestId('prevention-overview-create-action')).toBeNull());
-    admin.unmount();
-
-    const oh = render(<PreventionOverviewScreen />);
-    fireEvent.press(oh.getByTestId('prevention-role-oh_professional'));
-    await waitFor(() => expect(oh.queryByTestId('prevention-overview-create-action')).toBeNull());
-  });
-
-  test('loading state is rendered', async () => {
+  test('shows loading and empty states', async () => {
     mockGetPreventionOverview.mockImplementation(() => new Promise(() => {}));
-    const { getByTestId } = render(<PreventionOverviewScreen />);
-    expect(getByTestId('prevention-overview-loading')).toBeTruthy();
-    expect(getByTestId('prevention-overview-loading-state')).toBeTruthy();
-  });
+    const loading = render(<PreventionOverviewScreen />);
+    expect(loading.getByTestId('prevention-overview-loading-state')).toBeTruthy();
+    loading.unmount();
 
-  test('empty state is rendered for a zero total', async () => {
     mockGetPreventionOverview.mockResolvedValue({
       total: 0,
       proposed: 0,
@@ -160,31 +153,50 @@ describe('PreventionOverviewScreen AES UI', () => {
       completed: 0,
       cancelled: 0,
     });
-    const { getByTestId } = render(<PreventionOverviewScreen />);
-    await waitFor(() => expect(getByTestId('prevention-overview-empty')).toBeTruthy());
+    const empty = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(empty.getByTestId('prevention-overview-empty')).toBeTruthy());
   });
 
-  test('error state does not display fabricated counts', async () => {
-    mockGetPreventionOverview.mockRejectedValue(new Error('load failed'));
-    const { getByTestId, queryByTestId } = render(<PreventionOverviewScreen />);
-    await waitFor(() => expect(getByTestId('prevention-overview-error')).toBeTruthy());
-    expect(queryByTestId('prevention-overview-metrics')).toBeNull();
-  });
-
-  test('FR, EN, and AR overview labels resolve', async () => {
-    setLocale('fr');
-    const fr = render(<PreventionOverviewScreen />);
-    await waitFor(() => expect(fr.getByText(t('prevention.overview.title', 'fr'))).toBeTruthy());
-    fr.unmount();
-
-    await act(async () => setLocale('en'));
-    const en = render(<PreventionOverviewScreen />);
-    await waitFor(() => expect(en.getByText(t('prevention.overview.title', 'en'))).toBeTruthy());
-    en.unmount();
-
+  test('uses localized generic error text and retries', async () => {
     await act(async () => setLocale('ar'));
-    const ar = render(<PreventionOverviewScreen />);
-    await waitFor(() => expect(ar.getByText(t('prevention.overview.title', 'ar'))).toBeTruthy());
+    mockGetPreventionOverview
+      .mockRejectedValueOnce(new Error('Sensitive database detail'))
+      .mockResolvedValueOnce(overview);
+    const screen = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-error-card')).toBeTruthy());
+    expect(screen.getByText(t('error.generic', 'ar'))).toBeTruthy();
+    expect(screen.queryByText('Sensitive database detail')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('prevention-overview-retry'));
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-total')).toBeTruthy());
+    expect(mockGetPreventionOverview).toHaveBeenCalledTimes(2);
+  });
+
+  test('renders localized overview labels in French, English and Arabic', async () => {
+    for (const locale of ['fr', 'en', 'ar'] as const) {
+      await act(async () => setLocale(locale));
+      const screen = render(<PreventionOverviewScreen />);
+      await waitFor(() => expect(screen.getByText(t('prevention.overview.title', locale))).toBeTruthy());
+      screen.unmount();
+    }
+  });
+
+  test('FR, EN and AR switch header and overview rows without changing metrics', async () => {
+    const screen = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-metrics')).toBeTruthy());
+    expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(3);
+
+    for (const locale of ['fr', 'en', 'ar'] as const) {
+      await act(async () => setLocale(locale));
+      await waitFor(() => {
+        expect(
+          StyleSheet.flatten(
+            screen.getByTestId('prevention-overview-header-top-row').props.style,
+          ).flexDirection,
+        ).toBe(locale === 'ar' ? 'row-reverse' : 'row');
+      });
+      expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(3);
+    }
   });
 
   test('does not render unsupported action-type or unrelated metrics', async () => {
@@ -192,10 +204,5 @@ describe('PreventionOverviewScreen AES UI', () => {
     await waitFor(() => expect(mockGetPreventionOverview).toHaveBeenCalled());
     expect(queryByText(t('prevention.create.corrective'))).toBeNull();
     expect(queryByText(t('prevention.create.preventive'))).toBeNull();
-  });
-
-  test('authorization boundary helpers remain separate from repository behavior', () => {
-    expect(SYNTHETIC_DEMO_CONTEXT.role).toBe('exposed_professional');
-    expect(SYNTHETIC_TECH_ADMIN_CONTEXT.role).toBe('tech_admin');
   });
 });

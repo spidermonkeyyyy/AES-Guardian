@@ -555,7 +555,7 @@ describe('AES Guardian — Phase 2D.2H: End-to-End Synthetic Multi-Role Acceptan
       const appliedVersions = await db.getAppliedVersions();
       const versionNumbers = appliedVersions.map((v) => v.version);
       expect(versionNumbers).toContain(8);
-      expect(versionNumbers.length).toBe(8);
+      expect(versionNumbers.length).toBe(10);
 
       const fkCheck = await db.query('PRAGMA foreign_key_check');
       expect(fkCheck.rows.length).toBe(0);

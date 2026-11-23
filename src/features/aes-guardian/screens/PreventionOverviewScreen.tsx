@@ -9,15 +9,12 @@
  * Does not perform clinical analysis or risk scoring.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import AppText from '../../../components/AppText';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
 import {
   aesColors,
@@ -29,15 +26,18 @@ import {
   getDatabase,
   canManagePreventionActions,
   canViewPreventionActions,
-  SYNTHETIC_QUALITY_STAFF_CONTEXT,
-  SYNTHETIC_ADMIN_REVIEWER_CONTEXT,
-  SYNTHETIC_OH_PROFESSIONAL_CONTEXT,
-  SYNTHETIC_DEMO_CONTEXT,
-  SYNTHETIC_TECH_ADMIN_CONTEXT,
-  AuthContext,
-  PreventionOverview,
+  useDemoRoleStore,
+  type AesGuardianRole,
+  type PreventionOverview,
 } from '../../../core';
-import { t, useLocale, isRTL } from '../../../localization';
+import {
+  t,
+  useLocale,
+  useLayoutDirection,
+  getLayoutRowDirection,
+  getLayoutTextAlign,
+  type TranslationKey,
+} from '../../../localization';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/routes';
@@ -51,82 +51,73 @@ import {
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
-const DEMO_ROLES: Array<{ key: string; label: string; context: AuthContext }> = [
-  { key: 'quality_staff',       label: 'Qualité (Autorisé)',   context: SYNTHETIC_QUALITY_STAFF_CONTEXT },
-  { key: 'admin_reviewer',      label: 'Admin RH (Autorisé)',  context: SYNTHETIC_ADMIN_REVIEWER_CONTEXT },
-  { key: 'oh_professional',     label: 'SST (Autorisé)',       context: SYNTHETIC_OH_PROFESSIONAL_CONTEXT },
-  { key: 'exposed_professional',label: 'Exposé (Bloqué)',      context: SYNTHETIC_DEMO_CONTEXT },
-  { key: 'tech_admin',          label: 'Tech Admin (Bloqué)',  context: SYNTHETIC_TECH_ADMIN_CONTEXT },
-];
+const ROLE_LABEL_KEYS: Record<AesGuardianRole, TranslationKey> = {
+  exposed_professional: 'role.exposed_professional',
+  admin_reviewer: 'role.admin_reviewer',
+  oh_professional: 'role.oh_professional',
+  quality_staff: 'role.quality_staff',
+  tech_admin: 'role.tech_admin',
+};
 
 export const PreventionOverviewScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
   const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rtl = layoutDirection === 'rtl';
+  const rowDirection = getLayoutRowDirection(layoutDirection);
+  const textAlign = getLayoutTextAlign(layoutDirection);
   const styles = createStyles(rtl);
-  const DEMO_ROLES_LOCALIZED = useMemo(() => DEMO_ROLES, [locale]);
-
-  const [activeRoleContext, setActiveRoleContext] = useState<AuthContext>(SYNTHETIC_QUALITY_STAFF_CONTEXT);
-  const isAuthorized = canViewPreventionActions(activeRoleContext);
-  const canManage   = canManagePreventionActions(activeRoleContext);
+  const activeRole = useDemoRoleStore(state => state.activeRole);
+  const activeContext = useDemoRoleStore(state => state.activeContext);
+  const userId = activeContext.userId;
+  const isAuthorized = canViewPreventionActions(activeContext);
+  const canManage = canManagePreventionActions(activeContext);
+  const requestVersion = useRef(0);
 
   const [overview, setOverview] = useState<PreventionOverview | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
 
   const loadOverview = useCallback(async () => {
+    const request = ++requestVersion.current;
     setOverview(null);
-    setError(null);
-    if (!isAuthorized || !activeRoleContext.userId) {
+    setError(false);
+    if (!isAuthorized || !userId) {
       setLoading(false);
       return;
     }
+
     setLoading(true);
     try {
-      const db = await getDatabase();
-      const data = await db.getPreventionOverview(activeRoleContext.userId);
-      setOverview(data);
-    } catch (e: any) {
-      setError(e?.message ?? 'Erreur de chargement');
+      const data = await getDatabase().getPreventionOverview(userId);
+      const currentContext = useDemoRoleStore.getState().activeContext;
+      if (request === requestVersion.current && currentContext === activeContext) {
+        setOverview(data);
+      }
+    } catch {
+      const currentContext = useDemoRoleStore.getState().activeContext;
+      if (request === requestVersion.current && currentContext === activeContext) {
+        setError(true);
+      }
     } finally {
-      setLoading(false);
+      const currentContext = useDemoRoleStore.getState().activeContext;
+      if (request === requestVersion.current && currentContext === activeContext) {
+        setLoading(false);
+      }
     }
-  }, [activeRoleContext, isAuthorized]);
+  }, [activeContext, isAuthorized, userId]);
 
-  useEffect(() => { loadOverview(); }, [loadOverview]);
+  useEffect(() => {
+    void loadOverview();
+    return () => {
+      requestVersion.current += 1;
+    };
+  }, [loadOverview, retryVersion]);
 
-  const renderRoleSwitcher = () => (
-    <View style={styles.roleSwitcherContainer} testID="prevention-role-switcher">
-      <Text style={styles.roleSwitcherLabel}>{activeRoleContext.displayName}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.roleSwitcherContent}
-      >
-          {DEMO_ROLES_LOCALIZED.map(r => (
-            <TouchableOpacity
-              key={r.key}
-              style={[
-                styles.roleChip,
-                activeRoleContext.role === r.context.role
-                  ? styles.roleChipActive
-                  : styles.roleChipInactive,
-              ]}
-              onPress={() => setActiveRoleContext(r.context)}
-              testID={`prevention-role-${r.key}`}
-              accessibilityRole="button"
-              accessibilityLabel={`${r.context.displayName}${canViewPreventionActions(r.context) ? '' : ` (${t('prevention.unauthorized')})`}`}
-              accessibilityState={{ selected: activeRoleContext.role === r.context.role }}
-            >
-              <Text style={[
-                styles.roleChipText,
-                activeRoleContext.role === r.context.role
-                  ? styles.roleChipTextActive
-                  : styles.roleChipTextInactive,
-              ]}>{r.context.displayName}</Text>
-            </TouchableOpacity>
-          ))}
-      </ScrollView>
+  const renderActiveRole = () => (
+    <View style={styles.activeRoleContainer} testID="prevention-overview-active-role">
+      <AppText style={styles.activeRoleLabel}>{t(ROLE_LABEL_KEYS[activeRole], locale)}</AppText>
     </View>
   );
 
@@ -139,16 +130,16 @@ export const PreventionOverviewScreen: React.FC = () => {
           overline={t('prevention.title')}
           testID="prevention-overview-header"
         />
-        {renderRoleSwitcher()}
+        {renderActiveRole()}
         <AesCard
           elevated
           accentBorderColor={aesColors.banners.error.border}
           testID="prevention-overview-unauthorized-card"
         >
-          <Text style={styles.unauthorizedText}>{t('prevention.unauthorized')}</Text>
-          <Text style={styles.unauthorizedDetail}>
-            {activeRoleContext.displayName} ({activeRoleContext.role})
-          </Text>
+          <AppText style={styles.unauthorizedText}>{t('prevention.unauthorized')}</AppText>
+          <AppText style={styles.unauthorizedDetail}>
+            {t(ROLE_LABEL_KEYS[activeRole], locale)}
+          </AppText>
         </AesCard>
       </AesScreenContainer>
     );
@@ -162,10 +153,10 @@ export const PreventionOverviewScreen: React.FC = () => {
           subtitle={t('prevention.title')}
           testID="prevention-overview-header"
         />
-        {renderRoleSwitcher()}
+        {renderActiveRole()}
         <View style={styles.centeredState} testID="prevention-overview-loading-state">
           <ActivityIndicator size="large" color={aesColors.accentGreen} />
-          <Text style={styles.loadingText}>{t('app.loading')}</Text>
+          <AppText style={styles.loadingText}>{t('app.loading')}</AppText>
         </View>
       </AesScreenContainer>
     );
@@ -179,13 +170,19 @@ export const PreventionOverviewScreen: React.FC = () => {
           subtitle={t('prevention.title')}
           testID="prevention-overview-header"
         />
-        {renderRoleSwitcher()}
+        {renderActiveRole()}
         <AesCard
           elevated
           accentBorderColor={aesColors.banners.error.border}
           testID="prevention-overview-error-card"
         >
-          <Text style={styles.errorText}>{error ?? t('error.generic')}</Text>
+          <AppText style={styles.errorText}>{t('error.generic', locale)}</AppText>
+          <AesButton
+            title={t('prevention.register.retry', locale)}
+            onPress={() => setRetryVersion(version => version + 1)}
+            variant="outline"
+            testID="prevention-overview-retry"
+          />
         </AesCard>
       </AesScreenContainer>
     );
@@ -210,25 +207,25 @@ export const PreventionOverviewScreen: React.FC = () => {
         overline={t('prevention.title')}
         testID="prevention-overview-header"
       />
-      {renderRoleSwitcher()}
+      {renderActiveRole()}
 
       <View style={styles.disclaimerBanner} testID="prevention-overview-disclaimer">
-        <Text style={[styles.disclaimerText, { textAlign: rtl ? 'right' : 'left' }]}>
+        <AppText style={[styles.disclaimerText, { textAlign: rtl ? 'right' : 'left' }]}>
           {t('prevention.disclaimer')}
-        </Text>
+        </AppText>
       </View>
 
       {overview.total === 0 ? (
         <AesCard elevated testID="prevention-overview-empty">
-          <Text style={[styles.emptyText, { textAlign: rtl ? 'right' : 'left' }]}>
+          <AppText style={[styles.emptyText, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('prevention.register.empty')}
-          </Text>
+          </AppText>
         </AesCard>
       ) : (
         <View style={styles.metricsContainer} testID="prevention-overview-metrics">
           <AesCard elevated testID="prevention-overview-total">
-            <Text style={styles.metricLabel}>{t('prevention.overview.total')}</Text>
-            <Text style={styles.totalValue}>{overview.total}</Text>
+            <AppText style={styles.metricLabel}>{t('prevention.overview.total')}</AppText>
+            <AppText style={styles.totalValue}>{overview.total}</AppText>
           </AesCard>
 
           {statusCards.map(({ status, value, labelKey }) => (
@@ -244,22 +241,22 @@ export const PreventionOverviewScreen: React.FC = () => {
                   domain="capa"
                   testID={`prevention-overview-badge-${status}`}
                 />
-                <Text
+                <AppText
                   style={styles.statusValue}
                   testID={`prevention-overview-count-${status}`}
                 >
                   {value}
-                </Text>
+                </AppText>
               </View>
-              <Text style={[styles.statusLabel, { textAlign: rtl ? 'right' : 'left' }]}>
+              <AppText style={[styles.statusLabel, { textAlign: rtl ? 'right' : 'left' }]}>
                 {t(labelKey)}
-              </Text>
+              </AppText>
             </AesCard>
           ))}
         </View>
       )}
 
-      <View style={styles.actionRow}>
+      <View style={[styles.actionRow, { flexDirection: rowDirection }]}>
         <AesButton
           title={t('prevention.overview.viewRegister')}
           onPress={() => navigation.navigate('preventionRegister')}
@@ -286,51 +283,19 @@ function createStyles(rtl: boolean) {
     containerContent: {
       flexGrow: 1,
     },
-    roleSwitcherContainer: {
-      flexDirection: rtl ? 'column' : 'column',
+    activeRoleContainer: {
       marginHorizontal: aesSpacing.screenHorizontal,
       marginBottom: aesSpacing.sm,
     },
-    roleSwitcherLabel: {
+    activeRoleLabel: {
       ...aesTypography.caption,
       color: aesColors.textSecondary,
-      marginBottom: aesSpacing.xs,
       textAlign: rtl ? 'right' : 'left',
-    },
-    roleSwitcherContent: {
-      flexDirection: rtl ? 'row-reverse' : 'row',
-    },
-    roleChip: {
-      minHeight: 48,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: aesSpacing.md,
-      borderRadius: aesRadii.pill,
-      borderWidth: 1,
-      marginRight: rtl ? 0 : aesSpacing.xs,
-      marginLeft: rtl ? aesSpacing.xs : 0,
-    },
-    roleChipActive: {
-      backgroundColor: aesColors.primaryAction,
-      borderColor: aesColors.primaryAction,
-    },
-    roleChipInactive: {
-      backgroundColor: aesColors.surfaceSubdued,
-      borderColor: aesColors.borderMedium,
-    },
-    roleChipText: {
-      ...aesTypography.labelSmall,
-    },
-    roleChipTextActive: {
-      color: aesColors.textInverse,
-    },
-    roleChipTextInactive: {
-      color: aesColors.textPrimary,
     },
     disclaimerBanner: {
       backgroundColor: aesColors.banners.warning.bg,
-      borderLeftWidth: 4,
-      borderLeftColor: aesColors.banners.warning.border,
+      borderStartWidth: 4,
+      borderStartColor: aesColors.banners.warning.border,
       marginHorizontal: aesSpacing.screenHorizontal,
       marginTop: aesSpacing.sm,
       padding: aesSpacing.sm,

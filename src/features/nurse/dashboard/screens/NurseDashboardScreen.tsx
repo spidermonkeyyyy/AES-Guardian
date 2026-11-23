@@ -6,6 +6,7 @@ import { useNurseDashboardStore } from '../state/use-nurse-dashboard-store';
 import { WorklistFilterBar } from '../widgets/worklist-filter-bar';
 import { WorklistItemCard } from '../widgets/worklist-item-card';
 import { NurseAssignment, NurseWorklistItem, matchesWorklistFilter } from '../../../../types/dashboard';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
 
 export function NurseDashboardScreen({ navigation }: { navigation: any }) {
   const { colors } = useTheme();
@@ -78,23 +79,23 @@ export function NurseDashboardScreen({ navigation }: { navigation: any }) {
           <View style={styles.attentionSection}>
             <Text style={styles.sectionTitle}>Attention</Text>
             <WorklistFilterBar selected={worklistFilter} counts={counts} onSelected={(f) => useNurseDashboardStore.getState().setWorklistFilter(f)} />
-            <WorklistList items={worklistItems.filter((i) => i.type === 'alert')} navigation={navigation} />
+            <WorklistList items={worklistItems.filter((i) => i.type === 'alert')} navigation={navigation} styles={styles} />
           </View>
 
           <View style={styles.attentionSection}>
             <Text style={styles.sectionTitle}>Suivis</Text>
-            <WorklistList items={worklistItems.filter((i) => i.type === 'monitoring')} navigation={navigation} />
+            <WorklistList items={worklistItems.filter((i) => i.type === 'monitoring')} navigation={navigation} styles={styles} />
           </View>
 
           <View style={styles.attentionSection}>
             <Text style={styles.sectionTitle}>Taches</Text>
-            <WorklistList items={worklistItems.filter((i) => i.type === 'task')} navigation={navigation} />
+            <WorklistList items={worklistItems.filter((i) => i.type === 'task')} navigation={navigation} styles={styles} />
           </View>
 
           <View style={styles.attentionSection}>
             <Text style={styles.sectionTitle}>File de travail</Text>
             <WorklistFilterBar selected={worklistFilter} counts={counts} onSelected={(f) => useNurseDashboardStore.getState().setWorklistFilter(f)} />
-            <WorklistList items={worklistItems.filter((i) => matchesWorklistFilter(i, worklistFilter))} navigation={navigation} />
+            <WorklistList items={worklistItems.filter((i) => matchesWorklistFilter(i, worklistFilter))} navigation={navigation} styles={styles} />
           </View>
 
           <View style={styles.attentionSection}>
@@ -143,7 +144,7 @@ export function NurseDashboardScreen({ navigation }: { navigation: any }) {
   );
 }
 
-function WorklistList({ items, navigation }: { items: NurseWorklistItem[]; navigation: any }) {
+function WorklistList({ items, navigation, styles }: { items: NurseWorklistItem[]; navigation: any; styles: ReturnType<typeof createStyles> }) {
   if (items.length === 0) return <Text style={styles.emptyText}>Aucun element</Text>;
   return (
     <View>
@@ -160,7 +161,7 @@ function WorklistList({ items, navigation }: { items: NurseWorklistItem[]; navig
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 24, paddingBottom: 48 },
   header: { marginBottom: 24 },
@@ -196,5 +197,5 @@ function createStyles(colors: any) {
   footerActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24, gap: 12 },
   actionButton: { flex: 1, backgroundColor: colors.info, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
   actionText: { fontFamily: 'Urbanist', fontSize: 14, fontWeight: '600', color: colors.primaryForeground },
-}
+});
 }

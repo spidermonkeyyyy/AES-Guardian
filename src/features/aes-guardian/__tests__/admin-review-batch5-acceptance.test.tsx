@@ -469,6 +469,47 @@ describe('Phase 2E.1.5.1: Batch 5 Administrative Review Acceptance Tests', () =>
       expect(component.getByText('21 caractères')).toBeTruthy();
     });
 
+    it('rechecks the active role before sending a confirmed response', async () => {
+      useDemoRoleStore.getState().setRole('exposed_professional');
+      const alertSpy = jest.spyOn(Alert, 'alert');
+
+      const component = render(
+        <ThemeProvider>
+          <CorrectionResponseScreen />
+        </ThemeProvider>,
+      );
+
+      await waitFor(() => {
+        expect(component.getByText('Transmettre la réponse')).toBeTruthy();
+      });
+
+      fireEvent.changeText(
+        component.getByPlaceholderText(
+          'Apportez ici les précisions ou compléments demandés…',
+        ),
+        'Réponse de suivi.',
+      );
+      fireEvent.press(component.getByText('Transmettre la réponse'));
+
+      const confirmButtons = alertSpy.mock.calls[0][2] as any[];
+      const submitButton = confirmButtons.find(
+        (button) => button.text === 'Transmettre la réponse',
+      );
+      expect(submitButton).toBeDefined();
+
+      useDemoRoleStore.getState().setRole('admin_reviewer');
+      await act(async () => {
+        await submitButton.onPress();
+      });
+
+      expect(alertSpy).toHaveBeenLastCalledWith(
+        "Une erreur s'est produite",
+        'Seul le déclarant propriétaire de ce dossier peut y répondre.',
+      );
+      expect(await getDatabase().getCorrectionResponses(declId, 1)).toHaveLength(0);
+      alertSpy.mockRestore();
+    });
+
     it('records correction response, transitions status to resubmitted, and logs audit event', async () => {
       useDemoRoleStore.getState().setRole('exposed_professional');
 

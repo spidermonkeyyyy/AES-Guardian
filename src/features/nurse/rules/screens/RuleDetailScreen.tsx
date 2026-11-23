@@ -13,15 +13,15 @@ import { useRuleStore } from '../state/use-rule-store';
 import { useTheme } from '../../../../theme/ThemeContext';
 import { MonitoringRule, RuleCondition } from '../../../../types/rule';
 import { NurseTabParamList } from '../../../../navigation/routes';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
+import { isRTL, t, useLocale } from '../../../../localization';
 
 type RuleDetailNavigation = NativeStackNavigationProp<NurseTabParamList, 'ruleDetail'>;
 
-interface RuleDetailScreenProps {
-  // Navigation params injected by React Navigation
-}
-
-export default function RuleDetailScreen(_props: RuleDetailScreenProps) {
+export default function RuleDetailScreen() {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
   const styles = createStyles(colors);
   const route = useRoute();
   const navigation = useNavigation<RuleDetailNavigation>();
@@ -41,7 +41,7 @@ export default function RuleDetailScreen(_props: RuleDetailScreenProps) {
   if (!rule) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.notFoundText}>Règle introuvable.</Text>
+        <Text style={[styles.notFoundText, { textAlign: rtl ? 'right' : 'left' }]}>{t('nurse.rules.detailNotFound', locale)}</Text>
       </View>
     );
   }
@@ -76,15 +76,15 @@ export default function RuleDetailScreen(_props: RuleDetailScreenProps) {
         ) : null}
 
         <View style={styles.metaRow}>
-          <Text style={styles.metaText}>Priorité: {rule.priority}</Text>
+          <Text style={styles.metaText}>{t('nurse.rules.priority', locale)}: {rule.priority}</Text>
           <Text style={styles.metaText}>
-            Statut: {rule.enabled ? 'Active' : 'Inactive'}
+            {t(rule.enabled ? 'nurse.rules.active' : 'nurse.rules.inactive', locale)}
           </Text>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Condition</Text>
+        <Text style={styles.sectionTitle}>{t('nurse.rules.condition', locale)}</Text>
         <View style={styles.card}>
           <View style={styles.groupBlock}>
             <View style={styles.groupHeader}>
@@ -100,7 +100,7 @@ export default function RuleDetailScreen(_props: RuleDetailScreenProps) {
 
             <View style={styles.conditionsList}>
               {rule.conditionGroup.conditions.map((condition) => (
-                <ConditionRow key={condition.id} condition={condition} />
+                <ConditionRow key={condition.id} condition={condition} styles={styles} />
               ))}
             </View>
           </View>
@@ -108,11 +108,13 @@ export default function RuleDetailScreen(_props: RuleDetailScreenProps) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Action</Text>
+        <Text style={styles.sectionTitle}>{t('nurse.rules.actionSection', locale)}</Text>
         <View style={styles.card}>
           <View style={styles.actionRow}>
             <Text style={styles.actionLabel}>
-              {rule.action === 'create_alert' ? 'Créer une alerte' : 'Signaler pour revue'}
+              {rule.action === 'create_alert'
+                ? (locale === 'ar' ? 'إنشاء تنبيه' : locale === 'en' ? 'Create alert' : 'Créer une alerte')
+                : (locale === 'ar' ? 'إحالته للمراجعة' : locale === 'en' ? 'Flag for review' : 'Signaler pour revue')}
             </Text>
             <View style={[styles.actionPriorityBadge, rule.priority === 'high' ? styles.actionPriorityHigh : styles.actionPriorityMedium]}>
               <Text style={styles.actionPriorityText}>
@@ -139,7 +141,7 @@ interface ConditionRowProps {
   condition: RuleCondition;
 }
 
-function ConditionRow({ condition }: ConditionRowProps) {
+function ConditionRow({ condition, styles }: ConditionRowProps & { styles: ReturnType<typeof createStyles> }) {
   return (
     <View style={styles.conditionRow}>
       <View style={styles.conditionHeader}>
@@ -156,7 +158,7 @@ function ConditionRow({ condition }: ConditionRowProps) {
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
@@ -350,5 +352,5 @@ function createStyles(colors: any) {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
   },
-}
+});
 }

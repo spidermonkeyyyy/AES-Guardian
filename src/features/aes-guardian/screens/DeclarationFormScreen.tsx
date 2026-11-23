@@ -45,6 +45,7 @@ import {
   AES_INCIDENT_TYPES,
   logAuditEvent,
   useDemoRoleStore,
+  canDeclare,
 } from '../../../core';
 import { useLocale, t, isRTL } from '../../../localization';
 import {
@@ -67,7 +68,8 @@ export const DeclarationFormScreen: React.FC = () => {
   const rtl = isRTL(locale);
 
   const { activeContext } = useDemoRoleStore();
-  const currentUserId = activeContext.userId || 1;
+  const isAuthorized = canDeclare(activeContext);
+  const currentUserId = activeContext.userId ?? 0;
 
   // Wizard State (Steps 1 to 5)
   const [step, setStep] = useState<number>(1);
@@ -109,6 +111,11 @@ export const DeclarationFormScreen: React.FC = () => {
 
   // Initial load when editing an existing draft
   useEffect(() => {
+    if (!isAuthorized || !currentUserId) {
+      setLoading(false);
+      return;
+    }
+
     if (editId) {
       (async () => {
         try {
@@ -149,7 +156,7 @@ export const DeclarationFormScreen: React.FC = () => {
       dateDefaultAppliedRef.current = true;
       setIncidentDate(new Date().toISOString().split('T')[0]);
     }
-  }, [editId, navigation, currentUserId, locale]);
+  }, [editId, navigation, currentUserId, isAuthorized, locale]);
 
   // Validation per step
   const validateStep = (currentStep: number): boolean => {
@@ -197,6 +204,11 @@ export const DeclarationFormScreen: React.FC = () => {
   // Non-silent saves throw on failure so callers (e.g. handleSaveDraft) can display an error alert.
   // Silent auto-saves return undefined on failure without blocking wizard step transitions.
   const persistDraft = async (options: { silent?: boolean } = {}): Promise<number | undefined> => {
+    const saveContext = useDemoRoleStore.getState().activeContext;
+    if (!canDeclare(saveContext) || !saveContext.userId) {
+      throw new Error(t('form.unauthorized', locale));
+    }
+
     if (!incidentDate.trim()) return draftIdRef.current;
 
     if (isSavingRef.current) {
@@ -210,6 +222,7 @@ export const DeclarationFormScreen: React.FC = () => {
     try {
       const db = getDatabase();
       const currentDraftId = draftIdRef.current;
+      const saveUserId = saveContext.userId;
 
       if (currentDraftId) {
         await db.updateDraft(currentDraftId, {
@@ -224,7 +237,7 @@ export const DeclarationFormScreen: React.FC = () => {
 
         await logAuditEvent({
           eventType: 'DECLARATION_DRAFT_UPDATED',
-          userId: currentUserId,
+          userId: saveUserId,
           entityType: 'aes_declaration',
           entityId: currentDraftId,
           description: `Draft declaration ${currentDraftId} updated locally`,
@@ -237,7 +250,7 @@ export const DeclarationFormScreen: React.FC = () => {
         return currentDraftId;
       } else {
         const newId = await db.createDraft({
-          declared_by_user_id: currentUserId,
+          declared_by_user_id: saveUserId,
           incident_date: incidentDate.trim(),
           incident_type: incidentType,
           circumstances: circumstances.trim() || null,
@@ -251,7 +264,7 @@ export const DeclarationFormScreen: React.FC = () => {
 
         await logAuditEvent({
           eventType: 'DECLARATION_DRAFT_CREATED',
-          userId: currentUserId,
+          userId: saveUserId,
           entityType: 'aes_declaration',
           entityId: newId,
           description: `New draft declaration ${newId} created locally`,
@@ -325,6 +338,11 @@ export const DeclarationFormScreen: React.FC = () => {
 
   // Submission Handler
   const handleSubmit = async () => {
+    const submitContext = useDemoRoleStore.getState().activeContext;
+    if (!canDeclare(submitContext) || !submitContext.userId) {
+      Alert.alert(t('error.generic', locale), t('form.unauthorized', locale));
+      return;
+    }
     if (!validateAll()) return;
     if (submitting || isSubmittingRef.current) return;
 
@@ -342,25 +360,35 @@ export const DeclarationFormScreen: React.FC = () => {
         throw new Error('Unable to create draft record for submission');
       }
 
+      const activeSubmitContext = useDemoRoleStore.getState().activeContext;
+      if (
+        !canDeclare(activeSubmitContext) ||
+        activeSubmitContext.userId !== submitContext.userId
+      ) {
+        throw new Error(t('form.unauthorized', locale));
+      }
+
       const db = getDatabase();
       await db.submitDeclaration(targetId);
 
-      const decl = await db.getDeclarationById(targetId, currentUserId);
+      const decl = await db.getDeclarationById(targetId, activeSubmitContext.userId);
 
       await logAuditEvent({
         eventType: 'DECLARATION_SUBMITTED',
-        userId: currentUserId,
+        userId: activeSubmitContext.userId,
         entityType: 'aes_declaration',
         entityId: targetId,
         description: `Declaration ${decl?.reference_number || targetId} submitted locally`,
       });
 
       navigation.replace('submissionConfirmation', {
-        referenceNumber: decl?.reference_number || 'AES-REF',
+        referenceNumber: decl?.reference_number || t('list.refUnavailable', locale),
       });
-    } catch (err: any) {
+    } catch (error: unknown) {
       // Submission failure: does not navigate to confirmation; preserves in-memory values; displays alert
-      Alert.alert(t('error.submitFailed', locale), err?.message || t('error.generic', locale));
+      const message =
+        error instanceof Error ? error.message : t('error.generic', locale);
+      Alert.alert(t('error.submitFailed', locale), message);
     } finally {
       isSubmittingRef.current = false;
       if (isMountedRef.current) setSubmitting(false);
@@ -372,6 +400,21 @@ export const DeclarationFormScreen: React.FC = () => {
       <AesScreenContainer testID="declaration-form-loading">
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={aesColors.primaryAction} />
+        </View>
+      </AesScreenContainer>
+    );
+  }
+
+  if (!isAuthorized || !currentUserId) {
+    return (
+      <AesScreenContainer testID="declaration-form-unauthorized">
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{t('form.unauthorized', locale)}</Text>
+          <AesButton
+            title={t('app.back', locale)}
+            onPress={() => navigation.goBack()}
+            variant="outline"
+          />
         </View>
       </AesScreenContainer>
     );

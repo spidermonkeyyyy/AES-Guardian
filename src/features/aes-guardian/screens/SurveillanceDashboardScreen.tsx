@@ -15,13 +15,13 @@
  * AesCard, AesButton, AesStatusBadge) and design tokens per Phase 2E UI Blueprint.
  */
 
+import AppTextInput from '../../../components/AppTextInput';
+import AppText from '../../../components/AppText';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
@@ -31,7 +31,7 @@ import {
   TextStyle,
   StyleProp,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '../../../components/AppIcon';
 
 import {
   AesScreenContainer,
@@ -42,7 +42,12 @@ import {
 } from '../components';
 import { aesColors, aesSpacing, aesRadii, aesTypography, aesShadows } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
-import { useLocale, isRTL } from '../../../localization';
+import {
+  useLocale,
+  useLayoutDirection,
+  getLayoutRowDirection,
+  getLayoutTextAlign,
+} from '../../../localization';
 import {
   getDatabase,
   canViewSurveillanceDashboard,
@@ -72,38 +77,37 @@ const DEMO_ROLES: Array<{ key: string; label: string; context: AuthContext }> = 
   { key: 'tech_admin', label: t('surveillance.filters.all'), context: SYNTHETIC_TECH_ADMIN_CONTEXT },
 ];
 
-const STATUS_LABEL_MAP: Record<DeclarationStatus, string> = {
-  draft: t('surveillance.overview.draft'),
-  submitted: t('surveillance.overview.submitted'),
-  under_review: t('surveillance.overview.underReview'),
-  correction_requested: t('surveillance.overview.correctionRequested'),
-  resubmitted: t('surveillance.overview.resubmitted'),
-  closed: t('surveillance.overview.closed'),
-};
-
-const EXPOSURE_LABEL_MAP: Record<AesIncidentType, string> = {
-  percutaneous_exposure: t('form.incidentType.percutaneous'),
-  mucocutaneous_exposure: t('form.incidentType.mucocutaneous'),
-  sexual_assault: t('form.incidentType.sexual_assault'),
-  other: t('form.incidentType.other'),
-};
-
 const MIN_TOUCH_TARGET = 48;
-
-const getRowDirection = (rtl: boolean): 'row' | 'row-reverse' => (rtl ? 'row-reverse' : 'row');
 
 export const SurveillanceDashboardScreen: React.FC = () => {
   const { colors: themeColors } = useTheme();
   const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rtl = layoutDirection === 'rtl';
+  const rowDirection = getLayoutRowDirection(layoutDirection);
+  const textAlign = getLayoutTextAlign(layoutDirection);
 
   const DEMO_ROLES_LOCALIZED = useMemo(() => [
-    { key: 'quality_staff', label: t('surveillance.filters.all'), context: SYNTHETIC_QUALITY_STAFF_CONTEXT },
-    { key: 'admin_reviewer', label: t('surveillance.filters.all'), context: SYNTHETIC_ADMIN_REVIEWER_CONTEXT },
-    { key: 'oh_professional', label: t('surveillance.filters.all'), context: SYNTHETIC_OH_PROFESSIONAL_CONTEXT },
-    { key: 'exposed_professional', label: t('surveillance.filters.all'), context: SYNTHETIC_DEMO_CONTEXT },
-    { key: 'tech_admin', label: t('surveillance.filters.all'), context: SYNTHETIC_TECH_ADMIN_CONTEXT },
+    { key: 'quality_staff', label: t('role.quality_staff', locale), context: SYNTHETIC_QUALITY_STAFF_CONTEXT },
+    { key: 'admin_reviewer', label: t('role.admin_reviewer', locale), context: SYNTHETIC_ADMIN_REVIEWER_CONTEXT },
+    { key: 'oh_professional', label: t('role.oh_professional', locale), context: SYNTHETIC_OH_PROFESSIONAL_CONTEXT },
+    { key: 'exposed_professional', label: t('role.exposed_professional', locale), context: SYNTHETIC_DEMO_CONTEXT },
+    { key: 'tech_admin', label: t('role.tech_admin', locale), context: SYNTHETIC_TECH_ADMIN_CONTEXT },
   ], [locale]);
+  const statusLabelMap = useMemo<Record<DeclarationStatus, string>>(() => ({
+    draft: t('surveillance.overview.draft', locale),
+    submitted: t('surveillance.overview.submitted', locale),
+    under_review: t('surveillance.overview.underReview', locale),
+    correction_requested: t('surveillance.overview.correctionRequested', locale),
+    resubmitted: t('surveillance.overview.resubmitted', locale),
+    closed: t('surveillance.overview.closed', locale),
+  }), [locale]);
+  const exposureLabelMap = useMemo<Record<AesIncidentType, string>>(() => ({
+    percutaneous_exposure: t('form.incidentType.percutaneous', locale),
+    mucocutaneous_exposure: t('form.incidentType.mucocutaneous', locale),
+    sexual_assault: t('form.incidentType.sexual_assault', locale),
+    other: t('form.incidentType.other', locale),
+  }), [locale]);
 
   const [activeRoleContext, setActiveRoleContext] = useState<AuthContext>(SYNTHETIC_QUALITY_STAFF_CONTEXT);
   const isAuthorized = canViewSurveillanceDashboard(activeRoleContext);
@@ -179,14 +183,18 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
   const renderRoleSwitcher = () => (
     <View style={styles.roleSwitcherContainer} testID="surveillance-role-switcher">
-      <Text style={styles.roleSwitcherLabel}>
+      <AppText style={styles.roleSwitcherLabel}>
         {t('surveillance.roleBadge')} :
-      </Text>
+      </AppText>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.roleSwitcherScroll}
-        contentContainerStyle={styles.roleSwitcherContent}
+        style={[styles.roleSwitcherScroll, { width: '100%' }]}
+        testID="surveillance-role-switcher-scroll"
+        contentContainerStyle={[
+          styles.roleSwitcherContent,
+          { flexDirection: rowDirection },
+        ]}
       >
         {DEMO_ROLES_LOCALIZED.map(r => {
           const active = activeRoleContext.role === r.context.role;
@@ -212,20 +220,29 @@ export const SurveillanceDashboardScreen: React.FC = () => {
               accessibilityLabel={`${r.label}${isBlocked ? ` (${t('surveillance.unauthorized')})` : ''}`}
               accessibilityState={{ selected: active }}
             >
-              <Text
-                style={[
-                  styles.rolePillText,
-                  {
-                    color: active
-                      ? isBlocked
-                        ? aesColors.banners.error.text
-                        : aesColors.textInverse
-                      : aesColors.textPrimary,
-                  },
-                ]}
-              >
-                {r.context.displayName} {isBlocked ? '🚫' : ''}
-              </Text>
+              <View style={{ flexDirection: rowDirection, alignItems: 'center', gap: aesSpacing.xs }}>
+                <AppText
+                  style={[
+                    styles.rolePillText,
+                    {
+                      color: active
+                        ? isBlocked
+                          ? aesColors.banners.error.text
+                          : aesColors.textInverse
+                        : aesColors.textPrimary,
+                    },
+                  ]}
+                >
+                  {r.label}
+                </AppText>
+                {isBlocked && (
+                  <Icon
+                    name="lock"
+                    size={14}
+                    color={active ? aesColors.banners.error.text : aesColors.textSecondary}
+                  />
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -246,15 +263,15 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         >
           <View style={styles.unauthorizedContent}>
             <Icon name="alert-circle" size={32} color={aesColors.banners.error.text} style={styles.unauthorizedIcon} />
-            <Text style={[styles.unauthorizedTitle, { color: aesColors.banners.error.text }]}>
+            <AppText style={[styles.unauthorizedTitle, { color: aesColors.banners.error.text }]}>
               {t('surveillance.unauthorized')}
-            </Text>
-            <Text style={[styles.unauthorizedSubtext, { color: aesColors.textSecondary, textAlign: 'center' }]}>
+            </AppText>
+            <AppText style={[styles.unauthorizedSubtext, { color: aesColors.textSecondary, textAlign: 'center' }]}>
               {t('surveillance.unauthorized')}
               {'\n\n'}
               Profil sélectionné : {activeRoleContext.displayName} ({activeRoleContext.role}).
               Ce profil ne dispose pas des autorisations nécessaires pour accéder aux indicateurs agrégés de surveillance.
-            </Text>
+            </AppText>
             {renderRoleSwitcher()}
           </View>
         </AesCard>
@@ -269,7 +286,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         {renderRoleSwitcher()}
         <View style={styles.centeredLoader}>
           <ActivityIndicator size="large" color={aesColors.primaryAction} />
-          <Text style={styles.loadingText}>{t('app.loading')}</Text>
+          <AppText style={styles.loadingText}>{t('app.loading')}</AppText>
         </View>
       </AesScreenContainer>
     );
@@ -283,7 +300,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         <AesCard style={styles.errorCard} elevated testID="surveillance-error-card">
           <View style={styles.errorContent}>
             <Icon name="alert-triangle" size={32} color={aesColors.banners.error.text} style={styles.errorIcon} />
-            <Text style={[styles.errorTitle, { color: aesColors.banners.error.text }]}>{error ?? t('error.loadFailed')}</Text>
+            <AppText style={[styles.errorTitle, { color: aesColors.banners.error.text }]}>{error ?? t('error.loadFailed')}</AppText>
             <AesButton
               title={t('oh.queue.refresh')}
               onPress={loadMetrics}
@@ -303,14 +320,14 @@ export const SurveillanceDashboardScreen: React.FC = () => {
   const occupationalHealth = metrics.occupationalHealth;
 
   // RTL-aware layout styles computed from the `rtl` value
-  const disclaimerRowStyle: ViewStyle = { ...styles.disclaimerRow, flexDirection: getRowDirection(rtl) };
-  const filterSummaryRowStyle: ViewStyle = { ...styles.filterSummaryRow, flexDirection: getRowDirection(rtl) };
-  const filtersHeaderStyle: ViewStyle = { ...styles.filtersHeader, flexDirection: getRowDirection(rtl) };
-  const dateRowStyle: ViewStyle = { ...styles.dateRow, flexDirection: getRowDirection(rtl) };
-  const kpiGridStyle: ViewStyle = { ...styles.kpiGrid, flexDirection: getRowDirection(rtl) };
-  const barRowStyle: ViewStyle = { ...styles.barRow, flexDirection: getRowDirection(rtl) };
-  const distributionRowStyle: ViewStyle = { ...styles.distributionRow, flexDirection: getRowDirection(rtl) };
-  const adminSummaryRowStyle: ViewStyle = { ...styles.adminSummaryRow, flexDirection: getRowDirection(rtl) };
+  const disclaimerRowStyle: ViewStyle = { ...styles.disclaimerRow, flexDirection: rowDirection };
+  const filterSummaryRowStyle: ViewStyle = { ...styles.filterSummaryRow, flexDirection: rowDirection };
+  const filtersHeaderStyle: ViewStyle = { ...styles.filtersHeader, flexDirection: rowDirection };
+  const dateRowStyle: ViewStyle = { ...styles.dateRow, flexDirection: rowDirection };
+  const kpiGridStyle: ViewStyle = { ...styles.kpiGrid, flexDirection: rowDirection };
+  const barRowStyle: ViewStyle = { ...styles.barRow, flexDirection: rowDirection };
+  const distributionRowStyle: ViewStyle = { ...styles.distributionRow, flexDirection: rowDirection };
+  const adminSummaryRowStyle: ViewStyle = { ...styles.adminSummaryRow, flexDirection: rowDirection };
 
   return (
     <AesScreenContainer scrollable testID="surveillance-dashboard">
@@ -320,14 +337,14 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         title={t('surveillance.title')}
         subtitle={t('surveillance.disclaimer')}
         overline={t('surveillance.nav.title')}
-        rightElement={renderRoleSwitcher()}
         testID="surveillance-header"
       />
+      {renderRoleSwitcher()}
 
       <AesCard style={styles.disclaimerCard} elevated={false} testID="surveillance-disclaimer">
         <View style={disclaimerRowStyle}>
           <Icon name="info" size={16} color={aesColors.accentGreen} style={styles.disclaimerIcon} />
-          <Text style={styles.disclaimerText}>{t('surveillance.disclaimer')}</Text>
+          <AppText style={[styles.disclaimerText, { textAlign }]}>{t('surveillance.disclaimer')}</AppText>
         </View>
       </AesCard>
 
@@ -340,16 +357,16 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         >
           <View style={filterSummaryRowStyle}>
             <Icon name="filter" size={16} color={aesColors.accentGreen} />
-            <Text style={styles.filterSummaryText}>
-              {t('surveillance.filters.title')} : {filterSummary.matchingDeclarations} / {filterSummary.totalRecords} déclarations
-            </Text>
+            <AppText style={[styles.filterSummaryText, { textAlign }]}>
+              {t('surveillance.filters.title')} : {filterSummary.matchingDeclarations} / {filterSummary.totalRecords} {t('surveillance.filters.declarationCountLabel', locale)}
+            </AppText>
             <AesButton
               title={t('surveillance.filters.clear')}
               onPress={clearFilters}
               variant="outline"
               fullWidth={false}
               testID="surveillance-clear-filters-button"
-              style={{ marginLeft: rtl ? 0 : aesSpacing.sm, marginRight: rtl ? aesSpacing.sm : 0 }}
+              style={{ marginStart: aesSpacing.sm }}
             />
           </View>
         </AesCard>
@@ -358,7 +375,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
       {/* ─── FILTERS ─────────────────────────────────────────── */}
       <AesCard style={styles.filtersCard} elevated testID="surveillance-filters">
         <View style={filtersHeaderStyle}>
-          <Text style={styles.sectionHeading}>{t('surveillance.filters.title')}</Text>
+          <AppText style={[styles.sectionHeading, { textAlign }]}>{t('surveillance.filters.title')}</AppText>
           {hasActiveFilters && (
             <AesButton
               title={t('surveillance.filters.clear')}
@@ -371,7 +388,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         </View>
 
         {/* Status filter */}
-        <Text style={styles.filterLabel}>{t('surveillance.filters.status')}</Text>
+        <AppText style={[styles.filterLabel, { textAlign }]}>{t('surveillance.filters.status')}</AppText>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -394,14 +411,14 @@ export const SurveillanceDashboardScreen: React.FC = () => {
             accessibilityState={{ selected: !selectedStatus }}
             accessibilityLabel={t('surveillance.filters.all')}
           >
-            <Text
+            <AppText
               style={[
                 styles.filterPillText,
                 { color: !selectedStatus ? aesColors.textInverse : aesColors.textPrimary },
               ]}
             >
               {t('surveillance.filters.all')}
-            </Text>
+            </AppText>
           </TouchableOpacity>
           {DECLARATION_STATUSES.map(st => {
             const active = selectedStatus === st;
@@ -420,23 +437,23 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 testID={`surveillance-status-filter-${st}`}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={STATUS_LABEL_MAP[st]}
+                accessibilityLabel={statusLabelMap[st]}
               >
-                <Text
+                <AppText
                   style={[
                     styles.filterPillText,
                     { color: active ? aesColors.textInverse : aesColors.textPrimary },
                   ]}
                 >
-                  {STATUS_LABEL_MAP[st]}
-                </Text>
+                  {statusLabelMap[st]}
+                </AppText>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
         {/* Exposure filter */}
-        <Text style={[styles.filterLabel, { marginTop: aesSpacing.sm }]}>{t('surveillance.filters.exposure')}</Text>
+        <AppText style={[styles.filterLabel, { marginTop: aesSpacing.sm, textAlign }]}>{t('surveillance.filters.exposure')}</AppText>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -459,14 +476,14 @@ export const SurveillanceDashboardScreen: React.FC = () => {
             accessibilityState={{ selected: !selectedExposure }}
             accessibilityLabel={t('surveillance.filters.all')}
           >
-            <Text
+            <AppText
               style={[
                 styles.filterPillText,
                 { color: !selectedExposure ? aesColors.textInverse : aesColors.textPrimary },
               ]}
             >
               {t('surveillance.filters.all')}
-            </Text>
+            </AppText>
           </TouchableOpacity>
           {AES_INCIDENT_TYPES.map(it => {
             const active = selectedExposure === it;
@@ -485,16 +502,16 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 testID={`surveillance-exposure-filter-${it}`}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={EXPOSURE_LABEL_MAP[it]}
+                accessibilityLabel={exposureLabelMap[it]}
               >
-                <Text
+                <AppText
                   style={[
                     styles.filterPillText,
                     { color: active ? aesColors.textInverse : aesColors.textPrimary },
                   ]}
                 >
-                  {EXPOSURE_LABEL_MAP[it]}
-                </Text>
+                  {exposureLabelMap[it]}
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -502,11 +519,12 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
         {/* Date range inputs */}
         <View style={dateRowStyle}>
-          <View style={{ flex: 1, marginRight: rtl ? 0 : aesSpacing.xs, marginLeft: rtl ? aesSpacing.xs : 0 }}>
-            <TextInput
+          <View style={{ flex: 1, marginStart: aesSpacing.xs, marginEnd: aesSpacing.xs }}>
+            <AppTextInput
               style={[
                 styles.dateInput,
                 { backgroundColor: aesColors.surfaceSubdued, borderColor: aesColors.borderMedium, color: aesColors.textPrimary },
+                { textAlign: 'left', writingDirection: 'ltr' },
               ]}
               placeholder={t('surveillance.filters.startDate')}
               placeholderTextColor={aesColors.textTertiary}
@@ -518,10 +536,11 @@ export const SurveillanceDashboardScreen: React.FC = () => {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <TextInput
+            <AppTextInput
               style={[
                 styles.dateInput,
                 { backgroundColor: aesColors.surfaceSubdued, borderColor: aesColors.borderMedium, color: aesColors.textPrimary },
+                { textAlign: 'left', writingDirection: 'ltr' },
               ]}
               placeholder={t('surveillance.filters.endDate')}
               placeholderTextColor={aesColors.textTertiary}
@@ -536,43 +555,43 @@ export const SurveillanceDashboardScreen: React.FC = () => {
       </AesCard>
 
       {/* ─── 1. OVERVIEW INDICATORS ───────────────────────────── */}
-      <Text style={styles.mainSectionTitle}>{t('surveillance.overview.title')}</Text>
+      <AppText style={[styles.mainSectionTitle, { textAlign }]}>{t('surveillance.overview.title')}</AppText>
       <View style={kpiGridStyle} testID="surveillance-overview-grid">
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-total">
-          <Text style={[styles.kpiValue, { color: aesColors.primaryAction }]}>{overview.totalDeclarations}</Text>
-          <Text style={styles.kpiLabel}>{t('surveillance.overview.total')}</Text>
+          <AppText style={[styles.kpiValue, { color: aesColors.primaryAction }]}>{overview.totalDeclarations}</AppText>
+          <AppText style={styles.kpiLabel}>{t('surveillance.overview.total')}</AppText>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-submitted">
-          <Text style={[styles.kpiValue, { color: aesColors.accentGreen }]}>{overview.submittedDeclarations}</Text>
-          <Text style={styles.kpiLabel}>{t('surveillance.overview.submitted')}</Text>
+          <AppText style={[styles.kpiValue, { color: aesColors.accentGreen }]}>{overview.submittedDeclarations}</AppText>
+          <AppText style={styles.kpiLabel}>{t('surveillance.overview.submitted')}</AppText>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-under-review">
-          <Text style={[styles.kpiValue, { color: aesColors.banners.warning.text }]}>{overview.underReviewDeclarations}</Text>
-          <Text style={styles.kpiLabel}>{t('surveillance.overview.underReview')}</Text>
+          <AppText style={[styles.kpiValue, { color: aesColors.banners.warning.text }]}>{overview.underReviewDeclarations}</AppText>
+          <AppText style={styles.kpiLabel}>{t('surveillance.overview.underReview')}</AppText>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-correction">
-          <Text style={[styles.kpiValue, { color: aesColors.banners.error.text }]}>{overview.correctionRequestedDeclarations}</Text>
-          <Text style={styles.kpiLabel}>{t('surveillance.overview.correctionRequested')}</Text>
+          <AppText style={[styles.kpiValue, { color: aesColors.banners.error.text }]}>{overview.correctionRequestedDeclarations}</AppText>
+          <AppText style={styles.kpiLabel}>{t('surveillance.overview.correctionRequested')}</AppText>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-active-oh">
-          <Text style={[styles.kpiValue, { color: aesColors.primaryAction }]}>{overview.activeOhCoordinations}</Text>
-          <Text style={styles.kpiLabel}>{t('surveillance.overview.activeOh')}</Text>
+          <AppText style={[styles.kpiValue, { color: aesColors.primaryAction }]}>{overview.activeOhCoordinations}</AppText>
+          <AppText style={styles.kpiLabel}>{t('surveillance.overview.activeOh')}</AppText>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-completed-oh">
-          <Text style={[styles.kpiValue, { color: aesColors.accentGreen }]}>{overview.completedOhCoordinations}</Text>
-          <Text style={styles.kpiLabel}>{t('surveillance.overview.completedOh')}</Text>
+          <AppText style={[styles.kpiValue, { color: aesColors.accentGreen }]}>{overview.completedOhCoordinations}</AppText>
+          <AppText style={styles.kpiLabel}>{t('surveillance.overview.completedOh')}</AppText>
         </AesCard>
       </View>
 
       {/* ─── 2. TEMPORAL DISTRIBUTION (MONTHLY BARS) ──────────── */}
       <AesCard style={styles.distributionCard} elevated testID="surveillance-temporal">
-        <Text style={styles.sectionHeading}>{t('surveillance.temporal.title')}</Text>
+        <AppText style={styles.sectionHeading}>{t('surveillance.temporal.title')}</AppText>
         {temporalDistribution.length === 0 ? (
-          <Text style={styles.emptyNote}>{t('surveillance.temporal.empty')}</Text>
+          <AppText style={styles.emptyNote}>{t('surveillance.temporal.empty')}</AppText>
         ) : (
           temporalDistribution.map(item => (
             <View key={item.month} style={barRowStyle} testID={`surveillance-temporal-bar-${item.month}`}>
-              <Text style={styles.barLabel}>{item.month}</Text>
+              <AppText style={[styles.barLabel, { textAlign: 'left', writingDirection: 'ltr' }]}>{item.month}</AppText>
               <View style={styles.barTrack}>
                 <View
                   style={[
@@ -581,7 +600,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                   ]}
                 />
               </View>
-              <Text style={styles.barCount}>{item.count}</Text>
+              <AppText style={[styles.barCount, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
             </View>
           ))
         )}
@@ -589,13 +608,18 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
       {/* ─── 3. EXPOSURE CATEGORY DISTRIBUTION ────────────────── */}
       <AesCard style={styles.distributionCard} elevated testID="surveillance-exposure">
-        <Text style={styles.sectionHeading}>{t('surveillance.exposure.title')}</Text>
+        <AppText style={styles.sectionHeading}>{t('surveillance.exposure.title')}</AppText>
         {exposureDistribution.length === 0 ? (
-          <Text style={styles.emptyNote}>{t('surveillance.exposure.empty')}</Text>
+          <AppText style={styles.emptyNote}>{t('surveillance.exposure.empty')}</AppText>
         ) : (
           exposureDistribution.map(item => (
             <View key={item.incidentType} style={barRowStyle} testID={`surveillance-exposure-bar-${item.incidentType}`}>
-              <Text style={styles.barLabel} numberOfLines={1}>{EXPOSURE_LABEL_MAP[item.incidentType as AesIncidentType]}</Text>
+              <AppText
+                style={[styles.barLabel, { width: 112, textAlign }]}
+                numberOfLines={3}
+              >
+                {exposureLabelMap[item.incidentType as AesIncidentType]}
+              </AppText>
               <View style={styles.barTrack}>
                 <View
                   style={[
@@ -604,7 +628,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                   ]}
                 />
               </View>
-              <Text style={styles.barCount}>{item.count}</Text>
+              <AppText style={[styles.barCount, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
             </View>
           ))
         )}
@@ -612,47 +636,49 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
       {/* ─── 4. DECLARATION STATUS DISTRIBUTION ──────────────── */}
       <AesCard style={styles.distributionCard} elevated testID="surveillance-status-distribution">
-        <Text style={styles.sectionHeading}>{t('surveillance.status.title')}</Text>
-        {statusDistribution.map(item => (
+        <AppText style={styles.sectionHeading}>{t('surveillance.status.title')}</AppText>
+        {statusDistribution.length === 0 ? (
+          <AppText style={styles.emptyNote}>{t('surveillance.status.empty', locale)}</AppText>
+        ) : statusDistribution.map(item => (
           <View key={item.status} style={distributionRowStyle} testID={`surveillance-status-row-${item.status}`}>
             <View style={styles.statusBadgeContainer}>
               <AesStatusBadge status={item.status as DeclarationStatus} domain="declaration" testID={`surveillance-status-badge-${item.status}`} />
             </View>
-            <Text style={styles.distributionLabel}>{STATUS_LABEL_MAP[item.status as DeclarationStatus]}</Text>
-            <Text style={styles.distributionValue}>{item.count}</Text>
+            <AppText style={[styles.distributionLabel, { textAlign }]}>{statusLabelMap[item.status as DeclarationStatus]}</AppText>
+            <AppText style={[styles.distributionValue, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
           </View>
         ))}
       </AesCard>
 
       {/* ─── 5. ADMINISTRATIVE REVIEW INDICATORS ──────────────── */}
       <AesCard style={styles.distributionCard} elevated testID="surveillance-admin">
-        <Text style={styles.sectionHeading}>{t('surveillance.admin.title')}</Text>
+        <AppText style={styles.sectionHeading}>{t('surveillance.admin.title')}</AppText>
 
         <View style={adminSummaryRowStyle} testID="surveillance-admin-summary">
           <View style={styles.adminSummaryItem}>
-            <Text style={styles.adminSummaryValue}>{administrativeReview.totalReviews}</Text>
-            <Text style={styles.adminSummaryLabel}>{t('surveillance.admin.totalReviews')}</Text>
+            <AppText style={styles.adminSummaryValue}>{administrativeReview.totalReviews}</AppText>
+            <AppText style={styles.adminSummaryLabel}>{t('surveillance.admin.totalReviews')}</AppText>
           </View>
           <View style={styles.adminSummaryItem}>
-            <Text style={[styles.adminSummaryValue, { color: aesColors.banners.error.text }]}>{administrativeReview.correctionRequests}</Text>
-            <Text style={styles.adminSummaryLabel}>{t('surveillance.admin.correctionRequests')}</Text>
+            <AppText style={[styles.adminSummaryValue, { color: aesColors.banners.error.text }]}>{administrativeReview.correctionRequests}</AppText>
+            <AppText style={styles.adminSummaryLabel}>{t('surveillance.admin.correctionRequests')}</AppText>
           </View>
           <View style={styles.adminSummaryItem}>
-            <Text style={[styles.adminSummaryValue, { color: aesColors.accentGreen }]}>{administrativeReview.correctionResponses}</Text>
-            <Text style={styles.adminSummaryLabel}>{t('surveillance.admin.correctionResponses')}</Text>
+            <AppText style={[styles.adminSummaryValue, { color: aesColors.accentGreen }]}>{administrativeReview.correctionResponses}</AppText>
+            <AppText style={styles.adminSummaryLabel}>{t('surveillance.admin.correctionResponses')}</AppText>
           </View>
         </View>
 
         {administrativeReview.outcomes.length > 0 && (
           <View style={{ marginTop: aesSpacing.sm }} testID="surveillance-admin-outcomes">
-            <Text style={styles.filterLabel}>{t('surveillance.admin.outcomes')}</Text>
+            <AppText style={styles.filterLabel}>{t('surveillance.admin.outcomes')}</AppText>
             {administrativeReview.outcomes.map(item => (
               <View key={item.outcome} style={distributionRowStyle} testID={`surveillance-admin-outcome-${item.outcome}`}>
                 <View style={styles.statusBadgeContainer}>
                   <AesStatusBadge status={item.outcome as ReviewOutcome} domain="declaration" testID={`surveillance-admin-outcome-badge-${item.outcome}`} />
                 </View>
-                <Text style={styles.distributionLabel}>{t(`review.outcome.${item.outcome}` as any)}</Text>
-                <Text style={styles.distributionValue}>{item.count}</Text>
+                <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`review.outcome.${item.outcome}` as any)}</AppText>
+                <AppText style={[styles.distributionValue, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
               </View>
             ))}
           </View>
@@ -661,29 +687,29 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
       {/* ─── 6. OCCUPATIONAL HEALTH INDICATORS ────────────────── */}
       <AesCard style={[styles.distributionCard, { marginBottom: aesSpacing.xl }]} elevated testID="surveillance-oh">
-        <Text style={styles.sectionHeading}>{t('surveillance.oh.title')}</Text>
+        <AppText style={styles.sectionHeading}>{t('surveillance.oh.title')}</AppText>
 
         {/* Coordination status */}
-        <Text style={styles.filterLabel}>{t('surveillance.oh.status')}</Text>
+        <AppText style={styles.filterLabel}>{t('surveillance.oh.status')}</AppText>
         {occupationalHealth.statusDistribution.map(item => (
           <View key={item.status} style={distributionRowStyle} testID={`surveillance-oh-status-${item.status}`}>
             <View style={styles.statusBadgeContainer}>
               <AesStatusBadge status={item.status as OhCoordinationStatus} domain="ohCoordination" testID={`surveillance-oh-status-badge-${item.status}`} />
             </View>
-            <Text style={styles.distributionLabel}>{t(`oh.status.${item.status}` as any)}</Text>
-            <Text style={styles.distributionValue}>{item.count}</Text>
+            <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`oh.status.${item.status}` as any)}</AppText>
+            <AppText style={[styles.distributionValue, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
           </View>
         ))}
 
         {/* Follow-up events */}
-        <Text style={[styles.filterLabel, { marginTop: aesSpacing.sm }]}>{t('surveillance.oh.events')}</Text>
+        <AppText style={[styles.filterLabel, { marginTop: aesSpacing.sm }]}>{t('surveillance.oh.events')}</AppText>
         {occupationalHealth.eventCategories.length === 0 ? (
-          <Text style={styles.emptyNote}>{t('oh.detail.noEvents')}</Text>
+          <AppText style={styles.emptyNote}>{t('oh.detail.noEvents')}</AppText>
         ) : (
           occupationalHealth.eventCategories.map(item => (
             <View key={item.category} style={distributionRowStyle} testID={`surveillance-oh-event-${item.category}`}>
-              <Text style={styles.distributionLabel}>{t(`oh.event.${item.category}` as any)}</Text>
-              <Text style={styles.distributionValue}>{item.count}</Text>
+              <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`oh.event.${item.category}` as any)}</AppText>
+              <AppText style={[styles.distributionValue, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
             </View>
           ))
         )}
@@ -704,10 +730,12 @@ const styles = StyleSheet.create({
     color: aesColors.textSecondary,
     marginBottom: aesSpacing.xs,
   },
-  roleSwitcherScroll: {},
+  roleSwitcherScroll: {
+    height: MIN_TOUCH_TARGET + aesSpacing.xs,
+  },
   roleSwitcherContent: {
     gap: aesSpacing.xs,
-    paddingBottom: aesSpacing.xs,
+    alignItems: 'center',
   },
   rolePill: {
     paddingHorizontal: aesSpacing.md,
@@ -769,8 +797,8 @@ const styles = StyleSheet.create({
     marginHorizontal: aesSpacing.screenHorizontal,
     marginTop: aesSpacing.md,
     marginBottom: aesSpacing.sm,
-    borderLeftWidth: 4,
-    borderLeftColor: aesColors.accentGreen,
+    borderStartWidth: 4,
+    borderStartColor: aesColors.accentGreen,
   },
   disclaimerRow: {
     alignItems: 'flex-start',
@@ -920,7 +948,7 @@ const styles = StyleSheet.create({
     borderBottomColor: aesColors.borderSubdued,
   },
   statusBadgeContainer: {
-    marginRight: aesSpacing.sm,
+    marginEnd: aesSpacing.sm,
     minWidth: 80,
   },
   distributionLabel: {
@@ -933,7 +961,7 @@ const styles = StyleSheet.create({
     ...aesTypography.bodySmall,
     color: aesColors.textPrimary,
     fontWeight: '700',
-    marginLeft: aesSpacing.sm,
+    marginStart: aesSpacing.sm,
   },
   emptyNote: {
     ...aesTypography.caption,

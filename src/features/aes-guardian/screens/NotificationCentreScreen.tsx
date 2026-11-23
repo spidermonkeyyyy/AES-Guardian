@@ -31,6 +31,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../../theme/ThemeContext';
 import { spacing, typography, shapes } from '../../../theme/tokens';
+import type { ColorToken } from '../../../theme/tokens/colors';
 import {
   getDatabase,
   useDemoRoleStore,
@@ -82,7 +83,7 @@ interface NotificationItemProps {
   locale: string;
   onPress: (item: InAppNotification) => void;
   processing: boolean;
-  colors: any;
+  colors: ColorToken;
 }
 
 function NotificationItem({ item, locale, onPress, processing, colors }: NotificationItemProps) {
@@ -119,7 +120,6 @@ function NotificationItem({ item, locale, onPress, processing, colors }: Notific
                 styles.notifTitle,
                 { color: isUnread ? colors.foreground : colors.mutedForeground },
               ]}
-              numberOfLines={1}
             >
               {formatted.title}
             </Text>
@@ -127,7 +127,6 @@ function NotificationItem({ item, locale, onPress, processing, colors }: Notific
           </View>
           <Text
             style={[styles.notifMessage, { color: colors.mutedForeground }]}
-            numberOfLines={2}
           >
             {formatted.message}
           </Text>
@@ -234,12 +233,14 @@ export const NotificationCentreScreen: React.FC = () => {
             result.status === 'not_found'
               ? t('notificationCentre.errorStale', locale)
               : t('notificationCentre.errorNavigation', locale);
-          Alert.alert('', msg, [{ text: 'OK' }]);
+          Alert.alert('', msg, [{ text: t('app.ok', locale) }]);
           // Do NOT navigate, do NOT mark read; refresh list in case record disappeared
           await loadData();
         }
       } catch {
-        Alert.alert('', t('notificationCentre.errorNavigation', locale), [{ text: 'OK' }]);
+        Alert.alert('', t('notificationCentre.errorNavigation', locale), [
+          { text: t('app.ok', locale) },
+        ]);
       } finally {
         setProcessing(false);
       }
@@ -397,8 +398,8 @@ export const NotificationCentreScreen: React.FC = () => {
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           onPress={() => { setLoading(true); loadData(); }}
         >
-          <Text style={[styles.retryButtonText, { color: colors.primaryForeground ?? '#fff' }]}>
-            Réessayer
+          <Text style={[styles.retryButtonText, { color: colors.primaryForeground }]}>
+            {t('notificationCentre.retry', locale)}
           </Text>
         </TouchableOpacity>
       </View>
@@ -472,7 +473,7 @@ export const NotificationCentreScreen: React.FC = () => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-function createStyles(colors: any) {
+function createStyles(colors: ColorToken) {
   return StyleSheet.create({
     root: {
       flex: 1,
@@ -507,7 +508,7 @@ function createStyles(colors: any) {
     countBadgeText: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
-      color: '#ffffff',
+      color: colors.primaryForeground,
     },
     summaryText: {
       fontSize: typography.fontSize.sm,
@@ -588,7 +589,7 @@ function createStyles(colors: any) {
     unreadBadgeText: {
       fontSize: typography.fontSize.xs - 1,
       fontWeight: typography.fontWeight.bold,
-      color: '#ffffff',
+      color: colors.primaryForeground,
     },
     chevron: {
       fontSize: 20,

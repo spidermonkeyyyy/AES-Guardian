@@ -3,6 +3,7 @@ import { usePatientMessagesStore } from '../state/use-patient-messages-store';
 import { Message, MessageStatus } from '../../../../types/communication';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useTheme } from '../../../../theme/ThemeContext';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
 
 function statusLabel(s: MessageStatus): string {
   switch (s) {
@@ -51,7 +52,7 @@ const PatientConversationScreen: React.FC = () => {
   if (!conversation) {
     return (
       <View style={styles.center}>
-        {isLoading ? <ActivityIndicator size="large" color="colors.primary" /> : (
+        {isLoading ? <ActivityIndicator size="large" color={colors.primary} /> : (
           <>
             <Text style={styles.errorTitle}>Aucune conversation</Text>
             {errorMessage && <Text style={styles.errorBody}>{errorMessage}</Text>}
@@ -101,6 +102,8 @@ const PatientConversationScreen: React.FC = () => {
 };
 
 function MessageBubble({ message }: { message: Message }) {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const isPatient = message.sender === 'patient';
   return (
     <View style={[styles.bubble, isPatient ? styles.bubblePatient : styles.bubbleOther]}>
@@ -118,7 +121,7 @@ function MessageBubble({ message }: { message: Message }) {
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colors.background },
   headerCard: { backgroundColor: colors.primary, padding: 16 },
@@ -142,7 +145,7 @@ function createStyles(colors: any) {
   sendButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
   errorTitle: { fontSize: 18, fontWeight: '600', color: colors.primary, marginBottom: 8, textAlign: 'center' },
   errorBody: { fontSize: 14, color: colors.mutedForeground, textAlign: 'center' },
-}
+});
 }
 
 export default PatientConversationScreen;

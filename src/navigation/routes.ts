@@ -1,6 +1,7 @@
 export type RootStackParamList = {
   splash: undefined;
   authGate: undefined;
+  access: undefined;
   signIn: undefined;
   signUp: undefined;
   forgotPassword: undefined;

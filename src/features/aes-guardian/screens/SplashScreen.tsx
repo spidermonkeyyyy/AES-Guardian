@@ -10,10 +10,10 @@
  * - Pure branding canvas with zero third-party spinners or logos.
  */
 
+import AppText from '../../../components/AppText';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
@@ -21,16 +21,17 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '../../../components/AppIcon';
 import { aesColors, aesTypography, aesSpacing, aesRadii } from '../../../theme/tokens';
 import { isFirstLaunchCompleted } from '../utils/onboardingStorage';
-import { t, useLocale } from '../../../localization';
+import { t, useLocale, useLayoutDirection } from '../../../localization';
 import { RootStackParamList } from '../../../navigation/routes';
 
 export const SplashScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'aesSplash'>>();
   const locale = useLocale();
+  const layoutDirection = useLayoutDirection();
   const [isProceeding, setIsProceeding] = useState(false);
   const isMountedRef = useRef(true);
 
@@ -93,23 +94,28 @@ export const SplashScreen: React.FC = () => {
           </View>
 
           {/* Serif Wordmark */}
-          <Text style={styles.wordmark} testID="aes-splash-wordmark">
+          <AppText style={styles.wordmark} testID="aes-splash-wordmark">
             {t('splash.wordmark', locale)}
-          </Text>
+          </AppText>
 
           {/* Institutional Subtitle */}
-          <Text style={styles.subtitle} testID="aes-splash-subtitle">
+          <AppText style={styles.subtitle} testID="aes-splash-subtitle">
             {t('splash.subtitle', locale)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Bottom Entry Action */}
         <View style={styles.bottomBar}>
           <View style={styles.enterPill}>
-            <Text style={styles.enterPillText}>
+            <AppText style={styles.enterPillText}>
               {t('splash.enter', locale)}
-            </Text>
-            <Icon name="arrow-right" size={16} color={aesColors.accentGreen} />
+            </AppText>
+            <Icon
+              name="forward"
+              size={16}
+              color={aesColors.accentGreen}
+              testID="aes-splash-forward-icon"
+            />
           </View>
         </View>
       </TouchableOpacity>

@@ -1,8 +1,6 @@
 import React from 'react';
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   TextInputProps,
   ViewStyle,
@@ -10,7 +8,9 @@ import {
 } from 'react-native';
 import { shapes, spacing, typography } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from './AppIcon';
+import { AppText } from './AppText';
+import { AppTextInput } from './AppTextInput';
 
 interface AppInputProps extends TextInputProps {
   label?: string;
@@ -37,14 +37,14 @@ export const AppInput: React.FC<AppInputProps> = ({
   const renderIcon = (icon?: React.ReactNode | string) => {
     if (!icon) return null;
     if (typeof icon === 'string') {
-      return <Icon name={icon} size={18} color={colors.mutedForeground} />;
+      return <AppIcon name={icon} size={18} color={colors.mutedForeground} />;
     }
     return icon;
   };
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, { color: colors.foreground }]}>{label}</Text>}
+      {label && <AppText variant="label" style={styles.label}>{label}</AppText>}
       <View
         style={[
           styles.inputWrapper,
@@ -54,17 +54,18 @@ export const AppInput: React.FC<AppInputProps> = ({
         ]}
       >
         {leftIcon && <View style={styles.leftIconContainer}>{renderIcon(leftIcon)}</View>}
-        <TextInput
-          style={[styles.input, { color: colors.foreground }, inputStyle]}
-          placeholderTextColor={colors.mutedForeground}
+        <AppTextInput
+          bare
+          invalid={Boolean(error)}
+          style={[styles.input, inputStyle]}
           {...props}
         />
         {rightIcon && <View style={styles.rightIconContainer}>{renderIcon(rightIcon)}</View>}
       </View>
       {error ? (
-        <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+        <AppText variant="caption" tone="danger" style={styles.errorText}>{error}</AppText>
       ) : helperText ? (
-        <Text style={[styles.helperText, { color: colors.mutedForeground }]}>{helperText}</Text>
+        <AppText variant="caption" tone="muted" style={styles.helperText}>{helperText}</AppText>
       ) : null}
     </View>
   );

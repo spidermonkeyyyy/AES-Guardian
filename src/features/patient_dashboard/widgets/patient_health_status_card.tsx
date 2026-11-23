@@ -1,4 +1,6 @@
 import React from 'react';
+import { Text, View } from 'react-native';
+import { useTheme } from '../../../theme/ThemeContext';
 
 /**
  * PatientHealthStatusCard — minimal integration card.
@@ -13,18 +15,11 @@ export const PatientHealthStatusCard: React.FC<{ title?: string; subtitle?: stri
   title = 'État de santé',
   subtitle = 'Indicateurs respiratoires en temps réel',
 }) => {
+  const { colors } = useTheme();
   return (
-    <div
-      style={{
-        padding: '12px',
-        background: colors.card,
-        borderRadius: '8px',
-        marginBottom: '12px',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <div style={{ fontWeight: 500, marginBottom: '4px' }}>{title}</div>
-      <div style={{ color: colors.mutedForeground, fontSize: '0.875rem' }}>{subtitle}</div>
-    </div>
+    <View style={{ padding: 12, backgroundColor: colors.card, borderRadius: 8, marginBottom: 12 }}>
+      <Text style={{ fontWeight: '500', marginBottom: 4, color: colors.foreground }}>{title}</Text>
+      <Text style={{ color: colors.mutedForeground, fontSize: 14 }}>{subtitle}</Text>
+    </View>
   );
 };

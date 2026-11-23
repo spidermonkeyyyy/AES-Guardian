@@ -12,18 +12,11 @@
  */
 
 import { Platform, TextStyle } from 'react-native';
+import { typography } from './typography';
 
 export const aesFontFamilies = {
-  heading: Platform.select({
-    ios: 'Georgia',
-    android: 'serif',
-    default: 'serif',
-  }),
-  body: Platform.select({
-    ios: 'System',
-    android: 'sans-serif',
-    default: 'sans-serif',
-  }),
+  heading: typography.fontFamily.urbanist,
+  body: typography.fontFamily.openSans,
   monospace: Platform.select({
     ios: 'Menlo',
     android: 'monospace',

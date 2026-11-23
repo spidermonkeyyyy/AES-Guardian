@@ -36,7 +36,7 @@ import {
   useDemoRoleStore,
   canRespondToCorrection,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale, type SupportedLocale } from '../../../localization';
 import { AesScreenContainer, AesScreenHeader, AesStatusBadge } from '../components';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -58,6 +58,22 @@ const TAB_LABEL_KEYS: Record<TabKey, string> = {
 };
 
 const PERMITTED_ROLES = ['exposed_professional', 'admin_reviewer'] as const;
+const DATE_LOCALES: Record<SupportedLocale, string> = {
+  fr: 'fr-FR',
+  en: 'en-GB',
+  ar: 'ar',
+};
+
+function formatAppDate(value: string, locale: SupportedLocale): string {
+  const dateInput = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(DATE_LOCALES[locale], {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
 
 // ─── Helper components ────────────────────────────────────────────────────────
 
@@ -76,6 +92,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
   const { declarationId } = route.params;
   const { activeContext } = useDemoRoleStore();
   const { role, userId } = activeContext;
+  const locale = useLocale();
 
   const [declaration, setDeclaration] = useState<AesDeclaration | null>(null);
   const [reviewHistory, setReviewHistory] = useState<AdministrativeReview[]>([]);
@@ -223,20 +240,20 @@ export const DeclarationDetailsScreen: React.FC = () => {
       <View style={[styles.sectionCard]}>
         <View style={styles.cardTopRow}>
           <Text style={[styles.referenceText, { color: aesColors.textPrimary }]}>
-            {declaration.reference_number ?? `#${declaration.id}`}
+            {declaration.reference_number || t('list.refUnavailable')}
           </Text>
           <AesStatusBadge status={declaration.status} domain="declaration" />
         </View>
         {declaration.created_at ? (
           <LabelValue
             label={t('details.createdAt')}
-            value={new Date(declaration.created_at).toLocaleDateString()}
+            value={formatAppDate(declaration.created_at, locale)}
           />
         ) : null}
         {declaration.submitted_at ? (
           <LabelValue
             label={t('details.submittedAt')}
-            value={new Date(declaration.submitted_at).toLocaleDateString()}
+            value={formatAppDate(declaration.submitted_at, locale)}
           />
         ) : null}
       </View>
@@ -301,7 +318,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
         {declaration.incident_date ? (
           <LabelValue
             label={t('details.incidentDate')}
-            value={new Date(declaration.incident_date).toLocaleDateString()}
+            value={formatAppDate(declaration.incident_date, locale)}
           />
         ) : null}
         {declaration.incident_type ? (
@@ -381,9 +398,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
                 <View style={styles.reviewRowHeader}>
                   <Text style={[styles.reviewDate, { color: aesColors.textSecondary }]}>
                     {review.reviewed_at
-                      ? new Date(review.reviewed_at).toLocaleDateString()
+                      ? formatAppDate(review.reviewed_at, locale)
                       : review.created_at
-                      ? new Date(review.created_at).toLocaleDateString()
+                      ? formatAppDate(review.created_at, locale)
                       : ''}
                   </Text>
                   <AesStatusBadge
@@ -485,13 +502,13 @@ export const DeclarationDetailsScreen: React.FC = () => {
             {c.created_at ? (
               <LabelValue
                 label={t('details.followup.coordinationDate')}
-                value={new Date(c.created_at).toLocaleDateString()}
+                value={formatAppDate(c.created_at, locale)}
               />
             ) : null}
             {c.updated_at ? (
               <LabelValue
                 label={t('details.followup.updatedAt')}
-                value={new Date(c.updated_at).toLocaleDateString()}
+                value={formatAppDate(c.updated_at, locale)}
               />
             ) : null}
           </View>
@@ -531,25 +548,25 @@ export const DeclarationDetailsScreen: React.FC = () => {
           {admin.created_at ? (
             <LabelValue
               label={t('details.followup.coordinationDate')}
-              value={new Date(admin.created_at).toLocaleDateString()}
+              value={formatAppDate(admin.created_at, locale)}
             />
           ) : null}
           {admin.acknowledged_at ? (
             <LabelValue
               label={t('details.followup.acknowledgedAt')}
-              value={new Date(admin.acknowledged_at).toLocaleDateString()}
+              value={formatAppDate(admin.acknowledged_at, locale)}
             />
           ) : null}
           {admin.completed_at ? (
             <LabelValue
               label={t('details.followup.completedAt')}
-              value={new Date(admin.completed_at).toLocaleDateString()}
+              value={formatAppDate(admin.completed_at, locale)}
             />
           ) : null}
           {admin.updated_at ? (
             <LabelValue
               label={t('details.followup.updatedAt')}
-              value={new Date(admin.updated_at).toLocaleDateString()}
+              value={formatAppDate(admin.updated_at, locale)}
             />
           ) : null}
         </View>
@@ -573,7 +590,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
   return (
     <AesScreenContainer>
       <AesScreenHeader
-        title={declaration.reference_number ?? `#${declaration.id}`}
+        title={declaration.reference_number || t('list.refUnavailable')}
         onBack={() => navigation.goBack()}
       />
 

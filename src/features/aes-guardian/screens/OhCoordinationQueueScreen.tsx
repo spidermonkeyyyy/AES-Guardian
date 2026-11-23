@@ -147,8 +147,7 @@ export const OhCoordinationQueueScreen: React.FC = () => {
   }
 
   const renderItem = ({ item }: { item: OhCoordination }) => {
-    const declRef =
-      item.declaration_reference || `Décl. #${item.declaration_id}`;
+    const declRef = item.declaration_reference || t('oh.detail.noReference');
 
     return (
       <TouchableOpacity

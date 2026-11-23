@@ -7,7 +7,12 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { DeclarationListScreen } from '../screens/DeclarationListScreen';
 import { DeclarationFormScreen } from '../screens/DeclarationFormScreen';
 import { SubmissionConfirmationScreen } from '../screens/SubmissionConfirmationScreen';
-import { initializeDatabase, resetDatabaseForTesting, getDatabase } from '../../../core';
+import {
+  initializeDatabase,
+  resetDatabaseForTesting,
+  getDatabase,
+  useDemoRoleStore,
+} from '../../../core';
 import { ThemeProvider } from '../../../theme/ThemeContext';
 import { setLocale, getLocale, t } from '../../../localization';
 
@@ -37,6 +42,7 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
     jest.clearAllMocks();
     mockRouteParams = { params: {} };
     setLocale('fr');
+    useDemoRoleStore.getState().setRole('exposed_professional');
     resetDatabaseForTesting();
     await initializeDatabase();
   });
@@ -88,6 +94,21 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
       expect(getByTestId('declaration-incident-date-input')).toBeTruthy();
       expect(getByTestId('declaration-save-draft-button')).toBeTruthy();
       expect(getByTestId('declaration-next-step-button')).toBeTruthy();
+    });
+
+    it('blocks declaration form access for roles without declaration permission', () => {
+      useDemoRoleStore.getState().setRole('admin_reviewer');
+      const { getByTestId, getByText, queryByTestId } = render(
+        <ThemeProvider>
+          <DeclarationFormScreen />
+        </ThemeProvider>,
+      );
+
+      expect(getByTestId('declaration-form-unauthorized')).toBeTruthy();
+      expect(
+        getByText("Cette étape est réservée au professionnel ayant déclaré l'incident."),
+      ).toBeTruthy();
+      expect(queryByTestId('declaration-step-1')).toBeNull();
     });
 
     it('validates Step 1 required fields and prevents advancing when incident date is empty', async () => {
@@ -705,16 +726,17 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
       expect(getByTestId('confirmation-back-button')).toBeTruthy();
     });
 
-    it('handles missing optional reference safely with default placeholder', () => {
+    it('does not present a fabricated reference when the route value is missing', () => {
       mockRouteParams = { params: {} };
 
-      const { getByText } = render(
+      const { getByText, getByTestId } = render(
         <ThemeProvider>
           <SubmissionConfirmationScreen />
         </ThemeProvider>
       );
 
-      expect(getByText('AES-REF')).toBeTruthy();
+      expect(getByText('Référence indisponible')).toBeTruthy();
+      expect(getByTestId('confirmation-reference-number').props.selectable).toBe(false);
     });
 
     it('navigates to declarations when pressing return action button', () => {
@@ -730,20 +752,16 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
       expect(mockNavigate).toHaveBeenCalledWith('declarations');
     });
 
-    it('toggles interactive copy button state when tapped', () => {
+    it('allows selecting the actual reference text', () => {
       mockRouteParams = { params: { referenceNumber: 'AES-2026-001' } };
 
-      const { getByTestId, getByText } = render(
+      const { getByTestId } = render(
         <ThemeProvider>
           <SubmissionConfirmationScreen />
         </ThemeProvider>
       );
 
-      const copyBtn = getByTestId('confirmation-copy-button');
-      expect(getByText('Copier la référence')).toBeTruthy();
-
-      fireEvent.press(copyBtn);
-      expect(getByText('Référence copiée')).toBeTruthy();
+      expect(getByTestId('confirmation-reference-number').props.selectable).toBe(true);
     });
 
     it('renders localized confirmation in English and Arabic without raw keys', () => {
@@ -758,7 +776,7 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
       );
       expect(enComp.getByText('Declaration Submitted')).toBeTruthy();
       expect(enComp.getByText('Back to My Declarations')).toBeTruthy();
-      expect(enComp.getByText('Copy reference')).toBeTruthy();
+      expect(enComp.getByText('Reference:')).toBeTruthy();
       enComp.unmount();
 
       // Arabic
@@ -770,7 +788,7 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
       );
       expect(arComp.getByText('تم تقديم التصريح')).toBeTruthy();
       expect(arComp.getByText('العودة إلى تصريحاتي')).toBeTruthy();
-      expect(arComp.getByText('نسخ المرجع')).toBeTruthy();
+      expect(arComp.getByText('المرجع:')).toBeTruthy();
       arComp.unmount();
 
       setLocale('fr');

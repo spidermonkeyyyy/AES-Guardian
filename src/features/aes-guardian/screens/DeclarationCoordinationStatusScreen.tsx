@@ -24,6 +24,7 @@ import {
   useDemoRoleStore,
   OhCoordination,
   ExposedOhCoordinationSummary,
+  canDeclare,
 } from '../../../core';
 import { t } from '../../../localization';
 
@@ -38,6 +39,7 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
 
   const { activeContext } = useDemoRoleStore();
   const authContext = activeContext;
+  const isAuthorized = canDeclare(authContext);
 
   const [coordination, setCoordination] = useState<
     OhCoordination | ExposedOhCoordinationSummary | null | undefined
@@ -46,12 +48,17 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const loadStatus = useCallback(async () => {
+    if (!isAuthorized || !authContext.userId) {
+      setCoordination(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const db = getDatabase();
       const result = await db.getOhCoordinationByDeclaration(
         declarationId,
-        authContext.userId!,
+        authContext.userId,
       );
       setCoordination(result);
       setError(null);
@@ -60,21 +67,38 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [declarationId, authContext]);
+  }, [declarationId, authContext.userId, isAuthorized]);
 
   useEffect(() => {
     loadStatus();
   }, [loadStatus]);
 
-  const getStatusColor = (status?: OhCoordination['status']): string => {
+  const getStatusColors = (status?: OhCoordination['status']) => {
     switch (status) {
-      case 'pending_acknowledgement': return colors.accent;
-      case 'acknowledged': return colors.primary;
-      case 'completed': return colors.secondary;
-      case 'cancelled': return colors.mutedForeground;
-      default: return colors.mutedForeground;
+      case 'pending_acknowledgement':
+        return { backgroundColor: colors.warningBackground, color: colors.warning };
+      case 'acknowledged':
+        return { backgroundColor: colors.infoBackground, color: colors.info };
+      case 'completed':
+        return { backgroundColor: colors.success, color: colors.successForeground };
+      case 'cancelled':
+      default:
+        return { backgroundColor: colors.surfaceVariant, color: colors.mutedForeground };
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+          {t('oh.error.unauthorized')}
+        </Text>
+        <Text style={[styles.errorText, { color: colors.mutedForeground }]}>
+          {t('oh.detail.unauthorizedMessage')}
+        </Text>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -89,7 +113,9 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadStatus}>
-          <Text style={{ color: colors.primary, fontSize: typography.fontSize.bodySmall }}>{t('oh.queue.refresh')}</Text>
+          <Text style={{ color: colors.primary, fontSize: typography.fontSize.bodySmall }}>
+            {t('oh.queue.refresh')}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -100,8 +126,10 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.decl.coordinationStatus')}</Text>
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {coordination ? (
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(coordination.status) }]}>
-            <Text style={styles.statusText}>{t(`oh.status.${coordination.status}` as any)}</Text>
+          <View style={[styles.statusBadge, getStatusColors(coordination.status)]}>
+            <Text style={[styles.statusText, { color: getStatusColors(coordination.status).color }]}>
+              {t(`oh.status.${coordination.status}` as any)}
+            </Text>
           </View>
         ) : (
           <Text style={[styles.noCoordText, { color: colors.mutedForeground }]}>{t('oh.decl.noActiveCoordination')}</Text>
@@ -130,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: shapes.sm,
     marginBottom: spacing.xs,
   },
-  statusText: { fontSize: typography.fontSize.bodyLarge, color: '#fff', textAlign: 'center', fontWeight: '700' },
+  statusText: { fontSize: typography.fontSize.bodyLarge, textAlign: 'center', fontWeight: '700' },
   noCoordText: { fontSize: typography.fontSize.bodyMedium, textAlign: 'center', marginBottom: spacing.xs },
   errorText: { fontSize: typography.fontSize.bodyMedium, textAlign: 'center' },
   noteBox: {

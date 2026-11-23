@@ -82,7 +82,7 @@ const ExerciseDetailScreen: React.FC<{ exerciseId: string; onStartSession: (exer
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
@@ -115,7 +115,7 @@ function createStyles(colors: any) {
   instructionText: { fontSize: 14, color: colors.foreground, lineHeight: 22 },
   placeholderDisclaimer: { marginTop: 12, backgroundColor: colors.primaryForeground + '3e0', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.warning },
   placeholderDisclaimerText: { fontSize: 12, color: colors.warning },
-}
+});
 }
 
 export default ExerciseDetailScreen;

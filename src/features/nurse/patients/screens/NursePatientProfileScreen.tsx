@@ -2,43 +2,40 @@ import React, { useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { useNursePatientsStore } from '../state/use-nurse-patients-store';
-import { spacing, typography } from '../../../../theme/tokens';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
 import { useTheme } from '../../../../theme/ThemeContext';
 import { NurseTabParamList } from '../../../../navigation/routes';
-import { PatientTimelineEvent } from '../../../../types/patient';
+import { isRTL, t, useLocale } from '../../../../localization';
+import { AppCard, AppHeader } from '../../../../components';
 
-type NursePatientProfileRoute = RouteProp<NurseTabParamList, 'patientDetail'>;
+type Route = RouteProp<NurseTabParamList, 'patientDetail'>;
 
-type Props = {
-  route: NursePatientProfileRoute;
-};
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  if (diffDays > 0) return `${diffDays}j`;
-  if (diffHours > 0) return `${diffHours}h`;
-  return `${diffMinutes}min`;
+function relativeTime(iso: string, locale: 'fr' | 'en' | 'ar'): string {
+  const elapsed = Math.max(0, Date.now() - new Date(iso).getTime());
+  const minutes = Math.max(1, Math.floor(elapsed / 60000));
+  if (minutes < 60) return locale === 'ar' ? `${minutes} د` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return locale === 'ar' ? `${hours} س` : `${hours}h`;
+  return `${Math.floor(hours / 24)}j`;
 }
 
-export default function NursePatientProfileScreen({ route }: Props) {
+export default function NursePatientProfileScreen({ route }: { route: Route }) {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
   const { patientId } = route.params;
   const { selectedPatient, isLoading, errorMessage, selectPatient } = useNursePatientsStore();
 
   useEffect(() => {
-  const { colors } = useTheme();
     selectPatient(patientId);
   }, [patientId, selectPatient]);
 
   if (isLoading && !selectedPatient) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={[styles.stateText, { color: colors.mutedForeground }]}>Chargement…</Text>
+        <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
+          {t('nurse.patientDetail.loading', locale)}
+        </Text>
       </View>
     );
   }
@@ -46,10 +43,18 @@ export default function NursePatientProfileScreen({ route }: Props) {
   if (errorMessage && !selectedPatient) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={[styles.stateTitle, { color: colors.foreground }]}>Profil introuvable</Text>
+        <Text style={[styles.stateTitle, { color: colors.foreground }]}>
+          {t('nurse.patientDetail.profileNotFound', locale)}
+        </Text>
         <Text style={[styles.stateText, { color: colors.mutedForeground }]}>{errorMessage}</Text>
-        <TouchableOpacity onPress={() => selectPatient(patientId)} accessibilityRole="button" style={[styles.retryButton, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.retryLabel, { color: colors.primaryForeground }]}>Réessayer</Text>
+        <TouchableOpacity
+          onPress={() => selectPatient(patientId)}
+          accessibilityRole="button"
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+        >
+          <Text style={[styles.retryLabel, { color: colors.primaryForeground }]}>
+            {t('nurse.patientDetail.retry', locale)}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -59,117 +64,141 @@ export default function NursePatientProfileScreen({ route }: Props) {
   if (!patient) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={[styles.stateText, { color: colors.mutedForeground }]}>Patient introuvable.</Text>
+        <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
+          {t('nurse.patientDetail.notFound', locale)}
+        </Text>
       </View>
     );
   }
 
   const latest = patient.latestSubmission;
-  const timeline = patient.timeline;
+  const duration = latest ? relativeTime(latest.timestamp, locale) : null;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      <View style={[styles.headerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.patientName, { color: colors.foreground }]}>{patient.fullName}</Text>
-        <Text style={[styles.meta, { color: colors.mutedForeground }]}>{patient.condition} · {patient.classification}</Text>
-        <View style={styles.badges}>
-          <View style={[styles.priorityBadge, { backgroundColor: colors.border }]}>
-            <Text style={[styles.priorityText, { color: colors.foreground }]}>{patient.priority}</Text>
-          </View>
-          {patient.hasNewSubmission ? (
-            <View style={[styles.newBadge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.newBadgeText, { color: colors.primaryForeground }]}>Nouveau suivi</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AppHeader title={patient.fullName} />
+      <ScrollView
+        contentContainerStyle={[styles.content, { direction: rtl ? 'rtl' : 'ltr' }]}
+      >
+        <AppCard variant="flat" style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
+          <Text style={[styles.body, { color: colors.foreground }]}>
+            {t('nurse.patientDetail.demoNotice', locale)}
+          </Text>
+        </AppCard>
 
-      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Dernier suivi</Text>
-        <Text style={[styles.sectionBody, { color: colors.foreground }]}>{latest ? `Envoyé il y a ${formatDate(latest.timestamp)}` : 'Aucun suivi disponible'}</Text>
-      </View>
+        <AppCard variant="elevated" style={styles.headerCard}>
+          <Text style={[styles.patientName, { color: colors.foreground }]}>{patient.fullName}</Text>
+          <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+            {[patient.condition, patient.classification].filter(Boolean).join(' · ')}
+          </Text>
+        </AppCard>
 
-      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Dernière observation</Text>
-        <Text style={[styles.sectionBody, { color: colors.foreground }]}>{patient.latestObservation ?? 'Pas d\'observation récente.'}</Text>
-      </View>
+        <AppCard variant="outlined" style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t('nurse.patientDetail.lastFollowUp', locale)}
+          </Text>
+          <Text style={[styles.body, { color: colors.foreground }]}>
+            {duration
+              ? t('nurse.patientDetail.sentAgo', locale).replace('{duration}', duration)
+              : t('nurse.patientDetail.noFollowUp', locale)}
+          </Text>
+        </AppCard>
 
-      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Données</Text>
-        {latest ? (
-          <View style={styles.metricList}>
-            <View style={[styles.metricRow, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.metricLabel, { color: colors.foreground }]}>SpO₂</Text>
-              <Text style={[styles.metricValue, { color: colors.foreground }]}>{latest.spo2Value != null ? `${latest.spo2Value}%` : '—'}</Text>
-            </View>
-            <View style={[styles.metricRow, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.metricLabel, { color: colors.foreground }]}>Dyspnée</Text>
-              <Text style={[styles.metricValue, { color: colors.foreground }]}>{latest.answers.dyspnea?.displayLabel ?? '—'}</Text>
-            </View>
-            <View style={[styles.metricRow, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.metricLabel, { color: colors.foreground }]}>Toux</Text>
-              <Text style={[styles.metricValue, { color: colors.foreground }]}>{latest.answers.cough?.displayLabel ?? '—'}</Text>
-            </View>
-          </View>
-        ) : (
-          <Text style={[styles.sectionBody, { color: colors.foreground }]}>Aucune mesure disponible</Text>
-        )}
-      </View>
+        <AppCard variant="outlined" style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t('nurse.patientDetail.observation', locale)}
+          </Text>
+          <Text style={[styles.body, { color: colors.foreground }]}>
+            {patient.latestObservation || t('nurse.patientDetail.noObservation', locale)}
+          </Text>
+        </AppCard>
 
-      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Éducation</Text>
-        <Text style={[styles.sectionBody, { color: colors.foreground }, { marginTop: spacing[2] }]}>Rééducation respiratoire: programme disponible</Text>
-      </View>
-
-      <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Historique</Text>
-        {timeline.length === 0 ? (
-          <Text style={[styles.sectionBody, { color: colors.foreground }]}>Aucun événement disponible.</Text>
-        ) : (
-          <View style={styles.timeline}>
-            {timeline.map((event: PatientTimelineEvent, index: number) => (
-              <View key={index} style={styles.timelineRow}>
-                <View style={[styles.timelineDot, { backgroundColor: colors.primary }]} />
-                <View style={[styles.timelineContent, { borderLeftColor: colors.border }]}>
-                  <Text style={[styles.timelineTitle, { color: colors.foreground }]}>{event.title}</Text>
-                  <Text style={[styles.timelineDescription, { color: colors.mutedForeground }]}>{event.description}</Text>
+        <AppCard variant="outlined" style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t('nurse.patientDetail.data', locale)}
+          </Text>
+          {latest ? (
+            <View>
+              {[
+                [t('nurse.patientDetail.spo2', locale), latest.spo2Value != null ? `${latest.spo2Value}%` : null],
+                [t('nurse.patientDetail.dyspnea', locale), latest.answers.dyspnea?.displayLabel],
+                [t('nurse.patientDetail.cough', locale), latest.answers.cough?.displayLabel],
+              ].map(([label, value]) => (
+                <View key={label} style={[styles.metricRow, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.metricLabel, { color: colors.foreground }]}>{label}</Text>
+                  <Text style={[styles.metricValue, { color: colors.foreground }]}>
+                    {value || t('nurse.patients.notAvailable', locale)}
+                  </Text>
                 </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    </ScrollView>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.body, { color: colors.foreground }]}>
+              {t('nurse.patientDetail.noMeasurement', locale)}
+            </Text>
+          )}
+        </AppCard>
+
+        <AppCard variant="outlined" style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t('nurse.patientDetail.education', locale)}
+          </Text>
+          <Text style={[styles.body, { color: colors.foreground }]}>
+            {t('nurse.patientDetail.educationUnavailable', locale)}
+          </Text>
+        </AppCard>
+
+        <AppCard variant="outlined" style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t('nurse.patientDetail.history', locale)}
+          </Text>
+          {patient.timeline.length === 0 ? (
+            <Text style={[styles.body, { color: colors.foreground }]}>
+              {t('nurse.patientDetail.noHistory', locale)}
+            </Text>
+          ) : (
+            <View>
+              <Text style={[styles.timelineNotice, { color: colors.mutedForeground }]}>
+                {t('nurse.patientDetail.fictionalTimeline', locale)}
+              </Text>
+              {patient.timeline.map((event, index) => (
+                <View key={`${event.createdAt}-${index}`} style={styles.timelineRow}>
+                  <View style={[styles.timelineDot, { backgroundColor: colors.primary }]} />
+                  <View style={styles.timelineContent}>
+                    <Text style={[styles.timelineTitle, { color: colors.foreground }]}>{event.title}</Text>
+                    <Text style={[styles.body, { color: colors.mutedForeground }]}>{event.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </AppCard>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: spacing[6], paddingBottom: spacing[10] },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing[6] },
-  headerCard: { borderRadius: spacing[4], borderWidth: 1, padding: spacing[6], marginBottom: spacing[4] },
+  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  demoNotice: { padding: spacing.md },
+  headerCard: { padding: spacing.lg },
   patientName: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold },
-  meta: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md, marginTop: spacing[1] },
-  badges: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
-  priorityBadge: { borderRadius: spacing[2], paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
-  priorityText: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.medium, textTransform: 'uppercase' },
-  newBadge: { borderRadius: spacing[2], paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
-  newBadgeText: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.medium },
-  section: { borderRadius: spacing[4], borderWidth: 1, padding: spacing[5], marginBottom: spacing[3] },
-  sectionTitle: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.semibold, marginBottom: spacing[2] },
-  sectionBody: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md },
-  metricList: { gap: spacing[2] },
-  metricRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing[2], borderBottomWidth: StyleSheet.hairlineWidth },
-  metricLabel: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md },
-  metricValue: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold },
-  timeline: { gap: spacing[3] },
-  timelineRow: { flexDirection: 'row', gap: spacing[3] },
-  timelineDot: { width: 10, height: 10, borderRadius: 5, marginTop: spacing[2] },
-  timelineContent: { flex: 1, paddingBottom: spacing[3], borderLeftWidth: StyleSheet.hairlineWidth, paddingLeft: spacing[3] },
-  timelineTitle: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold },
-  timelineDescription: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.sm, marginTop: spacing[1] },
-  stateTitle: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.semibold, textAlign: 'center', marginBottom: spacing[2] },
-  stateText: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md, textAlign: 'center' },
-  retryButton: { marginTop: spacing[3], borderRadius: spacing[3], paddingHorizontal: spacing[4], paddingVertical: spacing[3], minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  retryLabel: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold },
+  meta: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.sm, marginTop: spacing.xs },
+  section: { padding: spacing.md },
+  sectionTitle: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.semibold, marginBottom: spacing.sm },
+  body: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.sm, lineHeight: 20 },
+  metricRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1 },
+  metricLabel: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.sm },
+  metricValue: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
+  timelineNotice: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.xs, marginBottom: spacing.sm },
+  timelineRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  timelineDot: { width: 10, height: 10, borderRadius: shapes.pill, marginTop: spacing.xs },
+  timelineContent: { flex: 1 },
+  timelineTitle: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
+  stateTitle: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.semibold, marginBottom: spacing.sm, textAlign: 'center' },
+  stateText: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.md, textAlign: 'center' },
+  retryButton: { marginTop: spacing.md, borderRadius: shapes.md, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
+  retryLabel: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold },
 });

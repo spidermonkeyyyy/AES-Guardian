@@ -1,7 +1,9 @@
+import AppText from '../../../components/AppText';
 import { useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
+import Icon from '../../../components/AppIcon';
 import { useMonitoringStore } from '../state/use-monitoring-store';
 import MonitoringProgress from '../components/MonitoringProgress';
 import QuestionRenderer from '../components/QuestionRenderer';
@@ -67,7 +69,7 @@ export default function MonitoringQuestionScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Chargement du questionnaire...</Text>
+        <AppText style={[styles.loadingText, { color: colors.mutedForeground }]}>Chargement du questionnaire...</AppText>
       </View>
     );
   }
@@ -75,10 +77,10 @@ export default function MonitoringQuestionScreen() {
   if (errorMessage && questions.length === 0) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorTitle, { color: colors.foreground }]}>Questionnaire indisponible</Text>
-        <Text style={[styles.errorBody, { color: colors.mutedForeground }]}>{errorMessage}</Text>
+        <AppText style={[styles.errorTitle, { color: colors.foreground }]}>Questionnaire indisponible</AppText>
+        <AppText style={[styles.errorBody, { color: colors.mutedForeground }]}>{errorMessage}</AppText>
         <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => useMonitoringStore.getState().loadQuestions()}>
-          <Text style={[styles.retryText, { color: colors.primaryForeground }]}>Réessayer</Text>
+          <AppText style={[styles.retryText, { color: colors.primaryForeground }]}>Réessayer</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -91,12 +93,12 @@ export default function MonitoringQuestionScreen() {
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Retour">
-          <Text style={[styles.backText, { color: colors.foreground }]}>←</Text>
+          <Icon name="back" size={20} color={colors.foreground} />
         </TouchableOpacity>
         <MonitoringProgress currentStep={currentStepIndex + 1} totalSteps={questions.length} />
       </View>
 
-      <Text style={[styles.title, { color: colors.foreground }]}>{question.title}</Text>
+      <AppText style={[styles.title, { color: colors.foreground }]}>{question.title}</AppText>
       <View style={styles.spacer} />
 
       <QuestionRenderer
@@ -116,12 +118,12 @@ export default function MonitoringQuestionScreen() {
         }}
       />
 
-      {validationError ? <Text style={[styles.validationError, { color: colors.destructive }]}>{validationError}</Text> : null}
+      {validationError ? <AppText style={[styles.validationError, { color: colors.destructive }]}>{validationError}</AppText> : null}
 
       <View style={styles.navRow}>
         {!isFirst && (
           <TouchableOpacity style={[styles.button, styles.secondary, { borderColor: colors.border }]} onPress={handleBack}>
-            <Text style={[styles.secondaryText, { color: colors.foreground }]}>Retour</Text>
+            <AppText style={[styles.secondaryText, { color: colors.foreground }]}>Retour</AppText>
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -129,7 +131,7 @@ export default function MonitoringQuestionScreen() {
           onPress={handleNext}
           disabled={!answers[question.id]?.value}
         >
-          <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>{isLast ? 'Vérifier mes réponses' : 'Suivant'}</Text>
+          <AppText style={[styles.buttonText, { color: colors.primaryForeground }]}>{isLast ? 'Vérifier mes réponses' : 'Suivant'}</AppText>
         </TouchableOpacity>
       </View>
     </ScrollView>

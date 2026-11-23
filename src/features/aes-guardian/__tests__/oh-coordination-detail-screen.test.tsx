@@ -7,7 +7,7 @@
  * 3. exposed_professional renders only the status projection (no reason, no OH staff, no actions)
  * 4. quality_staff and tech_admin are completely denied access to the screen
  * 5. unauthenticated / missing identity is rejected
- * 6. optional declaration_reference behavior conforms to interface (shows reference when present, fallback when absent)
+ * 6. optional declaration_reference behavior stays useful without exposing database IDs
  */
 
 import React from 'react';
@@ -209,7 +209,7 @@ describe('Phase 2D.2C.3.4: OhCoordinationDetailScreen Runtime-Consumption Tests'
     expect(component.queryByText(t('oh.status.completed'))).toBeNull();
   });
 
-  test('7. handles optional declaration_reference: displays reference when present, fallback when absent', async () => {
+  test('7. handles optional declaration_reference without exposing database IDs', async () => {
     useDemoRoleStore.getState().setRole('admin_reviewer');
 
     // Test with reference present
@@ -251,7 +251,7 @@ describe('Phase 2D.2C.3.4: OhCoordinationDetailScreen Runtime-Consumption Tests'
     await waitFor(() => {
       expect(comp2.getByText(t('oh.status.pending_acknowledgement'))).toBeTruthy();
     });
-    // Fallback `Décl. #${declaration_id}` is rendered when declaration_reference is absent
-    expect(comp2.getByText(`Décl. #${unlinkedDeclId}`)).toBeTruthy();
+    expect(comp2.getByText(t('oh.detail.noReference'))).toBeTruthy();
+    expect(comp2.queryByText(`#${unlinkedDeclId}`)).toBeNull();
   });
 });

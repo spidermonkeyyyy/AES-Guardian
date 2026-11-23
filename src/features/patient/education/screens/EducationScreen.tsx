@@ -33,7 +33,7 @@ const EducationScreen: React.FC<{ onSmokingCessation?: () => void; onRehabilitat
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16 },
   header: { fontSize: 24, fontWeight: 'bold', color: colors.primary, marginBottom: 16 },
@@ -43,7 +43,7 @@ function createStyles(colors: any) {
   button: { backgroundColor: colors.primary, borderRadius: 6, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
   buttonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
   cardLink: { color: colors.primary, fontSize: 14, fontWeight: '600', marginTop: 4 },
-}
+});
 }
 
 export default EducationScreen;

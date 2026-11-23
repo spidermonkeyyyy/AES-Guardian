@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
-import { spacing, typography } from '../theme/tokens';
+import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { spacing } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
+import { AppIcon } from './AppIcon';
+import { AppText } from './AppText';
+import { isRTL, useLocale, t } from '../localization';
 
 interface AppHeaderProps {
   title: string;
@@ -22,6 +24,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   style,
 }) => {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
 
   return (
     <View style={[styles.headerContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }, style]}>
@@ -30,19 +34,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <TouchableOpacity
             style={styles.backButton}
             onPress={onBackPress}
+            accessibilityRole="button"
+            accessibilityLabel={t('app.back', locale)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="arrow-left" size={24} color={colors.foreground} />
+            <AppIcon name={rtl ? 'arrow-right' : 'arrow-left'} size={22} />
           </TouchableOpacity>
         )}
         <View style={styles.titleContainer}>
-          <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+          <AppText variant="title" numberOfLines={1} style={styles.title}>
             {title}
-          </Text>
+          </AppText>
           {subtitle && (
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]} numberOfLines={1}>
+            <AppText variant="caption" tone="muted" numberOfLines={1} style={styles.subtitle}>
               {subtitle}
-            </Text>
+            </AppText>
           )}
         </View>
       </View>
@@ -66,23 +72,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    marginRight: spacing.sm,
+    marginEnd: spacing.sm,
     padding: spacing.xxs,
   },
   titleContainer: {
     flex: 1,
   },
   title: {
-    fontFamily: typography.fontFamily.urbanist,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    flexShrink: 1,
   },
   subtitle: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.xs,
     marginTop: 2,
   },
   rightContainer: {
-    marginLeft: spacing.sm,
+    marginStart: spacing.sm,
   },
 });

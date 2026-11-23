@@ -11,16 +11,16 @@ import { SmokingEntry, CravingIntensity } from '../../../../types/education';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useTheme } from '../../../../theme/ThemeContext';
 
-function cravingColor(i: CravingIntensity): string {
-  switch (i) {
+function cravingColor(intensity: CravingIntensity, colors: any): string {
+  switch (intensity) {
     case 'low': return colors.success;
     case 'moderate': return colors.warning;
     case 'high': return colors.destructive;
   }
 }
 
-function cravingBg(i: CravingIntensity): string {
-  switch (i) {
+function cravingBg(intensity: CravingIntensity, colors: any): string {
+  switch (intensity) {
     case 'low': return colors.secondary;
     case 'moderate': return colors.primaryForeground + '3e0';
     case 'high': return colors.destructive;
@@ -51,7 +51,7 @@ const SmokingCessationScreen: React.FC<{ onAddEntry: () => void; onViewProgress:
   if (isLoading && entries.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="colors.primary" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingHint}>Chargement de votre carnet...</Text>
       </View>
     );
@@ -75,7 +75,7 @@ const SmokingCessationScreen: React.FC<{ onAddEntry: () => void; onViewProgress:
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="colors.primary" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <Text style={styles.header}>Sevrage tabagique</Text>
 
@@ -122,8 +122,10 @@ const SmokingCessationScreen: React.FC<{ onAddEntry: () => void; onViewProgress:
 };
 
 function SmokingEntryCard({ entry, onDelete }: { entry: SmokingEntry; onDelete: () => void }) {
-  const color = cravingColor(entry.cravingIntensity);
-  const bg = cravingBg(entry.cravingIntensity);
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+  const color = cravingColor(entry.cravingIntensity, colors);
+  const bg = cravingBg(entry.cravingIntensity, colors);
   return (
     <View style={[styles.entryCard, { borderLeftColor: color }]}>
       <View style={styles.entryRow}>
@@ -150,7 +152,7 @@ function SmokingEntryCard({ entry, onDelete }: { entry: SmokingEntry; onDelete: 
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colors.background },
@@ -192,7 +194,7 @@ function createStyles(colors: any) {
   errorBody: { fontSize: 14, color: colors.mutedForeground, textAlign: 'center', marginBottom: 16 },
   retryButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
   retryButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
-}
+});
 }
 
 export default SmokingCessationScreen;

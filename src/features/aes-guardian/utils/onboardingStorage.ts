@@ -16,7 +16,7 @@ let inMemoryFirstLaunchState: boolean | null = null;
 
 function getAsyncStorage(): any {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // Keep the native module lazy for headless tests.
     const mod = require('@react-native-async-storage/async-storage');
     return mod?.default ?? mod;
   } catch {

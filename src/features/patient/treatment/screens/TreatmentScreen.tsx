@@ -9,7 +9,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { useTheme } from '../../../theme/ThemeContext';
+import { useTheme } from '../../../../theme/ThemeContext';
 import { useTreatmentStore } from '../state/use-treatment-store';
 import { MedicationReminder, MedicationStatus } from '../../../../types/treatment';
 
@@ -61,7 +61,7 @@ const TreatmentScreen: React.FC<{ onNavigate?: (screen: string, params?: unknown
   if (isAnyLoading && todayReminders.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="colors.primary" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -112,7 +112,7 @@ const TreatmentScreen: React.FC<{ onNavigate?: (screen: string, params?: unknown
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="colors.primary" />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
     >
       {/* Today summary card */}
@@ -190,7 +190,7 @@ const TreatmentScreen: React.FC<{ onNavigate?: (screen: string, params?: unknown
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colors.background },
@@ -268,7 +268,7 @@ function createStyles(colors: any) {
   retryButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: colors.primary, marginBottom: 8, textAlign: 'center' },
   emptyBody: { fontSize: 14, color: colors.mutedForeground, textAlign: 'center' },
-}
+});
 }
 
 export default TreatmentScreen;

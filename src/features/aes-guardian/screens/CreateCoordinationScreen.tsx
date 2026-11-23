@@ -48,13 +48,14 @@ import {
   type OhCoordinationReason,
   logAuditEvent,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale } from '../../../localization';
 
 type ParamList = {
   createCoordination: { declarationId: number };
 };
 
 export const CreateCoordinationScreen: React.FC = () => {
+  const locale = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'createCoordination'>>();
   const { declarationId } = route.params;
@@ -80,24 +81,32 @@ export const CreateCoordinationScreen: React.FC = () => {
           text: t('review.confirmButton'),
           onPress: async () => {
             if (submitting) return;
+            const currentContext = useDemoRoleStore.getState().activeContext;
+            if (
+              !canCoordinate(currentContext) ||
+              currentContext.userId !== authContext.userId
+            ) {
+              Alert.alert(t('error.generic', locale), t('oh.error.unauthorized', locale));
+              return;
+            }
             setSubmitting(true);
             try {
               const db = getDatabase();
               const coordId = await db.createOhCoordination({
                 declaration_id: declarationId,
-                created_by_user_id: authContext.userId!,
+                created_by_user_id: currentContext.userId!,
                 coordination_reason: selectedReason,
               });
               await logAuditEvent({
                 eventType: 'OH_COORDINATION_CREATED',
-                userId: authContext.userId,
+                userId: currentContext.userId,
                 entityType: 'oh_coordination',
                 entityId: coordId,
                 description: `Coordination record created for declaration ${declarationId}`,
               });
               Alert.alert('', t('oh.create.success'), [
                 {
-                  text: 'OK',
+                  text: t('app.ok', locale),
                   onPress: () => navigation.goBack(),
                 },
               ]);
@@ -115,7 +124,7 @@ export const CreateCoordinationScreen: React.FC = () => {
         },
       ]
     );
-  }, [isAuthorized, submitting, declarationId, selectedReason, authContext, navigation]);
+  }, [isAuthorized, submitting, declarationId, selectedReason, authContext, navigation, locale]);
 
   if (!isAuthorized) {
     return (
@@ -140,7 +149,6 @@ export const CreateCoordinationScreen: React.FC = () => {
     <AesScreenContainer scrollable testID="create-coordination-screen">
       <AesScreenHeader
         title={t('oh.create.title')}
-        subtitle={`Décl. #${declarationId}`}
         onBack={() => navigation.goBack()}
       />
 

@@ -48,13 +48,14 @@ import {
   logAuditEvent,
   AdministrativeReview,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale } from '../../../localization';
 
 type ParamList = {
   correctionResponse: { declarationId: number; reviewId: number };
 };
 
 export const CorrectionResponseScreen: React.FC = () => {
+  const locale = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<ParamList, 'correctionResponse'>>();
   const { declarationId, reviewId } = route.params;
@@ -103,6 +104,11 @@ export const CorrectionResponseScreen: React.FC = () => {
   }, [loadCorrectionRequest]);
 
   const handleSubmit = useCallback(async () => {
+    if (!isAuthorized || !userContext.userId) {
+      Alert.alert(t('error.generic', locale), t('correction.unauthorized', locale));
+      return;
+    }
+
     if (!responseText.trim()) {
       Alert.alert(t('error.generic'), t('correction.errorRequired'));
       return;
@@ -116,6 +122,14 @@ export const CorrectionResponseScreen: React.FC = () => {
         {
           text: t('correction.submitButton'),
           onPress: async () => {
+            const currentContext = useDemoRoleStore.getState().activeContext;
+            if (
+              !canRespondToCorrection(currentContext) ||
+              currentContext.userId !== userContext.userId
+            ) {
+              Alert.alert(t('error.generic', locale), t('correction.unauthorized', locale));
+              return;
+            }
             setSubmitting(true);
             setError(null);
             try {
@@ -123,13 +137,13 @@ export const CorrectionResponseScreen: React.FC = () => {
               await db.createCorrectionResponse({
                 declaration_id: declarationId,
                 review_id: correctionRequest?.id ?? reviewId,
-                user_id: userContext.userId!,
+                user_id: currentContext.userId!,
                 response_text: responseText.trim(),
               });
 
               await logAuditEvent({
                 eventType: 'CORRECTION_RESPONSE_SUBMITTED',
-                userId: userContext.userId!,
+                userId: currentContext.userId!,
                 entityType: 'correction_response',
                 entityId: declarationId,
                 description: `Correction response submitted for declaration #${declarationId}`,
@@ -138,7 +152,7 @@ export const CorrectionResponseScreen: React.FC = () => {
               Alert.alert(
                 t('correction.successTitle'),
                 t('correction.successMessage'),
-                [{ text: 'OK', onPress: () => navigation.goBack() }],
+                [{ text: t('app.ok'), onPress: () => navigation.goBack() }],
               );
             } catch (e) {
               setError(e instanceof Error ? e.message : t('error.submitFailed'));
@@ -149,7 +163,7 @@ export const CorrectionResponseScreen: React.FC = () => {
         },
       ],
     );
-  }, [responseText, declarationId, reviewId, correctionRequest, userContext.userId, navigation]);
+  }, [responseText, declarationId, reviewId, correctionRequest, userContext.userId, isAuthorized, navigation]);
 
   if (loading) {
     return (
@@ -188,7 +202,7 @@ export const CorrectionResponseScreen: React.FC = () => {
         {/* SYNTHETIC DEMO BANNER */}
         <View style={styles.demoBanner}>
           <Text style={styles.demoBannerText}>
-            ⚠ DEMO — Contexte synthétique : {userContext.displayName} ({userContext.role})
+            ⚠ {t('correction.demoContext', locale)}
           </Text>
         </View>
 
@@ -232,7 +246,10 @@ export const CorrectionResponseScreen: React.FC = () => {
               {t('correction.inputLabel')}
             </Text>
             <Text style={styles.characterCount}>
-              {responseText.length} caractères
+              {t('correction.characterCount', locale).replace(
+                '{count}',
+                String(responseText.length),
+              )}
             </Text>
           </View>
           <TextInput

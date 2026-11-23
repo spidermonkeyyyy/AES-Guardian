@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import AppText from '../../../components/AppText';
+import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 import { useMonitoringStore } from '../state/use-monitoring-store';
@@ -17,21 +18,21 @@ export default function MonitoringReviewScreen({ navigation }: any) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      <Text style={[styles.title, { color: colors.foreground }]}>Vérification de vos réponses</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Vérifiez vos réponses avant d'envoyer.</Text>
+      <AppText style={[styles.title, { color: colors.foreground }]}>Vérification de vos réponses</AppText>
+      <AppText style={[styles.subtitle, { color: colors.mutedForeground }]}>Vérifiez vos réponses avant d'envoyer.</AppText>
 
       {questions.map((question, index) => {
         const answer = answers[question.id];
         return (
           <View key={question.id} style={[styles.summaryCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <Text style={[styles.questionTitle, { color: colors.foreground }]}>{question.title}</Text>
+            <AppText style={[styles.questionTitle, { color: colors.foreground }]}>{question.title}</AppText>
             <View style={styles.answerRow}>
-              <Text style={[styles.answerLabel, { color: colors.mutedForeground }]}>Réponse:</Text>
-              <Text style={[styles.answerValue, { color: colors.foreground }]}>
+              <AppText style={[styles.answerLabel, { color: colors.mutedForeground }]}>Réponse:</AppText>
+              <AppText style={[styles.answerValue, { color: colors.foreground }]}>
                 {answer?.displayLabel || (
-                  <Text style={[styles.noAnswer, { color: colors.destructive }]}>Aucune réponse</Text>
+                  <AppText style={[styles.noAnswer, { color: colors.destructive }]}>Aucune réponse</AppText>
                 )}
-              </Text>
+              </AppText>
             </View>
           </View>
         );
@@ -39,7 +40,7 @@ export default function MonitoringReviewScreen({ navigation }: any) {
 
       {errorMessage ? (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + '14', borderColor: colors.destructive + '33' }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{errorMessage}</Text>
+          <AppText style={[styles.errorText, { color: colors.destructive }]}>{errorMessage}</AppText>
         </View>
       ) : null}
 
@@ -48,7 +49,7 @@ export default function MonitoringReviewScreen({ navigation }: any) {
         onPress={handleSubmit}
         disabled={isSubmitting}
       >
-        <Text style={[styles.submitText, { color: colors.primaryForeground }]}>{isSubmitting ? 'Envoi en cours...' : 'Envoyer mon suivi'}</Text>
+        <AppText style={[styles.submitText, { color: colors.primaryForeground }]}>{isSubmitting ? 'Envoi en cours...' : 'Envoyer mon suivi'}</AppText>
       </TouchableOpacity>
     </ScrollView>
   );

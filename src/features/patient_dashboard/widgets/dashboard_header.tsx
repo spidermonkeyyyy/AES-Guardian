@@ -1,18 +1,24 @@
+import React from 'react';
+import { Text, View } from 'react-native';
+import { useTheme } from '../../../theme/ThemeContext';
+
 const DashboardHeader = () => {
+  const { colors } = useTheme();
   const today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
   return (
-    <header style={{
-      background: colors.background,
-      padding: '12px 20px',
-      borderBottom: '1px solid colors.border',
-      fontFamily: 'system-ui, sans-serif',
+    <View style={{
+      backgroundColor: colors.background,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
     }}>
-      <h1 style={{ margin: 0, fontSize: '1.25rem', color: colors.foreground }}>
+      <Text style={{ margin: 0, fontSize: 20, color: colors.foreground }}>
         Accueil — {today}
-      </h1>
-    </header>
+      </Text>
+    </View>
   );
 };
 export default DashboardHeader;

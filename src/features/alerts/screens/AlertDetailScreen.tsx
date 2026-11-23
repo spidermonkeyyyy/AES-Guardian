@@ -20,6 +20,7 @@ import {
   doesNurseActionRequireNote,
 } from '../../../types/alert';
 import { useTheme } from '../../../theme/ThemeContext';
+import { spacing, typography, shapes } from '../../../theme/tokens';
 
 interface AlertDetailScreenProps {
   alertId: string;

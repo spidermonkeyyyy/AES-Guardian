@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 
 import Icon from 'react-native-vector-icons/Feather';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppHeader } from '../../../components';
+import { useLocale, t, isRTL } from '../../../localization';
 import { useTheme } from '../../../theme/ThemeContext';
 
 interface Message {
@@ -14,19 +15,33 @@ interface Message {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  messagesList: { padding: spacing.lg, gap: spacing.sm },
+  messagesList: { flexGrow: 1, padding: spacing.lg, gap: spacing.sm },
   headerNotice: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
     gap: spacing.xs,
-    padding: spacing.xs,
-    borderRadius: shapes.sm,
+    padding: spacing.md,
+    borderRadius: shapes.md,
     marginBottom: spacing.xs,
   },
   noticeText: {
+    flex: 1,
     fontFamily: typography.fontFamily.openSans,
     fontSize: typography.fontSize.xs,
+    lineHeight: 18,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.lg,
+  },
+  emptyText: {
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.sm,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   messageBubble: {
     maxWidth: '80%',
@@ -62,108 +77,153 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  disabled: {
+    opacity: 0.45,
+  },
 });
-
 
 export default function PatientMessagesScreen() {
   const { colors } = useTheme();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      sender: 'nurse',
-      text: 'Bonjour Mr. Dupont. J\'ai bien reçu votre suivi de ce matin. Votre SpO2 à 96% est très stable.',
-      timestamp: '09:15',
-    },
-    {
-      id: '2',
-      sender: 'user',
-      text: 'Merci infirmière Sarah. J\'ai eu une légère toux ce matin mais ça va mieux.',
-      timestamp: '09:42',
-    },
-    {
-      id: '3',
-      sender: 'nurse',
-      text: 'N\'hésitez pas à prendre une bouffée de Ventoline si la toux persiste.',
-      timestamp: '10:05',
-    },
-  ]);
+  const locale = useLocale();
+  const rtl = isRTL(locale);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
 
   const sendMessage = () => {
-    if (!inputText.trim()) return;
+    const text = inputText.trim();
+    if (!text) return;
+
     const newMessage: Message = {
       id: Date.now().toString(),
       sender: 'user',
-      text: inputText.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      text,
+      timestamp: new Date().toLocaleTimeString(
+        { fr: 'fr-FR', en: 'en-GB', ar: 'ar' }[locale],
+        { hour: '2-digit', minute: '2-digit' },
+      ),
     };
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((previous) => [...previous, newMessage]);
     setInputText('');
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Discussion avec l'équipe" />
-      
-      {/* Messages Thread */}
-      <ScrollView contentContainerStyle={styles.messagesList}>
-        <View style={[styles.headerNotice, { backgroundColor: colors.secondary }]}>
-          <Icon name="shield" size={16} color={colors.primary} />
-          <Text style={[styles.noticeText, { color: colors.primary }]}>Échanges sécurisés avec l'équipe soignante Sanad</Text>
+      <AppHeader title={t('patient.messages.title', locale)} />
+
+      <ScrollView
+        contentContainerStyle={[styles.messagesList, { direction: rtl ? 'rtl' : 'ltr' }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.headerNotice, { backgroundColor: colors.infoBackground }]}>
+          <Icon name="info" size={18} color={colors.info} />
+          <Text style={[styles.noticeText, { color: colors.foreground }]}>
+            {t('patient.messages.demoNotice', locale)}
+          </Text>
         </View>
 
-        {messages.map((msg) => (
-          <View
-            key={msg.id}
-            style={[
-              styles.messageBubble,
-              msg.sender === 'user'
-                ? { backgroundColor: colors.primary, alignSelf: 'flex-end', borderBottomRightRadius: 2 }
-                : { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignSelf: 'flex-start', borderBottomLeftRadius: 2 },
-            ]}
-          >
-            <Text
-              style={[
-                styles.messageText,
-                { color: msg.sender === 'user' ? colors.primaryForeground : colors.foreground },
-              ]}
-            >
-              {msg.text}
-            </Text>
-            <Text
-              style={[
-                styles.timestamp,
-                { color: msg.sender === 'user' ? colors.primaryForeground : colors.mutedForeground, opacity: msg.sender === 'user' ? 0.8 : 1 },
-              ]}
-            >
-              {msg.timestamp}
+        {messages.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Icon name="message-square" size={28} color={colors.mutedForeground} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+              {t('patient.messages.empty', locale)}
             </Text>
           </View>
-        ))}
+        ) : (
+          messages.map((message) => {
+            const isUserMessage = message.sender === 'user';
+            const alignment = isUserMessage
+              ? (rtl ? 'flex-start' : 'flex-end')
+              : (rtl ? 'flex-end' : 'flex-start');
+            return (
+              <View
+                key={message.id}
+                style={[
+                  styles.messageBubble,
+                  isUserMessage
+                    ? {
+                        backgroundColor: colors.primary,
+                        alignSelf: alignment,
+                        borderBottomRightRadius: rtl ? shapes.md : 2,
+                        borderBottomLeftRadius: rtl ? 2 : shapes.md,
+                      }
+                    : {
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        alignSelf: alignment,
+                        borderBottomLeftRadius: rtl ? shapes.md : 2,
+                        borderBottomRightRadius: rtl ? 2 : shapes.md,
+                      },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.messageText,
+                    { color: isUserMessage ? colors.primaryForeground : colors.foreground },
+                  ]}
+                >
+                  {message.text}
+                </Text>
+                <Text
+                  style={[
+                    styles.timestamp,
+                    {
+                      color: isUserMessage ? colors.primaryForeground : colors.mutedForeground,
+                      opacity: isUserMessage ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  {message.timestamp}
+                </Text>
+              </View>
+            );
+          })
+        )}
       </ScrollView>
 
-      {/* Composer Input Bar */}
-      <View style={[styles.composer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.composer,
+          {
+            backgroundColor: colors.card,
+            borderTopColor: colors.border,
+            direction: rtl ? 'rtl' : 'ltr',
+          },
+        ]}
+      >
         <TextInput
-          style={[styles.composerInput, { backgroundColor: colors.surfaceVariant, color: colors.foreground }]}
-          placeholder="Écrire un message..."
+          style={[
+            styles.composerInput,
+            { backgroundColor: colors.surfaceVariant, color: colors.foreground },
+          ]}
+          placeholder={t('patient.messages.composerPlaceholder', locale)}
           placeholderTextColor={colors.mutedForeground}
           value={inputText}
           onChangeText={setInputText}
+          accessibilityLabel={t('patient.messages.composerLabel', locale)}
           multiline
         />
-        <TouchableOpacity style={[styles.sendButton, { backgroundColor: colors.primary }]} onPress={sendMessage}>
+        <TouchableOpacity
+          style={[
+            styles.sendButton,
+            { backgroundColor: colors.primary },
+            !inputText.trim() && styles.disabled,
+          ]}
+          onPress={sendMessage}
+          disabled={!inputText.trim()}
+          accessibilityRole="button"
+          accessibilityLabel={t('patient.messages.addPreview', locale)}
+          accessibilityState={{ disabled: !inputText.trim() }}
+        >
           <Icon name="send" size={18} color={colors.primaryForeground} />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-

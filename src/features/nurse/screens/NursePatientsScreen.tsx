@@ -9,15 +9,31 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { spacing, typography, shapes } from '../../../theme/tokens';
-import { AppCard, RespiBadge, AppHeader, AppInput } from '../../../components';
+import { AppButton, AppCard, AppHeader, AppInput, RespiBadge } from '../../../components';
 import { useNursePatientsStore } from '../patients/state/use-nurse-patients-store';
-import { PatientRosterFilter } from '../../../types/patient';
+import { PatientRosterFilter, PriorityLevel } from '../../../types/patient';
 import { useTheme } from '../../../theme/ThemeContext';
+import { TranslationKey, useLocale, t, isRTL } from '../../../localization';
+
+const rosterFilters: { value: PatientRosterFilter; labelKey: TranslationKey }[] = [
+  { value: 'all', labelKey: 'nurse.patients.filter.all' },
+  { value: 'toReview', labelKey: 'nurse.patients.filter.review' },
+  { value: 'followed', labelKey: 'nurse.patients.filter.followed' },
+];
+
+const priorityLabels: Record<PriorityLevel, TranslationKey> = {
+  high: 'nurse.patients.priority.high',
+  reviewRequired: 'nurse.patients.priority.review',
+  informational: 'nurse.patients.priority.info',
+};
 
 export default function NursePatientsScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
   const {
     isLoading,
+    errorMessage,
     patients,
     searchQuery,
     filter,
@@ -31,112 +47,197 @@ export default function NursePatientsScreen({ navigation }: any) {
     loadPatients();
   }, [loadPatients]);
 
-  const filteredPatients = patients.filter((p) => {
+  const filteredPatients = patients.filter((patient) => {
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = p.fullName?.toLowerCase().includes(q);
-      const matchCond = p.condition?.toLowerCase().includes(q);
-      if (!matchName && !matchCond) return false;
+      const query = searchQuery.toLowerCase();
+      const matchName = patient.fullName?.toLowerCase().includes(query);
+      const matchCondition = patient.condition?.toLowerCase().includes(query);
+      if (!matchName && !matchCondition) return false;
     }
-    if (filter === 'toReview') return p.hasNewSubmission || p.priority !== 'informational';
-    if (filter === 'followed') return p.lastSubmissionAt !== null;
+    if (filter === 'toReview') return patient.hasNewSubmission || patient.priority !== 'informational';
+    if (filter === 'followed') return patient.lastSubmissionAt !== null;
     return true;
   });
 
+  const displayCondition = (condition: string, classification: string) => {
+    const localizedCondition = condition === 'BPCO'
+      ? t('nurse.patients.condition.copd', locale)
+      : condition === 'Asthme sévère'
+        ? t('nurse.patients.condition.severeAsthma', locale)
+        : condition || t('nurse.patients.conditionUnavailable', locale);
+    return [localizedCondition, classification].filter(Boolean).join(' · ');
+  };
+
+  const formatDate = (value: string | null) => {
+    if (!value) return t('nurse.patients.notAvailable', locale);
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? t('nurse.patients.notAvailable', locale)
+      : date.toLocaleDateString({ fr: 'fr-FR', en: 'en-GB', ar: 'ar' }[locale]);
+  };
+
+  const retry = () => {
+    if (searchQuery.trim()) {
+      searchPatients(searchQuery);
+    } else {
+      loadPatients();
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Patients assignés" subtitle={`${filteredPatients.length} patient(s)`} />
+      <AppHeader
+        title={t('nurse.patients.title', locale)}
+        subtitle={t('nurse.patients.count', locale).replace(
+          '{count}',
+          String(filteredPatients.length),
+        )}
+      />
 
       <View style={[styles.searchSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
+          <Icon name="info" size={18} color={colors.info} />
+          <Text style={[styles.demoNoticeText, { color: colors.foreground }]}>
+            {t('nurse.patients.demoNotice', locale)}
+          </Text>
+        </View>
         <AppInput
-          placeholder="Rechercher un patient, pathologie..."
+          placeholder={t('nurse.patients.searchPlaceholder', locale)}
           value={searchQuery}
           onChangeText={searchPatients}
           leftIcon={<Icon name="search" size={20} color={colors.mutedForeground} />}
           containerStyle={styles.searchInput}
         />
 
-        <View style={styles.filterRow}>
-          {(['all', 'toReview', 'followed'] as const).map((f: PatientRosterFilter) => (
-            <TouchableOpacity
-              key={f}
-              style={[
-                styles.filterChip,
-                { backgroundColor: colors.surfaceVariant },
-                filter === f && { backgroundColor: colors.primary },
-              ]}
-              onPress={() => setFilter(f)}
-            >
-              <Text
+        <View style={[styles.filterRow, { direction: rtl ? 'rtl' : 'ltr' }]}>
+          {rosterFilters.map((option) => {
+            const selected = filter === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
                 style={[
-                  styles.filterChipText,
-                  { color: colors.mutedForeground },
-                  filter === f && { color: colors.primaryForeground, fontWeight: typography.fontWeight.semibold },
+                  styles.filterChip,
+                  { backgroundColor: colors.surfaceVariant },
+                  selected && { backgroundColor: colors.primary },
                 ]}
+                onPress={() => setFilter(option.value)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={t(option.labelKey, locale)}
               >
-                {f === 'all' ? 'Tous' : f === 'toReview' ? 'À revoir' : 'Suivis'}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    { color: colors.mutedForeground },
+                    selected && {
+                      color: colors.primaryForeground,
+                      fontWeight: typography.fontWeight.semibold,
+                    },
+                  ]}
+                >
+                  {t(option.labelKey, locale)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
-      {isLoading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+      {errorMessage ? (
+        <AppCard variant="flat" style={styles.stateCard}>
+          <Text style={[styles.stateText, { color: colors.foreground }]}>
+            {t('nurse.patients.error.generic', locale)}
+          </Text>
+          <AppButton
+            title={t('nurse.patients.retry', locale)}
+            onPress={retry}
+            variant="outline"
+          />
+        </AppCard>
+      ) : isLoading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={styles.loading} />
       ) : (
         <FlatList
           data={filteredPatients}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <AppCard
-              variant="outlined"
-              style={styles.patientCard}
-              onPress={async () => {
-                await selectPatient(item.id);
-                navigation.navigate('patientDetail', { patientId: item.id });
-              }}
-            >
-              <View style={styles.cardHeader}>
-                <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
-                  <Text style={[styles.avatarText, { color: colors.primaryForeground }]}>
-                    {item.fullName?.substring(0, 2).toUpperCase() || 'PT'}
-                  </Text>
+          contentContainerStyle={[styles.listContent, { direction: rtl ? 'rtl' : 'ltr' }]}
+          ListEmptyComponent={
+            <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
+              {t('nurse.patients.empty', locale)}
+            </Text>
+          }
+          renderItem={({ item }) => {
+            const oxygenSaturation = item.latestSubmission?.spo2Value;
+            const priorityVariant = item.priority === 'high'
+              ? 'danger'
+              : item.priority === 'reviewRequired'
+                ? 'warning'
+                : 'info';
+            return (
+              <AppCard
+                variant="outlined"
+                style={styles.patientCard}
+                onPress={async () => {
+                  await selectPatient(item.id);
+                  navigation.navigate('patientDetail', { patientId: item.id });
+                }}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.avatarText, { color: colors.primaryForeground }]}>
+                      {item.fullName?.substring(0, 2).toUpperCase() || '—'}
+                    </Text>
+                  </View>
+                  <View style={styles.patientMainInfo}>
+                    <Text style={[styles.patientName, { color: colors.foreground }]}>
+                      {item.fullName || t('nurse.dashboard.patientFallback', locale)}
+                    </Text>
+                    <Text style={[styles.patientDetails, { color: colors.mutedForeground }]}>
+                      {displayCondition(item.condition, item.classification)}
+                    </Text>
+                  </View>
+                  <RespiBadge
+                    label={t(
+                      item.hasNewSubmission
+                        ? 'nurse.patients.status.newCheckIn'
+                        : 'nurse.patients.status.noNewCheckIn',
+                      locale,
+                    )}
+                    variant={item.hasNewSubmission ? 'warning' : 'info'}
+                  />
                 </View>
-                <View style={styles.patientMainInfo}>
-                  <Text style={[styles.patientName, { color: colors.foreground }]}>{item.fullName}</Text>
-                  <Text style={[styles.patientDetails, { color: colors.mutedForeground }]}>
-                    {item.condition || 'BPCO Sévère'} • {item.classification || 'GOLD 3'}
-                  </Text>
-                </View>
-                <RespiBadge
-                  label={item.hasNewSubmission ? 'Nouveau' : 'Stable'}
-                  variant={item.hasNewSubmission ? 'warning' : 'success'}
-                />
-              </View>
 
-              <View style={[styles.vitalsRow, { backgroundColor: colors.surfaceVariant }]}>
-                <View style={styles.vitalBox}>
-                  <Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>SpO₂ récent</Text>
-                  <Text style={[styles.vitalValue, { color: colors.foreground }]}>
-                    {item.latestSubmission?.spo2Value != null ? `${item.latestSubmission.spo2Value} %` : '96 %'}
-                  </Text>
+                <View style={[styles.vitalsRow, { backgroundColor: colors.surfaceVariant }]}>
+                  <View style={styles.vitalBox}>
+                    <Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>
+                      {t('nurse.patients.measurement.spo2', locale)}
+                    </Text>
+                    <Text style={[styles.vitalValue, { color: colors.foreground }]}>
+                      {oxygenSaturation != null
+                        ? `${oxygenSaturation} %`
+                        : t('nurse.patients.notAvailable', locale)}
+                    </Text>
+                  </View>
+                  <View style={styles.vitalBox}>
+                    <Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>
+                      {t('nurse.patients.measurement.lastCheckIn', locale)}
+                    </Text>
+                    <Text style={[styles.vitalValue, { color: colors.foreground }]}>
+                      {formatDate(item.lastSubmissionAt)}
+                    </Text>
+                  </View>
+                  <View style={styles.vitalBox}>
+                    <Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>
+                      {t('nurse.patients.measurement.priority', locale)}
+                    </Text>
+                    <Text style={[styles.vitalValue, { color: item.priority === 'high' ? colors.destructive : colors.foreground }]}>
+                      {t(priorityLabels[item.priority], locale)}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.vitalBox}>
-                  <Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>Dernier suivi</Text>
-                  <Text style={[styles.vitalValue, { color: colors.foreground }]}>
-                    {item.lastSubmissionAt ? new Date(item.lastSubmissionAt).toLocaleDateString('fr-FR') : 'Aujourd\'hui'}
-                  </Text>
-                </View>
-                <View style={styles.vitalBox}>
-                  <Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>Priorité</Text>
-                  <Text style={[styles.vitalValue, { color: item.priority === 'high' ? colors.destructive : colors.primary }]}>
-                    {item.priority === 'high' ? 'Élevée' : item.priority === 'reviewRequired' ? 'Moyenne' : 'Basse'}
-                  </Text>
-                </View>
-              </View>
-            </AppCard>
-          )}
+              </AppCard>
+            );
+          }}
         />
       )}
     </View>
@@ -151,9 +252,21 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     borderBottomWidth: 1,
   },
-  searchInput: {
-    marginBottom: spacing.xs,
+  demoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: shapes.md,
+    marginBottom: spacing.sm,
   },
+  demoNoticeText: {
+    flex: 1,
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.xs,
+    lineHeight: 18,
+  },
+  searchInput: { marginBottom: spacing.xs },
   filterRow: {
     flexDirection: 'row',
     gap: spacing.xs,
@@ -168,13 +281,13 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.openSans,
     fontSize: typography.fontSize.xs,
   },
+  loading: { marginTop: spacing.xl },
   listContent: {
+    flexGrow: 1,
     padding: spacing.screenPadding,
     gap: spacing.md,
   },
-  patientCard: {
-    padding: spacing.md,
-  },
+  patientCard: { padding: spacing.md },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -193,7 +306,7 @@ const styles = StyleSheet.create({
   },
   patientMainInfo: {
     flex: 1,
-    marginLeft: spacing.md,
+    marginStart: spacing.md,
   },
   patientName: {
     fontFamily: typography.fontFamily.urbanist,
@@ -211,17 +324,30 @@ const styles = StyleSheet.create({
     borderRadius: shapes.sm,
     padding: spacing.sm,
   },
-  vitalBox: {
-    alignItems: 'center',
-  },
+  vitalBox: { alignItems: 'center', flex: 1 },
   vitalLabel: {
     fontFamily: typography.fontFamily.openSans,
     fontSize: 11,
+    textAlign: 'center',
   },
   vitalValue: {
     fontFamily: typography.fontFamily.urbanist,
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.bold,
     marginTop: 2,
+    textAlign: 'center',
+  },
+  stateCard: {
+    margin: spacing.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  stateText: {
+    padding: spacing.lg,
+    textAlign: 'center',
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.sm,
+    lineHeight: 20,
   },
 });

@@ -48,6 +48,8 @@ export type {
   SqlQueryExecutor,
   TransactionExecutor,
   TransactionalDatabase,
+  CapaCreationOperation,
+  CapaCreationOperationStatus,
 } from './types';
 
 export {
@@ -68,7 +70,15 @@ export {
 
 export { DatabaseService } from './DatabaseService';
 export {
+  CapaOperationEntropyUnavailableError,
+  CapaOperationIdCollisionError,
+  isValidCapaOperationId,
+} from './capa-operation-utils';
+export {
   AesGuardianDatabase,
+  PreventionActionCreationUncertainError,
+  CapaCreationOperationConflictError,
+  CapaCreationOperationIntegrityError,
   isValidTransition,
   isValidPreventionTransition,
 } from './AesGuardianDatabase';

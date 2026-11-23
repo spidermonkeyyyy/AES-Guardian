@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useTheme } from '../../../theme/ThemeContext';
+import { useTheme } from '../../../../theme/ThemeContext';
 
 const InhalerEducationScreen: React.FC = () => {
   const { colors } = useTheme();
@@ -43,7 +43,7 @@ const InhalerEducationScreen: React.FC = () => {
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16 },
   title: { fontSize: 22, fontWeight: '700', color: colors.primary, marginBottom: 4 },
@@ -52,7 +52,7 @@ function createStyles(colors: any) {
   cardTitle: { fontSize: 16, fontWeight: '600', color: colors.primary, marginBottom: 4 },
   cardBody: { fontSize: 14, color: colors.foreground, lineHeight: 20 },
   disclaimer: { fontSize: 12, color: colors.mutedForeground, fontStyle: 'italic', marginTop: 8, textAlign: 'center' },
-}
+});
 }
 
 export default InhalerEducationScreen;

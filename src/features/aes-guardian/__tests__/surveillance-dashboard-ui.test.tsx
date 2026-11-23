@@ -7,7 +7,8 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { SurveillanceDashboardScreen } from '../screens/SurveillanceDashboardScreen';
 import {
   SYNTHETIC_QUALITY_STAFF_CONTEXT,
@@ -144,16 +145,30 @@ jest.mock('../../../theme/ThemeContext', () => ({
   }),
 }));
 
-jest.mock('../../../localization', () => ({
-  useLocale: () => 'fr',
-  isRTL: () => false,
-  t: (key: string) => key,
-}));
+let mockLocale = 'fr';
 
-jest.mock('react-native-vector-icons/Feather', () => {
-  const { View } = require('react-native');
-  return ({ name, ...props }: any) => <View testID={`icon-${name}`} {...props} />;
-});
+jest.mock('../../../localization', () => ({
+  useLocale: () => mockLocale,
+  useLayoutDirection: () => mockLocale === 'ar' ? 'rtl' : 'ltr',
+  getLayoutRowDirection: (direction: 'ltr' | 'rtl') =>
+    direction === 'rtl' ? 'row-reverse' : 'row',
+  getLayoutTextAlign: (direction: 'ltr' | 'rtl') =>
+    direction === 'rtl' ? 'right' : 'left',
+  isRTL: () => mockLocale === 'ar',
+  t: (key: string, locale?: string) =>
+    locale && (
+      key === 'surveillance.overview.draft' ||
+      key === 'form.incidentType.percutaneous' ||
+      key === 'role.quality_staff' ||
+      key === 'role.admin_reviewer' ||
+      key === 'role.oh_professional' ||
+      key === 'role.exposed_professional' ||
+      key === 'role.tech_admin' ||
+      key === 'surveillance.filters.declarationCountLabel'
+    )
+      ? `${key}:${locale}`
+      : key,
+}));
 
 describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', () => {
   beforeEach(() => {
@@ -214,6 +229,9 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
     await waitFor(() => expect(getByTestId('surveillance-exposure')).toBeTruthy());
     const bars = getAllByTestId(/surveillance-exposure-bar-/);
     expect(bars).toHaveLength(4);
+    const exposureLabel = within(bars[0]).getByText('form.incidentType.percutaneous:fr');
+    expect(exposureLabel.props.numberOfLines).toBe(3);
+    expect(StyleSheet.flatten(exposureLabel.props.style).width).toBe(112);
   });
 
   test('renders status distribution card with AesStatusBadge for each status', async () => {
@@ -254,6 +272,36 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
     await waitFor(() => expect(getByTestId('surveillance-role-switcher')).toBeTruthy());
     const pills = getAllByTestId(/role-pill-/);
     expect(pills).toHaveLength(5);
+  });
+
+  test('localizes role options and filtered count labels in FR, EN, and AR', async () => {
+    const roleKeys = [
+      ['quality_staff', 'role.quality_staff'],
+      ['admin_reviewer', 'role.admin_reviewer'],
+      ['oh_professional', 'role.oh_professional'],
+      ['exposed_professional', 'role.exposed_professional'],
+      ['tech_admin', 'role.tech_admin'],
+    ] as const;
+
+    for (const locale of ['fr', 'en', 'ar'] as const) {
+      mockLocale = locale;
+      const component = render(<SurveillanceDashboardScreen />);
+      await waitFor(() => expect(component.getByTestId('surveillance-role-switcher')).toBeTruthy());
+
+      for (const [role, labelKey] of roleKeys) {
+        expect(
+          within(component.getByTestId(`role-pill-${role}`))
+            .getByText(new RegExp(`${labelKey}:${locale}`)),
+        ).toBeTruthy();
+      }
+      expect(
+        within(component.getByTestId('surveillance-filter-summary'))
+          .getByText(new RegExp(`declarationCountLabel:${locale}`)),
+      ).toBeTruthy();
+      component.unmount();
+    }
+
+    mockLocale = 'fr';
   });
 
   test('highlights active role pill (quality_staff by default)', async () => {
@@ -570,6 +618,39 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
   // RTL tests use stable locale mocking via the mocked `isRTL` hook (no jest.resetModules)
   // to avoid breaking React module resolution in the test environment.
 
+  test('FR, EN and AR switch header and KPI rows without changing metric values', async () => {
+    mockLocale = 'fr';
+    const screen = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => expect(screen.getByTestId('surveillance-header-top-row')).toBeTruthy());
+    expect(
+      StyleSheet.flatten(screen.getByTestId('surveillance-header-top-row').props.style).flexDirection,
+    ).toBe('row');
+    expect(screen.getByTestId('surveillance-kpi-total').props.children).toBeTruthy();
+    expect(screen.getAllByText('surveillance.overview.draft:fr').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('form.incidentType.percutaneous:fr').length).toBeGreaterThan(0);
+
+    mockLocale = 'en';
+    screen.rerender(<SurveillanceDashboardScreen />);
+    expect(
+      StyleSheet.flatten(screen.getByTestId('surveillance-header-top-row').props.style).flexDirection,
+    ).toBe('row');
+    expect(screen.getAllByText('surveillance.overview.draft:en').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('form.incidentType.percutaneous:en').length).toBeGreaterThan(0);
+
+    mockLocale = 'ar';
+    screen.rerender(<SurveillanceDashboardScreen />);
+    expect(
+      StyleSheet.flatten(screen.getByTestId('surveillance-header-top-row').props.style).flexDirection,
+    ).toBe('row-reverse');
+    expect(
+      StyleSheet.flatten(screen.getByTestId('surveillance-start-date-input').props.style),
+    ).toMatchObject({ textAlign: 'left', writingDirection: 'ltr' });
+    expect(screen.getAllByText('surveillance.overview.draft:ar').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('form.incidentType.percutaneous:ar').length).toBeGreaterThan(0);
+
+    mockLocale = 'fr';
+  });
+
   test('renders disclaimer row with RTL-aware flexDirection (row-reverse) when RTL', async () => {
     jest.mock('../../../localization', () => ({
       useLocale: () => 'ar',
@@ -695,6 +776,31 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
       const minHeight = styles.find(s => s && typeof s === 'object' && 'minHeight' in s)?.minHeight;
       expect(minHeight).toBeGreaterThanOrEqual(48);
     });
+
+  });
+
+  test('role switcher stays bounded and lays out its pills in the active direction', async () => {
+    mockLocale = 'fr';
+    const screen = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => expect(screen.getByTestId('surveillance-role-switcher-scroll')).toBeTruthy());
+
+    const scroll = screen.getByTestId('surveillance-role-switcher-scroll');
+    expect(StyleSheet.flatten(scroll.props.style).height).toBeGreaterThanOrEqual(48);
+    expect(StyleSheet.flatten(scroll.props.style).width).toBe('100%');
+    expect(
+      within(screen.getByTestId('surveillance-header')).queryByTestId('surveillance-role-switcher'),
+    ).toBeNull();
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle)).toMatchObject({
+      flexDirection: 'row',
+      alignItems: 'center',
+    });
+
+    mockLocale = 'ar';
+    screen.rerender(<SurveillanceDashboardScreen />);
+    expect(StyleSheet.flatten(
+      screen.getByTestId('surveillance-role-switcher-scroll').props.contentContainerStyle,
+    )).toMatchObject({ flexDirection: 'row-reverse', alignItems: 'center' });
+    mockLocale = 'fr';
   });
 
   test('filterPill has minHeight >= 48dp for touch target compliance', async () => {
@@ -750,8 +856,72 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
     require('../../../core/database').getDatabase.mockReturnValue({
       getSurveillanceDashboardMetrics: jest.fn().mockResolvedValue(emptyMetrics),
     });
+
     const { getByText } = render(<SurveillanceDashboardScreen />);
     await waitFor(() => expect(getByText('surveillance.temporal.empty')).toBeTruthy());
+  });
+
+  test('renders localized empty states when optional dashboard distributions are missing', async () => {
+    const partialMetrics = {
+      ...mockMetrics,
+      temporalDistribution: undefined,
+      exposureDistribution: undefined,
+      statusDistribution: undefined,
+    };
+    require('../../../core/database').getDatabase.mockReturnValue({
+      getSurveillanceDashboardMetrics: jest.fn().mockResolvedValue(partialMetrics),
+    });
+    const { getByText } = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => {
+      expect(getByText('surveillance.temporal.empty')).toBeTruthy();
+      expect(getByText('surveillance.exposure.empty')).toBeTruthy();
+      expect(getByText('surveillance.status.empty')).toBeTruthy();
+    });
+  });
+
+  test('renders an explicit empty dataset without fabricating metric or chart values', async () => {
+    const emptyMetrics = {
+      ...mockMetrics,
+      overview: {
+        totalDeclarations: 0,
+        draftDeclarations: 0,
+        submittedDeclarations: 0,
+        underReviewDeclarations: 0,
+        correctionRequestedDeclarations: 0,
+        resubmittedDeclarations: 0,
+        closedDeclarations: 0,
+        activeOhCoordinations: 0,
+        completedOhCoordinations: 0,
+      },
+      temporalDistribution: [],
+      exposureDistribution: [],
+      statusDistribution: [],
+      administrativeReview: {
+        totalReviews: 0,
+        correctionRequests: 0,
+        correctionResponses: 0,
+        outcomes: [],
+      },
+      occupationalHealth: {
+        statusDistribution: [],
+        eventCategories: [],
+      },
+    };
+    require('../../../core/database').getDatabase.mockReturnValue({
+      getSurveillanceDashboardMetrics: jest.fn().mockResolvedValue(emptyMetrics),
+    });
+
+    const screen = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => {
+      expect(screen.getByTestId('surveillance-dashboard')).toBeTruthy();
+      expect(screen.getByTestId('surveillance-kpi-total')).toBeTruthy();
+    });
+    expect(within(screen.getByTestId('surveillance-kpi-total')).getByText('0')).toBeTruthy();
+    expect(screen.getByText('surveillance.temporal.empty')).toBeTruthy();
+    expect(screen.getByText('surveillance.exposure.empty')).toBeTruthy();
+    expect(screen.getByText('surveillance.status.empty')).toBeTruthy();
+    expect(screen.queryByTestId(/^surveillance-temporal-bar-/)).toBeNull();
+    expect(screen.queryByTestId(/^surveillance-exposure-bar-/)).toBeNull();
   });
 
   test('handles empty exposure distribution gracefully', async () => {
@@ -774,8 +944,9 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
     require('../../../core/database').getDatabase.mockReturnValue({
       getSurveillanceDashboardMetrics: jest.fn().mockResolvedValue(emptyMetrics),
     });
-    const { getByTestId } = render(<SurveillanceDashboardScreen />);
+    const { getByTestId, getByText } = render(<SurveillanceDashboardScreen />);
     await waitFor(() => expect(getByTestId('surveillance-status-distribution')).toBeTruthy());
+    expect(getByText('surveillance.status.empty')).toBeTruthy();
   });
 
   test('handles empty admin outcomes gracefully', async () => {

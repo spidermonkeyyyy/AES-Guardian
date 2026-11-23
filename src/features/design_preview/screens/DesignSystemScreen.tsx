@@ -49,20 +49,20 @@ export default function DesignSystemScreen() {
   );
 }
 
-function createStyles(colors: any) {
-  return {
-  container: { flex: 1, backgroundColor: colors.surface },
+function createStyles(themeColors: any) {
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: themeColors.surface },
   content: { padding: spacing[6], gap: spacing[6] },
-  heading: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold, color: colors.foreground },
-  subheading: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.md, color: colors.mutedForeground },
-  section: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.semibold, color: colors.foreground },
+  heading: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold, color: themeColors.foreground },
+  subheading: { fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.md, color: themeColors.mutedForeground },
+  section: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.semibold, color: themeColors.foreground },
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4] },
   swatchBlock: { alignItems: 'center', gap: spacing[1] },
   swatch: { width: 60, height: 60, borderRadius: shapes.md },
-  swatchLabel: { color: colors.foreground, fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.xs },
-  swatchValue: { color: colors.mutedForeground, fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.xs },
-  sample: { padding: spacing[3], backgroundColor: colors.card, borderRadius: shapes.md },
+  swatchLabel: { color: themeColors.foreground, fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.xs },
+  swatchValue: { color: themeColors.mutedForeground, fontFamily: typography.fontFamily.openSans, fontSize: typography.fontSize.xs },
+  sample: { padding: spacing[3], backgroundColor: themeColors.card, borderRadius: shapes.md },
   shapeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[3] },
-  shapeBlock: { backgroundColor: colors.primary },
-}
+  shapeBlock: { backgroundColor: themeColors.primary },
+});
 }

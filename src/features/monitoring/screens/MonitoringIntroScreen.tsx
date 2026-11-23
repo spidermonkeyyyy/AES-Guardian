@@ -1,20 +1,45 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppHeader, AppButton, AppCard } from '../../../components';
+import SpO2Input from '../components/SpO2Input';
 import { useMonitoringStore } from '../state/use-monitoring-store';
 import { MONITORING_QUESTIONS } from '../data/questions';
 import { QuestionType, QuestionOption } from '../../../types/monitoring-question';
 import { evaluateSubmission } from '../../../utils/clinical/rule-engine';
 import { useTheme } from '../../../theme/ThemeContext';
+import { TranslationKey, useLocale, t, isRTL } from '../../../localization';
+
+const questionTitleKeys: Record<string, TranslationKey> = {
+  dyspnea: 'monitoring.question.dyspnea',
+  cough: 'monitoring.question.cough',
+  sputum: 'monitoring.question.sputum',
+  spo2: 'monitoring.question.spo2',
+};
+
+const optionLabelKeys: Record<string, TranslationKey> = {
+  mmrc_0: 'monitoring.option.mmrc_0',
+  mmrc_1: 'monitoring.option.mmrc_1',
+  mmrc_2: 'monitoring.option.mmrc_2',
+  mmrc_3: 'monitoring.option.mmrc_3',
+  mmrc_4: 'monitoring.option.mmrc_4',
+  cough_normal: 'monitoring.option.cough_normal',
+  cough_mild: 'monitoring.option.cough_mild',
+  cough_severe: 'monitoring.option.cough_severe',
+  sputum_normal: 'monitoring.option.sputum_normal',
+  sputum_amount: 'monitoring.option.sputum_amount',
+  sputum_color: 'monitoring.option.sputum_color',
+};
 
 export default function MonitoringIntroScreen({ navigation }: { navigation: any }) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
   // -1 = Intro Landing Screen, 0..N = Questions
   const [step, setStep] = useState<number>(-1);
   const [answers, setAnswers] = useState<Record<string, { value: string | number | null; displayLabel: string }>>({});
-  const [result, setResult] = useState<{ status: string; message: string } | null>(null);
+  const [result, setResult] = useState<{ status: string } | null>(null);
 
   const reset = () => {
     setStep(-1);
@@ -30,7 +55,7 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
   if (result) {
     return (
       <View style={[styles.fullContainer, { backgroundColor: colors.background }]}>
-        <AppHeader title="Résultat du Suivi" />
+        <AppHeader title={t('monitoring.resultHeader', locale)} />
         <View style={styles.centerContent}>
           <View style={[styles.resultIconCircle, { backgroundColor: result.status === 'review_required' ? colors.warningBackground : colors.secondary }]}>
             <Icon
@@ -40,11 +65,23 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
             />
           </View>
           <Text style={[styles.resultTitle, { color: colors.foreground }]}>
-            {result.status === 'review_required' ? 'Formulaire transmis à l\'infirmier(e)' : 'Suivi quotidien enregistré'}
+            {t(
+              result.status === 'review_required'
+                ? 'monitoring.result.reviewTitle'
+                : 'monitoring.result.normalTitle',
+              locale,
+            )}
           </Text>
-          <Text style={[styles.resultMessage, { color: colors.mutedForeground }]}>{result.message}</Text>
+          <Text style={[styles.resultMessage, { color: colors.mutedForeground }]}>
+            {t(
+              result.status === 'review_required'
+                ? 'monitoring.result.reviewMessage'
+                : 'monitoring.result.normalMessage',
+              locale,
+            )}
+          </Text>
           <AppButton
-            title="Retour à l'accueil"
+            title={t('monitoring.backHome', locale)}
             onPress={() => {
               reset();
               navigation.navigate('patientHome');
@@ -61,32 +98,38 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
   if (step === -1) {
     return (
       <View style={[styles.fullContainer, { backgroundColor: colors.background }]}>
-        <AppHeader title="Suivi quotidien" />
-        <ScrollView contentContainerStyle={styles.introContent}>
+        <AppHeader title={t('monitoring.headerTitle', locale)} />
+        <ScrollView contentContainerStyle={[styles.introContent, { direction: rtl ? 'rtl' : 'ltr' }]}>
           <View style={styles.introHero}>
             <View style={[styles.heroIconCircle, { backgroundColor: colors.secondary }]}>
               <Icon name="clipboard" size={48} color={colors.primary} />
             </View>
-            <Text style={[styles.introTitle, { color: colors.foreground }]}>Questionnaire de suivi</Text>
+            <Text style={[styles.introTitle, { color: colors.foreground }]}>
+              {t('monitoring.introTitle', locale)}
+            </Text>
             <Text style={[styles.introSubtitle, { color: colors.mutedForeground }]}>
-              Renseignez vos symptômes et constantes du jour. Cela prend environ 3 minutes et permet à votre équipe soignante de vous suivre à distance.
+              {t('monitoring.introSubtitle', locale)}
             </Text>
           </View>
 
           <AppCard variant="flat" style={styles.infoBox}>
             <View style={styles.infoRow}>
               <Icon name="clock" size={20} color={colors.primary} />
-              <Text style={[styles.infoText, { color: colors.foreground }]}>Durée estimée : 2 - 3 minutes</Text>
+              <Text style={[styles.infoText, { color: colors.foreground }]}>
+                {t('monitoring.estimatedDuration', locale)}
+              </Text>
             </View>
-            <View style={styles.infoRow}>
-              <Icon name="shield-check" size={20} color={colors.primary} />
-              <Text style={[styles.infoText, { color: colors.foreground }]}>Données de santé sécurisées</Text>
+            <View style={[styles.infoRow, styles.disclosureRow]}>
+              <Icon name="info" size={20} color={colors.info} />
+              <Text style={[styles.infoText, { color: colors.foreground }]}>
+                {t('monitoring.demoDisclosure', locale)}
+              </Text>
             </View>
           </AppCard>
 
           <View style={styles.bottomCta}>
             <AppButton
-              title="Commencer le questionnaire"
+              title={t('monitoring.start', locale)}
               onPress={() => setStep(0)}
               variant="primary"
               fullWidth
@@ -101,16 +144,23 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
   return (
     <View style={[styles.fullContainer, { backgroundColor: colors.background }]}>
       <AppHeader
-        title="Suivi quotidien"
+        title={t('monitoring.headerTitle', locale)}
         showBack
         onBackPress={() => {
           if (step > 0) setStep(step - 1);
           else setStep(-1);
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { direction: rtl ? 'rtl' : 'ltr' }]}
+      >
         <View style={styles.progressContainer}>
-          <Text style={[styles.progressText, { color: colors.mutedForeground }]}>Question {step + 1} sur {total}</Text>
+          <Text style={[styles.progressText, { color: colors.mutedForeground }]}>
+            {t('monitoring.questionProgress', locale)
+              .replace('{current}', String(step + 1))
+              .replace('{total}', String(total))}
+          </Text>
           <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
             <View style={[styles.progressBarFill, { width: `${((step + 1) / total) * 100}%`, backgroundColor: colors.primary }]} />
           </View>
@@ -118,18 +168,26 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
 
         {current && (
           <>
-            <Text style={[styles.question, { color: colors.foreground }]}>{current.title}</Text>
+            <Text style={[styles.question, { color: colors.foreground }]}>
+              {t(questionTitleKeys[current.id], locale)}
+            </Text>
 
             {current.type === QuestionType.numericInput ? (
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-                placeholder="ex: 95"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="numeric"
-                value={answers[current.id]?.displayLabel ?? ''}
-                onChangeText={(text: string) => {
-                  const num = text === '' ? null : Number(text);
-                  setAnswers({ ...answers, [current.id]: { value: num, displayLabel: text } });
+              <SpO2Input
+                initialValue={
+                  typeof answers[current.id]?.value === 'number'
+                    ? Number(answers[current.id].value)
+                    : null
+                }
+                measurementSource="manual"
+                onChanged={(value) => {
+                  setAnswers({
+                    ...answers,
+                    [current.id]: {
+                      value,
+                      displayLabel: value === null ? '' : String(value),
+                    },
+                  });
                 }}
               />
             ) : (
@@ -141,7 +199,17 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
                     { borderColor: colors.border, backgroundColor: colors.card },
                     answers[current.id]?.value === opt.id && { borderColor: colors.primary, backgroundColor: colors.secondary },
                   ]}
-                  onPress={() => setAnswers({ ...answers, [current.id]: { value: opt.id, displayLabel: opt.label } })}
+                  onPress={() =>
+                    setAnswers({
+                      ...answers,
+                      [current.id]: {
+                        value: opt.id,
+                        displayLabel: t(optionLabelKeys[opt.id], locale),
+                      },
+                    })
+                  }
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: answers[current.id]?.value === opt.id }}
                 >
                   <Text
                     style={[
@@ -150,7 +218,7 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
                       answers[current.id]?.value === opt.id && { color: colors.primary, fontWeight: typography.fontWeight.semibold },
                     ]}
                   >
-                    {opt.label}
+                    {t(optionLabelKeys[opt.id], locale)}
                   </Text>
                   {answers[current.id]?.value === opt.id && (
                     <Icon name="check" size={18} color={colors.primary} />
@@ -164,14 +232,16 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
         <View style={styles.navRow}>
           {step > 0 && (
             <TouchableOpacity style={[styles.button, styles.secondary, { borderColor: colors.border }]} onPress={() => setStep(step - 1)}>
-              <Text style={[styles.secondaryText, { color: colors.foreground }]}>Retour</Text>
+              <Text style={[styles.secondaryText, { color: colors.foreground }]}>
+                {t('monitoring.previous', locale)}
+              </Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
             style={[
               styles.button,
               { backgroundColor: colors.primary },
-              current && !answers[current.id]?.value && styles.buttonDisabled,
+              current?.required && answers[current.id]?.value == null && styles.buttonDisabled,
             ]}
             onPress={() => {
               if (step === total - 1) {
@@ -189,14 +259,19 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
                   measurementSource: 'manual' as const,
                 };
                 const evaluation = evaluateSubmission(submission as any);
-                setResult({ status: evaluation.status, message: evaluation.patientMessage });
+                setResult({ status: evaluation.status });
                 return;
               }
               setStep(step + 1);
             }}
-            disabled={current ? !answers[current.id]?.value : true}
+            disabled={
+              !current ||
+              (current.required && answers[current.id]?.value == null)
+            }
           >
-            <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>{step === total - 1 ? 'Envoyer' : 'Suivant'}</Text>
+            <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
+              {t(step === total - 1 ? 'monitoring.submit' : 'monitoring.next', locale)}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -238,8 +313,11 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
+  },
+  disclosureRow: {
+    marginTop: spacing.xs,
   },
   infoText: {
     fontFamily: typography.fontFamily.openSans,
@@ -268,13 +346,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     marginVertical: spacing.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: shapes.md,
-    padding: spacing.md,
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.md,
   },
   option: {
     borderWidth: 1,

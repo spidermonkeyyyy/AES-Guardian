@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   TouchableOpacity,
-  Text,
   StyleSheet,
   ActivityIndicator,
   ViewStyle,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { shapes, spacing, typography } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
+import { AppText } from './AppText';
 
 interface AppButtonProps {
   title: string;
@@ -91,7 +91,12 @@ export const AppButton: React.FC<AppButtonProps> = ({
       ) : (
         <View style={styles.contentRow} pointerEvents="none">
           {icon && <View style={styles.iconContainer}>{icon}</View>}
-          <Text style={[...getTextStyle(), textStyle]}>{title}</Text>
+          <AppText
+            variant="label"
+            style={[...getTextStyle(), textStyle]}
+          >
+            {title}
+          </AppText>
         </View>
       )}
     </TouchableOpacity>
@@ -132,7 +137,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconContainer: {
-    marginRight: spacing.xs,
+    marginEnd: spacing.xs,
   },
   baseText: {
     fontFamily: typography.fontFamily.openSans,

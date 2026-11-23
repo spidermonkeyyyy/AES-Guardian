@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import AppText from '../../../components/AppText';
+import { View, ScrollView, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, shapes, typography } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 import { MonitoringQuestion, QuestionType } from '../../../types/monitoring-question';
@@ -25,7 +26,7 @@ export default function QuestionRenderer({
       <View>
         {question.description ? (
           <View style={[styles.descriptionChip, { backgroundColor: colors.secondary }]}>
-            <Text style={[styles.descriptionText, { color: colors.mutedForeground }]}>{question.description}</Text>
+            <AppText style={[styles.descriptionText, { color: colors.mutedForeground }]}>{question.description}</AppText>
           </View>
         ) : null}
         <View style={{ marginTop: spacing[6] }}>

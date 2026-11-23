@@ -19,6 +19,7 @@ import {
   useDemoRoleStore,
 } from '../../../core';
 import { ThemeProvider } from '../../../theme/ThemeContext';
+import { setLocale } from '../../../localization';
 
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
@@ -45,6 +46,7 @@ describe('Phase 2C.3: Administrative Review Workflow Screens', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockRouteParams = {};
+    setLocale('fr');
     resetDatabaseForTesting();
     await initializeDatabase();
     useDemoRoleStore.getState().setRole('admin_reviewer');
@@ -92,13 +94,13 @@ describe('Phase 2C.3: Administrative Review Workflow Screens', () => {
       );
 
       await waitFor(() => {
-        expect(component.getByText('2024-05-15')).toBeTruthy();
+        expect(component.getByText('15/05/2024')).toBeTruthy();
       });
 
       expect(component.getByText('URG-01')).toBeTruthy();
       expect(component.getByText('Soumise')).toBeTruthy();
 
-      const card = component.getByLabelText(/Revue déclaration/);
+      const card = component.getByLabelText(/Examiner la déclaration/);
       fireEvent.press(card);
 
       expect(mockNavigate).toHaveBeenCalledWith('adminReviewAction', {
@@ -136,7 +138,9 @@ describe('Phase 2C.3: Administrative Review Workflow Screens', () => {
       });
 
       expect(component.getByText('Résumé de la déclaration (Lecture seule)')).toBeTruthy();
-      expect(component.getByText('2024-05-15')).toBeTruthy();
+      expect(component.getByText('15/05/2024')).toBeTruthy();
+      expect(component.getByText('Accident percutané (piqûre / coupure)')).toBeTruthy();
+      expect(component.queryByText('percutaneous_exposure')).toBeNull();
       expect(component.getByText('MED-TRAV')).toBeTruthy();
       expect(component.getByText('Déclaration accusée de réception')).toBeTruthy();
       expect(component.getByText('Transmission hiérarchique vérifiée')).toBeTruthy();

@@ -6,9 +6,9 @@
  * 1. SplashScreen (Screen 1.1) layout, branding, first-launch/return routing, replay route param,
  *    storage failure fallback, duplicate-tap protection, unmount safety
  * 2. LanguageSelectionScreen (Screen 1.2) trilingual selection, real-time locale change, continuation
- *    RTL text alignment (text-level) for Arabic — layout mirroring is DEFERRED
+ *    Locale-driven RTL layout and text alignment for Arabic
  * 3. WelcomeCarouselScreen (Screen 1.3) 3-slide value-prop hierarchy, pagination, skip/start
- *    RTL bullet row direction for Arabic — text-level confirmed
+ *    RTL bullet-row direction for Arabic
  * 4. PrototypeDisclaimerScreen (Screen 1.4) clauses, checkbox gate, duplicate-press protection
  * 5. DemoAccountPickerScreen (Screen 2.1) 5 canonical roles, role store, duplicate-enter protection
  * 6. Presentation Components
@@ -18,6 +18,7 @@
 
 import React from 'react';
 import { Text } from 'react-native';
+import Icon from '../../../components/AppIcon';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { SplashScreen } from '../screens/SplashScreen';
 import { LanguageSelectionScreen } from '../screens/LanguageSelectionScreen';
@@ -95,6 +96,22 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   // 1. Screen 1.1: SplashScreen
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 1.1: SplashScreen (aesSplash)', () => {
+    it('renders the forward icon and text alignment correctly in LTR and RTL', () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('fr');
+      const ltr = render(<SplashScreen />);
+      expect(ltr.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+      expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-subtitle').props.style).textAlign).toBe('center');
+
+      setLocale('ar');
+      const rtl = render(<SplashScreen />);
+      expect(rtl.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+      expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-subtitle').props.style).textAlign).toBe('center');
+      setLocale('fr');
+    });
+
     it('renders clinical green canvas, shield mark, wordmark, and institutional subtitle', () => {
       _setInMemoryFirstLaunchState(false);
       const { getByTestId, getByText } = render(<SplashScreen />);
@@ -102,8 +119,8 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(getByTestId('aes-splash-screen')).toBeTruthy();
       expect(getByTestId('aes-splash-shield')).toBeTruthy();
       expect(getByTestId('aes-splash-wordmark')).toBeTruthy();
-      expect(getByText('AES Guardian')).toBeTruthy();
-      expect(getByText('Gouvernance hospitalière des AES')).toBeTruthy();
+      expect(getByText(t('splash.wordmark', 'fr'))).toBeTruthy();
+      expect(getByText(t('splash.subtitle', 'fr'))).toBeTruthy();
     });
 
     it('navigates to aesLanguageSelect on first launch when pressed', async () => {
@@ -174,6 +191,42 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   // 2. Screen 1.2: LanguageSelectionScreen
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 1.2: LanguageSelectionScreen (aesLanguageSelect)', () => {
+    it('renders language cards and text with LTR behavior for French and English', () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('fr');
+      const fr = render(<LanguageSelectionScreen />);
+      expect(StyleSheet.flatten(fr.getByTestId('lang-select-fr').props.style).flexDirection).toBe('row');
+      expect(fr.getByText('Français').props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ textAlign: 'left' })])
+      );
+
+      fireEvent.press(fr.getByTestId('lang-select-en'));
+      expect(getLocale()).toBe('en');
+      expect(StyleSheet.flatten(fr.getByTestId('lang-select-en').props.style).flexDirection).toBe('row');
+
+      setLocale('fr');
+    });
+
+    it('renders language cards, radio indicator and text with RTL behavior for Arabic', () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('ar');
+      const ar = render(<LanguageSelectionScreen />);
+      expect(StyleSheet.flatten(ar.getByTestId('lang-select-ar').props.style).flexDirection).toBe('row-reverse');
+      expect(ar.getByText('العربية').props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })])
+      );
+      const radioStyle = StyleSheet.flatten(ar.getByTestId('lang-radio-ar').props.style);
+      expect(radioStyle.marginEnd).toBeDefined();
+      expect(radioStyle.marginLeft).toBeUndefined();
+
+      fireEvent.press(ar.getByTestId('lang-select-ar'));
+      expect(getLocale()).toBe('ar');
+      expect(ar.getByTestId('lang-select-ar').props.accessibilityRole).toBe('button');
+      expect(ar.getByTestId('lang-select-ar').props.accessibilityState).toEqual({
+        selected: true,
+      });
+      setLocale('fr');
+    });
     it('renders overline, title, and all three supported language options', () => {
       const { getByText, getByTestId } = render(<LanguageSelectionScreen />);
 
@@ -222,6 +275,31 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   // 3. Screen 1.3: WelcomeCarouselScreen
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 1.3: WelcomeCarouselScreen (aesWelcomeCarousel)', () => {
+    it('preserves slide order and forward/back-direction semantics in LTR and RTL', () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('fr');
+      const ltr = render(<WelcomeCarouselScreen />);
+      expect(ltr.getByText('Déclaration Rapide & Protégée')).toBeTruthy();
+      const ltrTitle = ltr.getByText('Déclaration Rapide & Protégée');
+      expect(StyleSheet.flatten(ltrTitle.props.style).textAlign).toBe('left');
+      expect(ltr.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+
+      fireEvent.press(ltr.getByTestId('carousel-next-button'));
+      expect(ltr.getByText('Suivi de Coordination SST Confidentiel')).toBeTruthy();
+      expect(ltr.getByTestId('carousel-next-button')).toBeTruthy();
+
+      setLocale('ar');
+      const rtl = render(<WelcomeCarouselScreen />);
+      expect(rtl.getByText('إبلاغ سريع ومحمي عن الحوادث')).toBeTruthy();
+      const rtlTitle = rtl.getByText('إبلاغ سريع ومحمي عن الحوادث');
+      expect(StyleSheet.flatten(rtlTitle.props.style).textAlign).toBe('right');
+      expect(rtl.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+
+      fireEvent.press(rtl.getByTestId('carousel-next-button'));
+      expect(rtl.getByTestId('carousel-next-button')).toBeTruthy();
+      setLocale('fr');
+    });
+
     it('renders initial slide (Fast & Protected Declaration) with bullets and skip action', () => {
       const { getByText, getByTestId } = render(<WelcomeCarouselScreen />);
 
@@ -279,6 +357,26 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   // 4. Screen 1.4: PrototypeDisclaimerScreen
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 1.4: PrototypeDisclaimerScreen (aesDisclaimer)', () => {
+    it('renders disclaimer text and checkbox order correctly in LTR and RTL', () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('fr');
+      const ltr = render(<PrototypeDisclaimerScreen />);
+      expect(StyleSheet.flatten(ltr.getByText('Avertissement — Prototype de Démonstration').props.style).textAlign).toBe('left');
+      expect(StyleSheet.flatten(ltr.getByTestId('disclaimer-checkbox').props.style).flexDirection).toBe('row');
+
+      setLocale('ar');
+      const rtl = render(<PrototypeDisclaimerScreen />);
+      expect(StyleSheet.flatten(rtl.getByTestId('disclaimer-checkbox').props.style).flexDirection).toBe('row-reverse');
+      const rtlTitle = rtl.getByText('تحذير — نموذج أولي للعرض التوضيحي');
+      expect(StyleSheet.flatten(rtlTitle.props.style).textAlign).toBe('right');
+
+      fireEvent.press(rtl.getByTestId('disclaimer-checkbox'));
+      expect(rtl.getByTestId('disclaimer-checkbox').props.accessibilityRole).toBe('checkbox');
+      expect(rtl.getByTestId('disclaimer-checkbox').props.accessibilityState.checked).toBe(true);
+      expect(rtl.getByTestId('disclaimer-accept-button').props.accessibilityState.disabled).toBe(false);
+      setLocale('fr');
+    });
+
     it('renders academic badge, title, and all mandatory disclaimer clauses', () => {
       const { getByText, getByTestId } = render(<PrototypeDisclaimerScreen />);
 
@@ -328,6 +426,31 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   // 5. Screen 2.1: DemoAccountPickerScreen
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 2.1: DemoAccountPickerScreen (aesDemoPicker)', () => {
+    it('renders header, banner and role cards correctly in LTR for French and English', () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('fr');
+      const fr = render(<DemoAccountPickerScreen />);
+      expect(StyleSheet.flatten(fr.getByText(t('onboarding.picker.title', 'fr')).props.style).textAlign).toBe('left');
+      expect(StyleSheet.flatten(fr.getByTestId('demo-account-card-exposed_professional').props.style).flexDirection).toBe('row');
+      expect(fr.getByTestId('demo-account-card-exposed_professional').props.accessibilityRole).toBe('radio');
+
+      setLocale('en');
+      const en = render(<DemoAccountPickerScreen />);
+      expect(StyleSheet.flatten(en.getByText(t('onboarding.picker.title', 'en')).props.style).textAlign).toBe('left');
+      expect(StyleSheet.flatten(en.getByTestId('demo-account-card-admin_reviewer').props.style).flexDirection).toBe('row');
+      setLocale('fr');
+    });
+
+    it('renders header, banner and role cards correctly in RTL for Arabic', () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('ar');
+      const ar = render(<DemoAccountPickerScreen />);
+      expect(StyleSheet.flatten(ar.getByText(t('onboarding.picker.title', 'ar')).props.style).textAlign).toBe('right');
+      expect(StyleSheet.flatten(ar.getByTestId('demo-account-card-exposed_professional').props.style).flexDirection).toBe('row-reverse');
+      expect(ar.getByTestId('demo-account-card-exposed_professional').props.accessibilityRole).toBe('radio');
+      setLocale('fr');
+    });
+
     it('DEMO_ACCOUNTS contains exactly the 5 canonical role identifiers with zero aliases', () => {
       const canonicalRoles: AesGuardianRole[] = [
         'exposed_professional',
@@ -369,7 +492,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
     it('renders exactly the 5 canonical roles with demonstration codes and synthetic notice', () => {
       const { getByText, getByTestId } = render(<DemoAccountPickerScreen />);
 
-      expect(getByText('Comptes de Démonstration')).toBeTruthy();
+      expect(getByText(t('onboarding.picker.title', 'fr'))).toBeTruthy();
       expect(getByText(/Comptes synthétiques locaux sans mot de passe/)).toBeTruthy();
 
       // 5 canonical roles
@@ -378,6 +501,8 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(getByTestId('demo-account-card-oh_professional')).toBeTruthy();
       expect(getByTestId('demo-account-card-quality_staff')).toBeTruthy();
       expect(getByTestId('demo-account-card-tech_admin')).toBeTruthy();
+      expect(getByText('Parcours principaux')).toBeTruthy();
+      expect(getByText('Accès technique')).toBeTruthy();
 
       // Evaluator demonstration labels
       expect(getByText('NURSE-001')).toBeTruthy();
@@ -417,6 +542,13 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
         'quality_staff',
         'tech_admin',
       ];
+      const expectedUserIds: Record<AesGuardianRole, number> = {
+        exposed_professional: 1,
+        admin_reviewer: 2,
+        oh_professional: 3,
+        quality_staff: 4,
+        tech_admin: 5,
+      };
 
       for (const role of canonicalRoles) {
         const { getByTestId, unmount } = render(<DemoAccountPickerScreen />);
@@ -428,6 +560,8 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
         });
 
         expect(useDemoRoleStore.getState().activeRole).toBe(role);
+        expect(useDemoRoleStore.getState().activeContext.userId).toBe(expectedUserIds[role]);
+        expect(useDemoRoleStore.getState().activeContext.role).toBe(role);
         unmount();
       }
     });
@@ -493,6 +627,102 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       rerender(<AesButton title="Click Me" onPress={onPress} loading={true} />);
       fireEvent.press(getByRole('button'));
       expect(onPress).not.toHaveBeenCalled();
+    });
+
+    it('AesButton preserves icon placement and logical spacing in LTR and RTL', () => {
+      const { StyleSheet } = require('react-native');
+      const onPress = jest.fn();
+      const ltrLeft = render(
+        <AesButton
+          title="LTR left"
+          onPress={onPress}
+          icon={<Text testID="ltr-left-icon">L</Text>}
+          iconPosition="left"
+          testID="ltr-left-button"
+          accessibilityLabel="LTR left button"
+        />
+      );
+      fireEvent.press(ltrLeft.getByRole('button'));
+      expect(onPress).toHaveBeenCalledTimes(1);
+      expect(
+        StyleSheet.flatten(ltrLeft.getByTestId('ltr-left-button-icon-left').props.style).marginEnd
+      ).toBeTruthy();
+      expect(
+        StyleSheet.flatten(ltrLeft.getByTestId('ltr-left-button-icon-left').props.style).marginRight
+      ).toBeUndefined();
+
+      const ltrRight = render(
+        <AesButton
+          title="LTR right"
+          onPress={jest.fn()}
+          icon={<Text testID="ltr-right-icon">R</Text>}
+          iconPosition="right"
+          testID="ltr-right-button"
+        />
+      );
+      expect(
+        StyleSheet.flatten(ltrRight.getByTestId('ltr-right-button-icon-right').props.style).marginStart
+      ).toBeTruthy();
+      expect(
+        StyleSheet.flatten(ltrRight.getByTestId('ltr-right-button-icon-right').props.style).marginLeft
+      ).toBeUndefined();
+
+      setLocale('ar');
+      const rtlLeft = render(
+        <AesButton
+          title="RTL left"
+          onPress={jest.fn()}
+          icon={<Text testID="rtl-left-icon">L</Text>}
+          iconPosition="left"
+          testID="rtl-left-button"
+        />
+      );
+      expect(
+        StyleSheet.flatten(rtlLeft.getByTestId('rtl-left-button-icon-left').props.style).marginEnd
+      ).toBeTruthy();
+
+      const rtlRight = render(
+        <AesButton
+          title="RTL right"
+          onPress={jest.fn()}
+          icon={<Text testID="rtl-right-icon">R</Text>}
+          iconPosition="right"
+          testID="rtl-right-button"
+        />
+      );
+      expect(
+        StyleSheet.flatten(rtlRight.getByTestId('rtl-right-button-icon-right').props.style).marginStart
+      ).toBeTruthy();
+
+      const rtlDisabled = render(
+        <AesButton
+          title="RTL disabled"
+          onPress={jest.fn()}
+          disabled
+          testID="rtl-disabled-button"
+          accessibilityLabel="RTL disabled button"
+        />
+      );
+      expect(rtlDisabled.getByRole('button').props.accessibilityRole).toBe('button');
+      expect(rtlDisabled.getByRole('button').props.accessibilityLabel).toBe('RTL disabled button');
+      expect(rtlDisabled.getByRole('button').props.accessibilityState).toEqual({
+        disabled: true,
+        busy: false,
+      });
+
+      const rtlLoading = render(
+        <AesButton
+          title="RTL loading"
+          onPress={jest.fn()}
+          loading
+          testID="rtl-loading-button"
+        />
+      );
+      expect(rtlLoading.getByRole('button').props.accessibilityState).toEqual({
+        disabled: true,
+        busy: true,
+      });
+      setLocale('fr');
     });
 
     it('AesRoundArrowButton renders circular arrow button with disabled state', () => {
@@ -675,12 +905,9 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 9. Audit A — RTL text directionality (text-level, not layout mirroring)
-  //    Layout mirroring via I18nManager.forceRTL is DEFERRED — it requires a
-  //    native restart and cannot be driven purely by Jest. This section verifies
-  //    text-alignment prop propagation, which is the implemented RTL signal.
+  // 9. Audit A — locale-driven RTL layout without global I18nManager changes
   // ─────────────────────────────────────────────────────────────────────────────
-  describe('Audit A — Arabic text-level RTL handling (implemented scope)', () => {
+  describe('Audit A — Arabic RTL handling', () => {
     it('isRTL() returns true for Arabic locale and false for FR/EN', () => {
       const { isRTL } = require('../../../localization');
       expect(isRTL('ar')).toBe(true);
@@ -688,22 +915,135 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(isRTL('en')).toBe(false);
     });
 
-    it('AesRoundArrowButton uses arrow-left icon when locale is Arabic', () => {
-      setLocale('ar');
-      const { getByRole } = render(
-        <AesRoundArrowButton onPress={jest.fn()} variant="black" />
+    it('resolves locale direction deterministically with an LTR fallback', () => {
+      const {
+        resolveLayoutDirection,
+        getLayoutRowDirection,
+        getLayoutTextAlign,
+        getLayoutForwardChevron,
+        getLayoutForwardArrow,
+        getLayoutBackArrow,
+      } = require('../../../localization');
+      expect(resolveLayoutDirection('fr')).toBe('ltr');
+      expect(resolveLayoutDirection('en')).toBe('ltr');
+      expect(resolveLayoutDirection('ar')).toBe('rtl');
+      expect(resolveLayoutDirection('unsupported')).toBe('ltr');
+      expect(resolveLayoutDirection('')).toBe('ltr');
+      expect(resolveLayoutDirection(null)).toBe('ltr');
+      expect(resolveLayoutDirection(undefined)).toBe('ltr');
+      expect(resolveLayoutDirection({ locale: 'ar' })).toBe('ltr');
+      expect(getLayoutRowDirection('rtl')).toBe('row-reverse');
+      expect(getLayoutRowDirection('ltr')).toBe('row');
+      expect(getLayoutTextAlign('rtl')).toBe('right');
+      expect(getLayoutTextAlign('ltr')).toBe('left');
+      expect(getLayoutForwardChevron('ltr')).toBe('›');
+      expect(getLayoutForwardChevron('rtl')).toBe('‹');
+      expect(getLayoutForwardArrow('ltr')).toBe('→');
+      expect(getLayoutForwardArrow('rtl')).toBe('←');
+      expect(getLayoutBackArrow('ltr')).toBe('←');
+      expect(getLayoutBackArrow('rtl')).toBe('→');
+    });
+
+    it('AesRoundArrowButton renders the correct forward and back icons in both directions', () => {
+      setLocale('fr');
+      const ltrForward = render(
+        <AesRoundArrowButton onPress={jest.fn()} direction="forward" testID="ltr-forward" />
       );
-      // Component renders — no crash under RTL locale
-      expect(getByRole('button')).toBeTruthy();
+      expect(ltrForward.UNSAFE_getAllByType(Icon)[0].props.name).toBe('forward');
+
+      const ltrBack = render(
+        <AesRoundArrowButton onPress={jest.fn()} direction="back" testID="ltr-back" />
+      );
+      expect(ltrBack.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back');
+
+      setLocale('ar');
+      const rtlForward = render(
+        <AesRoundArrowButton onPress={jest.fn()} direction="forward" testID="rtl-forward" />
+      );
+      expect(rtlForward.UNSAFE_getAllByType(Icon)[0].props.name).toBe('forward');
+
+      const rtlBack = render(
+        <AesRoundArrowButton onPress={jest.fn()} direction="back" testID="rtl-back" />
+      );
+      expect(rtlBack.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back');
       setLocale('fr');
     });
 
-    it('AesScreenHeader renders without crash under Arabic locale', () => {
-      setLocale('ar');
-      const { getByText } = render(
-        <AesScreenHeader title="عنوان الشاشة" onBack={jest.fn()} />
+    it('AesScreenHeader renders correct back chevrons and text alignment in both directions', () => {
+      setLocale('fr');
+      const ltr = render(
+        <AesScreenHeader
+          title="LTR Screen"
+          subtitle="LTR subtitle"
+          onBack={jest.fn()}
+          testID="ltr-header"
+        />
       );
-      expect(getByText('عنوان الشاشة')).toBeTruthy();
+      expect(ltr.getByTestId('ltr-header-top-row').props.style[1].flexDirection).toBe('row');
+      expect(ltr.getByText('LTR Screen').props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ textAlign: 'left' })])
+      );
+      expect(ltr.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back-chevron');
+
+      setLocale('ar');
+      const rtl = render(
+        <AesScreenHeader
+          title="الشاشة"
+          subtitle="العنوان الفرعي"
+          onBack={jest.fn()}
+          testID="rtl-header"
+        />
+      );
+      expect(rtl.getByTestId('rtl-header-top-row').props.style[1].flexDirection).toBe('row-reverse');
+      expect(rtl.getByTestId('rtl-header-title-row').props.style[1].flexDirection).toBe('row-reverse');
+      expect(rtl.getByText('الشاشة').props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })])
+      );
+      expect(rtl.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back-chevron');
+      setLocale('fr');
+    });
+
+    it('shared header and option card reflect active locale changes', async () => {
+      const { StyleSheet } = require('react-native');
+      setLocale('fr');
+      const headerScreen = render(
+        <AesScreenHeader title="Screen" onBack={jest.fn()} testID="rtl-header" />
+      );
+      expect(
+        StyleSheet.flatten(headerScreen.getByTestId('rtl-header-top-row').props.style).flexDirection
+      ).toBe('row');
+
+      const optionScreen = render(
+        <AesOptionCard
+          title="Option"
+          selected={false}
+          onPress={jest.fn()}
+        />
+      );
+      const optionCard = optionScreen.getByRole('radio');
+      expect(StyleSheet.flatten(optionCard.props.style).flexDirection).toBe('row');
+      expect(optionScreen.getByText('Option').props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ textAlign: 'left' })])
+      );
+      fireEvent.press(optionCard);
+      expect(optionScreen.getByRole('radio')).toBeTruthy();
+
+      await act(async () => setLocale('ar'));
+      headerScreen.rerender(
+        <AesScreenHeader title="الشاشة" onBack={jest.fn()} testID="rtl-header" />
+      );
+      optionScreen.rerender(
+        <AesOptionCard title="الخيار" selected={false} onPress={jest.fn()} />
+      );
+
+      expect(
+        StyleSheet.flatten(headerScreen.getByTestId('rtl-header-top-row').props.style).flexDirection
+      ).toBe('row-reverse');
+      expect(StyleSheet.flatten(optionScreen.getByRole('radio').props.style).flexDirection)
+        .toBe('row-reverse');
+      expect(optionScreen.getByText('الخيار').props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })])
+      );
       setLocale('fr');
     });
   });

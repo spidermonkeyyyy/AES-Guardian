@@ -1,7 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
 android {
   namespace "com.sanad"
@@ -17,6 +16,7 @@ android {
 
   buildTypes {
     release {
+      debuggable false
       minifyEnabled false
       proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
     }

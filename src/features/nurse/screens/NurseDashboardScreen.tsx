@@ -10,17 +10,49 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { spacing, typography, shapes } from '../../../theme/tokens';
-import { AppCard, RespiBadge, AppHeader } from '../../../components';
+import { AppButton, AppCard, AppHeader, RespiBadge } from '../../../components';
 import { useNurseDashboardStore } from '../dashboard/state/use-nurse-dashboard-store';
 import { useAuthStore } from '../../authentication/hooks/use-auth-store';
 import { NurseWorklistFilter } from '../../../types/dashboard';
 import { useTheme } from '../../../theme/ThemeContext';
+import { TranslationKey, useLocale, t, isRTL } from '../../../localization';
+
+const filterOptions: { value: NurseWorklistFilter; labelKey: TranslationKey }[] = [
+  { value: 'all', labelKey: 'nurse.dashboard.filter.all' },
+  { value: 'alerts', labelKey: 'nurse.dashboard.filter.alerts' },
+  { value: 'tasks', labelKey: 'nurse.dashboard.filter.tasks' },
+  { value: 'monitoring', labelKey: 'nurse.dashboard.filter.monitoring' },
+];
+
+const demoPatientKeys: Record<string, TranslationKey> = {
+  p1: 'nurse.alerts.patient.a',
+  p2: 'nurse.alerts.patient.b',
+  p3: 'nurse.alerts.patient.c',
+};
+
+const demoPatientLetters: Record<string, string> = { p1: 'A', p2: 'B', p3: 'C' };
+
+const demoWorklistCopy: Record<string, { titleKey: TranslationKey; descriptionKey: TranslationKey; statusKey: TranslationKey }> = {
+  'monitoring:ms-1': {
+    titleKey: 'nurse.dashboard.demo.monitorTitle',
+    descriptionKey: 'nurse.dashboard.demo.monitorDescription',
+    statusKey: 'nurse.dashboard.demo.monitorStatus',
+  },
+  'alert:alert_001': {
+    titleKey: 'nurse.dashboard.demo.alertTitle',
+    descriptionKey: 'nurse.dashboard.demo.alertDescription',
+    statusKey: 'nurse.dashboard.demo.alertStatus',
+  },
+};
 
 export default function NurseDashboardScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
   const user = useAuthStore((s) => s.user);
   const {
     isLoading,
+    errorMessage,
     summary,
     priorityQueue,
     worklistItems,
@@ -39,6 +71,24 @@ export default function NurseDashboardScreen({ navigation }: any) {
     await loadDashboard();
     setRefreshing(false);
   };
+  const nurseName = user?.name?.trim();
+  const greeting = nurseName
+    ? t('nurse.dashboard.greeting', locale).replace('{name}', nurseName)
+    : t('nurse.dashboard.greetingGeneric', locale);
+  const dateLocale = { fr: 'fr-FR', en: 'en-GB', ar: 'ar' }[locale];
+  const formatTimestamp = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString(dateLocale);
+  };
+  const displayPatientName = (patientId: string, name: string) => {
+    const key = demoPatientKeys[patientId];
+    return key ? t(key, locale) : name || t('nurse.dashboard.patientFallback', locale);
+  };
+  const displayCondition = (condition: string | undefined) => {
+    if (condition === 'BPCO') return t('nurse.dashboard.condition.copd', locale);
+    if (condition === 'IRC') return t('nurse.dashboard.condition.ckd', locale);
+    return condition || t('nurse.dashboard.conditionUnavailable', locale);
+  };
 
   const filteredItems = worklistItems.filter((item) => {
     if (worklistFilter === 'all') return true;
@@ -52,12 +102,14 @@ export default function NurseDashboardScreen({ navigation }: any) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader
-        title="Espace Infirmier"
-        subtitle={`Connecté : ${user?.name || 'Sarah Benali'}`}
+        title={t('nurse.dashboard.title', locale)}
+        subtitle={nurseName || t('nurse.dashboard.subtitle', locale)}
         rightAction={
           <TouchableOpacity
             style={[styles.ruleButton, { backgroundColor: colors.secondary }]}
             onPress={() => navigation.navigate('rules')}
+            accessibilityRole="button"
+            accessibilityLabel={t('nurse.dashboard.rules', locale)}
           >
             <Icon name="sliders" size={20} color={colors.primary} />
           </TouchableOpacity>
@@ -65,13 +117,22 @@ export default function NurseDashboardScreen({ navigation }: any) {
       />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { direction: rtl ? 'rtl' : 'ltr' }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
+        <View style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
+          <Icon name="info" size={18} color={colors.info} />
+          <Text style={[styles.demoNoticeText, { color: colors.foreground }]}>
+            {t('nurse.dashboard.demoNotice', locale)}
+          </Text>
+        </View>
+
         {/* 1. Nurse Greeting */}
         <View style={styles.greetingRow}>
-          <Text style={[styles.greetingText, { color: colors.foreground }]}>Bonjour, {user?.name || 'Sarah'} 👋</Text>
-          <Text style={[styles.subGreetingText, { color: colors.mutedForeground }]}>Tableau de tri opérationnel et file de travail</Text>
+          <Text style={[styles.greetingText, { color: colors.foreground }]}>{greeting}</Text>
+          <Text style={[styles.subGreetingText, { color: colors.mutedForeground }]}>
+            {t('nurse.dashboard.subtitle', locale)}
+          </Text>
         </View>
 
         {/* 2. Attention Summary */}
@@ -79,9 +140,17 @@ export default function NurseDashboardScreen({ navigation }: any) {
           <View style={styles.summaryHeader}>
             <View style={styles.summaryTitleRow}>
               <Icon name="bell" size={20} color={colors.warning} />
-              <Text style={[styles.summaryTitle, { color: colors.foreground }]}>Attention requise</Text>
+              <Text style={[styles.summaryTitle, { color: colors.foreground }]}>
+                {t('nurse.dashboard.attentionRequired', locale)}
+              </Text>
             </View>
-            <RespiBadge label={`${summary?.reviewRequiredCount || 3} à traiter`} variant="warning" />
+            <RespiBadge
+              label={t('nurse.dashboard.attentionCount', locale).replace(
+                '{count}',
+                String(summary?.reviewRequiredCount ?? 0),
+              )}
+              variant="warning"
+            />
           </View>
           <View style={styles.categoriesRow}>
             <TouchableOpacity
@@ -91,9 +160,15 @@ export default function NurseDashboardScreen({ navigation }: any) {
                 worklistFilter === 'alerts' && { borderColor: colors.primary, backgroundColor: colors.secondary },
               ]}
               onPress={() => setWorklistFilter('alerts')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: worklistFilter === 'alerts' }}
             >
-              <Text style={[styles.categoryCount, { color: colors.foreground }]}>{summary?.highPriorityCount || 2}</Text>
-              <Text style={[styles.categoryLabel, { color: colors.mutedForeground }]}>Alertes</Text>
+              <Text style={[styles.categoryCount, { color: colors.foreground }]}>
+                {summary?.highPriorityCount ?? 0}
+              </Text>
+              <Text style={[styles.categoryLabel, { color: colors.mutedForeground }]}>
+                {t('nurse.dashboard.category.alerts', locale)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -102,9 +177,15 @@ export default function NurseDashboardScreen({ navigation }: any) {
                 worklistFilter === 'tasks' && { borderColor: colors.primary, backgroundColor: colors.secondary },
               ]}
               onPress={() => setWorklistFilter('tasks')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: worklistFilter === 'tasks' }}
             >
-              <Text style={[styles.categoryCount, { color: colors.foreground }]}>{summary?.newSubmissionsCount || 1}</Text>
-              <Text style={[styles.categoryLabel, { color: colors.mutedForeground }]}>Tâches</Text>
+              <Text style={[styles.categoryCount, { color: colors.foreground }]}>
+                {summary?.newSubmissionsCount ?? 0}
+              </Text>
+              <Text style={[styles.categoryLabel, { color: colors.mutedForeground }]}>
+                {t('nurse.dashboard.category.tasks', locale)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -113,85 +194,134 @@ export default function NurseDashboardScreen({ navigation }: any) {
                 worklistFilter === 'monitoring' && { borderColor: colors.primary, backgroundColor: colors.secondary },
               ]}
               onPress={() => setWorklistFilter('monitoring')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: worklistFilter === 'monitoring' }}
             >
-              <Text style={[styles.categoryCount, { color: colors.foreground }]}>{summary?.reviewRequiredCount || 4}</Text>
-              <Text style={[styles.categoryLabel, { color: colors.mutedForeground }]}>Suivis</Text>
+              <Text style={[styles.categoryCount, { color: colors.foreground }]}>
+                {summary?.reviewRequiredCount ?? 0}
+              </Text>
+              <Text style={[styles.categoryLabel, { color: colors.mutedForeground }]}>
+                {t('nurse.dashboard.category.monitoring', locale)}
+              </Text>
             </TouchableOpacity>
           </View>
         </AppCard>
 
         {/* 3. Clinical Worklist */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>File de travail</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t('nurse.dashboard.worklist', locale)}
+          </Text>
           <View style={styles.filterChipsRow}>
-            {(['all', 'alerts', 'tasks', 'monitoring'] as const).map((filter: NurseWorklistFilter) => (
+            {filterOptions.map((option) => (
               <TouchableOpacity
-                key={filter}
+                key={option.value}
                 style={[
                   styles.filterChip,
                   { backgroundColor: colors.surfaceVariant },
-                  worklistFilter === filter && { backgroundColor: colors.primary },
+                  worklistFilter === option.value && { backgroundColor: colors.primary },
                 ]}
-                onPress={() => setWorklistFilter(filter)}
+                onPress={() => setWorklistFilter(option.value)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: worklistFilter === option.value }}
+                accessibilityLabel={t(option.labelKey, locale)}
               >
                 <Text
                   style={[
                     styles.filterChipText,
                     { color: colors.mutedForeground },
-                    worklistFilter === filter && { color: colors.primaryForeground, fontWeight: typography.fontWeight.semibold },
+                    worklistFilter === option.value && { color: colors.primaryForeground, fontWeight: typography.fontWeight.semibold },
                   ]}
                 >
-                  {filter === 'all' ? 'Tous' : filter === 'alerts' ? 'Alertes' : filter === 'tasks' ? 'Tâches' : 'Suivis'}
+                  {t(option.labelKey, locale)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {isLoading ? (
+        {errorMessage ? (
+          <AppCard variant="flat" style={styles.emptyCard}>
+            <Text style={[styles.emptySubtitle, { color: colors.foreground }]}>
+              {t('nurse.dashboard.error.load', locale)}
+            </Text>
+            <AppButton
+              title={t('nurse.dashboard.retry', locale)}
+              onPress={loadDashboard}
+              variant="outline"
+              style={styles.retryButton}
+            />
+          </AppCard>
+        ) : isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
         ) : filteredItems.length === 0 ? (
           <AppCard variant="flat" style={styles.emptyCard}>
             <Icon name="check-circle" size={32} color={colors.primary} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Vous êtes à jour</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>Aucun élément ne nécessite votre attention pour ce filtre.</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+              {t('nurse.dashboard.empty.title', locale)}
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+              {t('nurse.dashboard.empty.subtitle', locale)}
+            </Text>
           </AppCard>
         ) : (
-          filteredItems.map((item, idx) => (
-            <AppCard
-              key={item.id || idx}
-              variant="outlined"
-              style={styles.workItemCard}
-              onPress={() => {
-                if (item.patientId) {
-                  navigation.navigate('patients', {
-                    screen: 'patientDetail',
-                    params: { patientId: item.patientId },
-                  });
-                }
-              }}
-            >
-              <View style={styles.workItemHeader}>
-                <View style={styles.patientInfoRow}>
-                  <Text style={[styles.patientName, { color: colors.foreground }]}>{item.patientName || 'Patient'}</Text>
-                  <Text style={[styles.itemTime, { color: colors.mutedForeground }]}>{item.timestamp || '10 min'}</Text>
+          filteredItems.map((item, idx) => {
+            const copy = demoWorklistCopy[item.id];
+            return (
+              <AppCard
+                key={item.id || idx}
+                variant="outlined"
+                style={styles.workItemCard}
+                onPress={() => {
+                  if (item.patientId) {
+                    navigation.navigate('patients', {
+                      screen: 'patientDetail',
+                      params: { patientId: item.patientId },
+                    });
+                  }
+                }}
+              >
+                <View style={styles.workItemHeader}>
+                  <View style={styles.patientInfoRow}>
+                    <Text style={[styles.patientName, { color: colors.foreground }]}>
+                      {displayPatientName(item.patientId, item.patientName)}
+                    </Text>
+                    <Text style={[styles.itemTime, { color: colors.mutedForeground }]}>
+                      {formatTimestamp(item.timestamp)}
+                    </Text>
+                  </View>
+                  <RespiBadge
+                    label={copy
+                      ? t(copy.statusKey, locale)
+                      : item.statusLabel || t('nurse.dashboard.status.unavailable', locale)}
+                    variant={item.priorityRank === 1 ? 'danger' : 'info'}
+                  />
                 </View>
-                <RespiBadge
-                  label={item.statusLabel || 'En attente'}
-                  variant={item.priorityRank === 1 ? 'danger' : 'info'}
-                />
-              </View>
-              <Text style={[styles.itemTitle, { color: colors.foreground }]}>{item.title}</Text>
-              {item.description ? <Text style={[styles.itemSubtitle, { color: colors.mutedForeground }]}>{item.description}</Text> : null}
-            </AppCard>
-          ))
+                <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+                  {copy ? t(copy.titleKey, locale) : item.title}
+                </Text>
+                {item.description ? (
+                  <Text style={[styles.itemSubtitle, { color: colors.mutedForeground }]}>
+                    {copy ? t(copy.descriptionKey, locale) : item.description}
+                  </Text>
+                ) : null}
+              </AppCard>
+            );
+          })
         )}
 
         {/* 4. Priority Roster Quick Access */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Patients prioritaires</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('patients')}>
-            <Text style={[styles.seeAllText, { color: colors.primary }]}>Voir tous →</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {t('nurse.dashboard.priorityPatients', locale)}
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('patients')}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.seeAllText, { color: colors.primary }]}>
+              {t('nurse.dashboard.seeAll', locale)} →
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -210,16 +340,25 @@ export default function NurseDashboardScreen({ navigation }: any) {
             <View style={styles.rosterRow}>
               <View style={[styles.rosterAvatar, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.rosterAvatarText, { color: colors.primaryForeground }]}>
-                  {patient.patientName?.substring(0, 2).toUpperCase() || 'PT'}
+                  {demoPatientLetters[patient.patientId] || '•'}
                 </Text>
               </View>
               <View style={styles.rosterInfo}>
-                <Text style={[styles.rosterName, { color: colors.foreground }]}>{patient.patientName}</Text>
-                <Text style={[styles.rosterCondition, { color: colors.mutedForeground }]}>{patient.condition || 'BPCO Sévère'}</Text>
+                <Text style={[styles.rosterName, { color: colors.foreground }]}>
+                  {displayPatientName(patient.patientId, patient.patientName)}
+                </Text>
+                <Text style={[styles.rosterCondition, { color: colors.mutedForeground }]}>
+                  {displayCondition(patient.condition)}
+                </Text>
               </View>
               <RespiBadge
-                label={patient.hasNewSubmission ? 'Nouveau suivi' : 'Stable'}
-                variant={patient.hasNewSubmission ? 'warning' : 'success'}
+                label={t(
+                  patient.hasNewSubmission
+                    ? 'nurse.dashboard.status.newCheckIn'
+                    : 'nurse.dashboard.status.noNewCheckIn',
+                  locale,
+                )}
+                variant={patient.hasNewSubmission ? 'warning' : 'info'}
               />
             </View>
           </AppCard>
@@ -232,6 +371,19 @@ export default function NurseDashboardScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.screenPadding, gap: spacing.md },
+  demoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: shapes.md,
+  },
+  demoNoticeText: {
+    flex: 1,
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.xs,
+    lineHeight: 18,
+  },
   ruleButton: {
     padding: spacing.xs,
     borderRadius: shapes.sm,
@@ -333,6 +485,9 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.openSans,
     fontSize: typography.fontSize.xs,
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: spacing.sm,
   },
   workItemCard: {
     padding: spacing.md,

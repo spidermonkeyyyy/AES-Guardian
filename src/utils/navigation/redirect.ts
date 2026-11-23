@@ -24,13 +24,14 @@ export function resolveRedirect(params: {
       return null;
     case 'unauthenticated':
       return isAuthRoute ? null : '/auth-gate';
-    case 'authenticated':
+    case 'authenticated': {
       if (isAuthRoute) return roleHome;
       const inNurseArea = location.startsWith('/nurse');
       const inPatientArea = location.startsWith('/patient');
       if (nurseSide && inPatientArea) return '/nurse/dashboard';
       if (!nurseSide && inNurseArea) return '/patient/home';
       return null;
+    }
     default:
       return null;
   }

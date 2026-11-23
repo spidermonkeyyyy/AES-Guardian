@@ -141,6 +141,7 @@ describe('Phase 2D.2G — Notification Centre UI & Interaction Integration', () 
       'notificationCentre.markAllReadConfirm',
       'notificationCentre.confirm',
       'notificationCentre.cancel',
+      'notificationCentre.retry',
       'notificationCentre.unread',
       'notificationCentre.read',
       'notificationCentre.today',
@@ -207,8 +208,15 @@ describe('Phase 2D.2G — Notification Centre UI & Interaction Integration', () 
       );
 
       await waitFor(() => {
-        // Title should be rendered
-        expect(getByText('Revue administrative finalisée')).toBeTruthy();
+        const title = getByText('Revue administrative finalisée');
+        const message = getByText(
+          t('notification.reviewCompleted.message', 'fr').replace(
+            '{reference}',
+            'AES-2026-TEST-01',
+          ),
+        );
+        expect(title.props.numberOfLines).toBeUndefined();
+        expect(message.props.numberOfLines).toBeUndefined();
         // Unread badge text
         expect(getAllByText(t('notificationCentre.unread', 'fr')).length).toBeGreaterThan(0);
       });

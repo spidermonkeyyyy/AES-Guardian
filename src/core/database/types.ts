@@ -625,6 +625,21 @@ export interface CreatePreventionActionInput {
   target_date?: string | null;
 }
 
+export type CapaCreationOperationStatus = 'pending' | 'committed';
+
+export interface CapaCreationOperation {
+  operation_id: string;
+  created_by_user_id: number;
+  payload_json: string;
+  payload_hash: string;
+  reference_code: string;
+  status: CapaCreationOperationStatus;
+  prevention_action_id: number | null;
+  created_at: string;
+  updated_at: string;
+  acknowledged_at: string | null;
+}
+
 /** Filters for querying the prevention action register */
 export interface PreventionActionFilters {
   status?: PreventionActionStatus;

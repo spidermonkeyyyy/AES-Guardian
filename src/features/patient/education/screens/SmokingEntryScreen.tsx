@@ -103,7 +103,7 @@ const SmokingEntryScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 32 },
   header: { fontSize: 24, fontWeight: '700', color: colors.primary, marginBottom: 16 },
@@ -122,7 +122,7 @@ function createStyles(colors: any) {
   saveButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
   cancelButton: { paddingVertical: 12, alignItems: 'center', marginTop: 8 },
   cancelText: { color: colors.primary, fontSize: 14, fontWeight: '500' },
-}
+});
 }
 
 export default SmokingEntryScreen;

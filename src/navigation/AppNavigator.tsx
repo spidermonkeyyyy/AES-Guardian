@@ -1,7 +1,8 @@
+import AppText from '../components/AppText';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { useEffect, useState } from 'react';
 import { spacing, typography, shapes } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
@@ -11,6 +12,7 @@ import { isNurseSideRole } from '../utils/navigation/redirect';
 // Screens
 import SplashScreen from '../features/authentication/screens/SplashScreen';
 import AuthGateScreen from '../features/authentication/screens/AuthGateScreen';
+import AccessScreen from '../features/authentication/screens/AccessScreen';
 import LoginScreen from '../features/authentication/screens/LoginScreen';
 import RegisterScreen from '../features/authentication/screens/RegisterScreen';
 import ForgotPasswordScreen from '../features/authentication/screens/ForgotPasswordScreen';
@@ -64,9 +66,16 @@ import {
   NotificationCentreScreen,
 } from '../features/aes-guardian';
 
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '../components/AppIcon';
 
 import { RootStackParamList, PatientTabParamList, NurseTabParamList } from './routes';
+import {
+  DirectionalStackBackButton,
+  DirectionalStackHeaderTitle,
+  getDirectionalStackBackSide,
+  getLocalizedStackTitle,
+} from './DirectionalStackBackButton';
+import { useLocale } from '../localization';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const PatientTabs = createBottomTabNavigator<PatientTabParamList>();
@@ -234,12 +243,12 @@ function SessionExpiryModal({ visible, onDismiss }: { visible: boolean; onDismis
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={modalStyles.overlay}>
         <View style={[modalStyles.card, { backgroundColor: colors.surface }]}>
-          <Text style={[modalStyles.title, { color: colors.foreground }]}>Session Expired</Text>
-          <Text style={[modalStyles.body, { color: colors.mutedForeground }]}>
+          <AppText style={[modalStyles.title, { color: colors.foreground }]}>Session Expired</AppText>
+          <AppText style={[modalStyles.body, { color: colors.mutedForeground }]}>
             For your security, your session has expired. Please sign in again to continue.
-          </Text>
+          </AppText>
           <TouchableOpacity style={[modalStyles.button, { backgroundColor: colors.primary }]} onPress={onDismiss}>
-            <Text style={[modalStyles.buttonText, { color: colors.primaryForeground }]}>Sign In Again</Text>
+            <AppText style={[modalStyles.buttonText, { color: colors.primaryForeground }]}>Sign In Again</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -257,6 +266,7 @@ const modalStyles = StyleSheet.create({
 });
 
 export default function AppNavigator() {
+  const locale = useLocale();
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
   const errorMessage = useAuthStore((s) => s.errorMessage);
@@ -294,12 +304,33 @@ export default function AppNavigator() {
   return (
     <>
       <NavigationContainer theme={navTheme}>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+          screenOptions={({ route }) => {
+            const backSide = getDirectionalStackBackSide(locale);
+            return {
+              headerShown: false,
+              headerBackVisible: false,
+              headerLeft: backSide === 'left'
+                ? () => <DirectionalStackBackButton side="left" />
+                : undefined,
+              headerRight: backSide === 'right'
+                ? () => <DirectionalStackBackButton side="right" />
+                : undefined,
+              headerTitleAlign: 'center',
+              headerTitle: ({ children }) => (
+                <DirectionalStackHeaderTitle>
+                  {getLocalizedStackTitle(route.name, children, locale)}
+                </DirectionalStackHeaderTitle>
+              ),
+            };
+          }}
+        >
           {status === 'initializing' ? (
             <Stack.Screen name="splash" component={SplashScreen} />
           ) : status === 'unauthenticated' || status === 'error' ? (
             <>
               <Stack.Screen name="authGate" component={AuthGateScreen} />
+              <Stack.Screen name="access" component={AccessScreen} options={{ headerShown: true }} />
               <Stack.Screen name="aesSplash" component={AesSplashScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesWelcomeCarousel" component={WelcomeCarouselScreen} options={{ headerShown: false }} />
@@ -397,6 +428,7 @@ export default function AppNavigator() {
           ) : (
             <>
               <Stack.Screen name="authGate" component={AuthGateScreen} />
+              <Stack.Screen name="access" component={AccessScreen} options={{ headerShown: true }} />
               <Stack.Screen name="aesSplash" component={AesSplashScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
               <Stack.Screen name="aesWelcomeCarousel" component={WelcomeCarouselScreen} options={{ headerShown: false }} />

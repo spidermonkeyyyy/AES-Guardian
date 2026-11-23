@@ -5,6 +5,7 @@ import { PreventionActionRegisterScreen } from '../screens/PreventionActionRegis
 import { useDemoRoleStore } from '../../../core/auth/use-demo-role';
 import { setLocale, t } from '../../../localization';
 import type { PreventionAction } from '../../../core/database/types';
+import { formatPreventionDate } from '../prevention-date-format';
 
 const mockNavigate = jest.fn();
 const mockListPreventionActions = jest.fn();
@@ -25,13 +26,6 @@ jest.mock('../../../core', () => {
       listPreventionActions: mockListPreventionActions,
     })),
   };
-});
-
-jest.mock('react-native-vector-icons/Feather', () => {
-  const ReactRuntime = require('react');
-  const { Text: NativeText } = require('react-native');
-  return ({ name }: { name: string }) =>
-    ReactRuntime.createElement(NativeText, { testID: `icon-${name}` }, name);
 });
 
 const actions: PreventionAction[] = [
@@ -134,7 +128,7 @@ describe('PreventionActionRegisterScreen AES UI', () => {
     expect(getByTestId('prevention-register-action-target-date-21').props.children).toEqual([
       t('prevention.detail.targetDate'),
       ': ',
-      '2026-12-15',
+      formatPreventionDate('2026-12-15', 'fr'),
     ]);
   });
 
@@ -238,7 +232,6 @@ describe('PreventionActionRegisterScreen AES UI', () => {
     const { getByTestId, queryByTestId } = await renderRegister();
     await waitForAct(() => expect(getByTestId('prevention-register-detail-21')).toBeTruthy());
     await waitForAct(() => expect(queryByTestId('prevention-register-loading')).toBeNull());
-
     fireEvent.press(getByTestId('prevention-register-detail-21'));
     expect(mockNavigate).toHaveBeenCalledWith('preventionActionDetail', { actionId: 21 });
   });

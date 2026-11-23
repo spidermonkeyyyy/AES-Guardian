@@ -124,14 +124,6 @@ export const DemoAccountPickerScreen: React.FC = () => {
           >
             {t('onboarding.picker.title', locale)}
           </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { textAlign: rtl ? 'right' : 'left' },
-            ]}
-          >
-            {t('onboarding.picker.subtitle', locale)}
-          </Text>
         </View>
 
         {/* Informative Synthetic Identity Banner */}
@@ -201,11 +193,6 @@ const styles = StyleSheet.create({
     ...aesTypography.heading1,
     color: aesColors.textPrimary,
   },
-  subtitle: {
-    ...aesTypography.bodySmall,
-    color: aesColors.textSecondary,
-    lineHeight: 18,
-  },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -217,7 +204,7 @@ const styles = StyleSheet.create({
     marginBottom: aesSpacing.sm,
   },
   bannerIcon: {
-    marginRight: aesSpacing.sm,
+    marginEnd: aesSpacing.sm,
   },
   bannerText: {
     ...aesTypography.bodySmall,

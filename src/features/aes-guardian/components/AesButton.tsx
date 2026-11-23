@@ -1,15 +1,12 @@
 /**
  * AES Guardian — Reusable Button Component
  *
- * Implements 48px height pill action buttons across primary (near-black),
- * secondary (light grey surface), clinical green, and outline variants
- * per UI Blueprint Section 5.1 & Section 5.2.
+ * Theme-aware pill action buttons with primary, secondary, outline, green, and danger variants.
  */
 
 import React from 'react';
 import {
   TouchableOpacity,
-  Text,
   ActivityIndicator,
   StyleSheet,
   StyleProp,
@@ -17,12 +14,9 @@ import {
   TextStyle,
   View,
 } from 'react-native';
-import {
-  aesColors,
-  aesTypography,
-  aesSpacing,
-  aesRadii,
-} from '../../../theme/tokens';
+import { aesSpacing, aesRadii } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/ThemeContext';
+import { AppText } from '../../../components/AppText';
 
 export type AesButtonVariant =
   | 'primary'
@@ -60,52 +54,31 @@ export const AesButton: React.FC<AesButtonProps> = ({
   testID,
   accessibilityLabel,
 }) => {
+  const { colors } = useTheme();
   const isInteractive = !disabled && !loading;
-
-  const getContainerStyle = (): ViewStyle => {
-    if (disabled) {
-      return styles.disabledContainer;
-    }
-    switch (variant) {
-      case 'secondary':
-        return styles.secondaryContainer;
-      case 'outline':
-        return styles.outlineContainer;
-      case 'green':
-        return styles.greenContainer;
-      case 'danger':
-        return styles.dangerContainer;
-      case 'primary':
-      default:
-        return styles.primaryContainer;
-    }
-  };
-
-  const getTextStyle = (): TextStyle => {
-    if (disabled) {
-      return styles.disabledText;
-    }
-    switch (variant) {
-      case 'secondary':
-        return styles.secondaryText;
-      case 'outline':
-        return styles.outlineText;
-      case 'green':
-        return styles.greenText;
-      case 'danger':
-        return styles.dangerText;
-      case 'primary':
-      default:
-        return styles.primaryText;
-    }
-  };
+  const palette =
+    disabled
+      ? { backgroundColor: colors.muted, color: colors.mutedForeground, borderColor: colors.muted }
+      : variant === 'secondary'
+        ? { backgroundColor: colors.secondary, color: colors.secondaryForeground, borderColor: colors.secondary }
+        : variant === 'outline'
+          ? { backgroundColor: 'transparent', color: colors.primary, borderColor: colors.border }
+          : variant === 'danger'
+            ? { backgroundColor: colors.destructive, color: colors.destructiveForeground, borderColor: colors.destructive }
+              : variant === 'green'
+                ? { backgroundColor: colors.success, color: colors.successForeground, borderColor: colors.success }
+                : { backgroundColor: colors.primary, color: colors.primaryForeground, borderColor: colors.primary };
 
   return (
     <TouchableOpacity
       style={[
         styles.baseContainer,
         fullWidth && styles.fullWidth,
-        getContainerStyle(),
+        {
+          backgroundColor: palette.backgroundColor,
+          borderColor: palette.borderColor,
+          borderWidth: variant === 'outline' ? 1 : 0,
+        },
         style,
       ]}
       onPress={onPress}
@@ -121,8 +94,8 @@ export const AesButton: React.FC<AesButtonProps> = ({
           size="small"
           color={
             variant === 'secondary' || variant === 'outline'
-              ? aesColors.textPrimary
-              : aesColors.textInverse
+              ? colors.primary
+              : palette.color
           }
         />
       ) : (
@@ -130,9 +103,9 @@ export const AesButton: React.FC<AesButtonProps> = ({
           {icon && iconPosition === 'left' ? (
             <View style={styles.iconLeft}>{icon}</View>
           ) : null}
-          <Text style={[styles.baseText, getTextStyle(), textStyle]}>
+          <AppText variant="label" style={[styles.baseText, { color: palette.color }, textStyle]}>
             {title}
-          </Text>
+          </AppText>
           {icon && iconPosition === 'right' ? (
             <View style={styles.iconRight}>{icon}</View>
           ) : null}
@@ -160,54 +133,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   baseText: {
-    ...aesTypography.button,
     textAlign: 'center',
   },
-  // Variants
-  primaryContainer: {
-    backgroundColor: aesColors.primaryAction,
-  },
-  primaryText: {
-    color: aesColors.textInverse,
-  },
-  secondaryContainer: {
-    backgroundColor: aesColors.secondaryAction,
-  },
-  secondaryText: {
-    color: aesColors.textPrimary,
-  },
-  outlineContainer: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: aesColors.borderMedium,
-  },
-  outlineText: {
-    color: aesColors.textPrimary,
-  },
-  greenContainer: {
-    backgroundColor: aesColors.accentGreen,
-  },
-  greenText: {
-    color: aesColors.textInverse,
-  },
-  dangerContainer: {
-    backgroundColor: aesColors.banners.error.text,
-  },
-  dangerText: {
-    color: aesColors.textInverse,
-  },
-  // Disabled
-  disabledContainer: {
-    backgroundColor: aesColors.primaryActionDisabled,
-    borderColor: aesColors.primaryActionDisabled,
-  },
-  disabledText: {
-    color: aesColors.textTertiary,
-  },
   iconLeft: {
-    marginRight: aesSpacing.sm,
+    marginEnd: aesSpacing.sm,
   },
   iconRight: {
-    marginLeft: aesSpacing.sm,
+    marginStart: aesSpacing.sm,
   },
 });

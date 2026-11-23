@@ -52,7 +52,7 @@ const RehabilitationScreen: React.FC<{ onExercisePress: (exerciseId: string) => 
   if (isLoading && !program) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="colors.primary" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.skeletonHint}>Chargement de votre programme...</Text>
       </View>
     );
@@ -94,7 +94,7 @@ const RehabilitationScreen: React.FC<{ onExercisePress: (exerciseId: string) => 
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="colors.primary" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       <Text style={styles.title}>Votre programme</Text>
       <Text style={styles.subtitle}>{program.description}</Text>
@@ -164,7 +164,7 @@ const RehabilitationScreen: React.FC<{ onExercisePress: (exerciseId: string) => 
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colors.background },
@@ -209,7 +209,7 @@ function createStyles(colors: any) {
   retryButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: colors.primary, marginBottom: 8, textAlign: 'center' },
   emptyBody: { fontSize: 14, color: colors.mutedForeground, textAlign: 'center', marginBottom: 16 },
-}
+});
 }
 
 export default RehabilitationScreen;

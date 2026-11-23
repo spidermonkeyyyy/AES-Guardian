@@ -8,15 +8,16 @@
 import React from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
-import { aesColors, aesTypography, aesSpacing, aesRadii } from '../../../theme/tokens';
-import { useLocale, isRTL } from '../../../localization';
+import { aesSpacing, aesRadii } from '../../../theme/tokens';
+import { useLocale, isRTL, t } from '../../../localization';
+import { useTheme } from '../../../theme/ThemeContext';
+import { AppIcon } from '../../../components/AppIcon';
+import { AppText } from '../../../components/AppText';
 
 export interface AesScreenHeaderProps {
   title: string;
@@ -38,63 +39,75 @@ export const AesScreenHeader: React.FC<AesScreenHeaderProps> = ({
   rightElement,
   badge,
   style,
-  titleColor = aesColors.textPrimary,
+  titleColor,
   testID,
 }) => {
   const locale = useLocale();
   const rtl = isRTL(locale);
+  const { colors } = useTheme();
 
   return (
     <View style={[styles.headerContainer, style]} testID={testID}>
       <View style={styles.topRow}>
         {onBack ? (
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: colors.muted }]}
             onPress={onBack}
             accessibilityRole="button"
-            accessibilityLabel="Retour"
+            accessibilityLabel={t('app.back', locale)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Icon
+            <AppIcon
               name={rtl ? 'chevron-right' : 'chevron-left'}
-              size={24}
-              color={aesColors.textPrimary}
+              size={22}
+              color={colors.foreground}
             />
           </TouchableOpacity>
         ) : (
           <View style={styles.spacer} />
         )}
 
-        <View style={styles.rightSlot}>{rightElement}</View>
+        <View
+          style={[styles.rightSlot, { alignItems: rtl ? 'flex-start' : 'flex-end' }]}
+        >
+          {rightElement}
+        </View>
       </View>
 
       <View style={styles.contentColumn}>
         {overline ? (
-          <Text style={[styles.overline, { textAlign: rtl ? 'right' : 'left' }]}>
+          <AppText
+            variant="caption"
+            tone="muted"
+            style={[styles.overline, { textAlign: rtl ? 'right' : 'left' }]}
+          >
             {overline}
-          </Text>
+          </AppText>
         ) : null}
 
         <View style={styles.titleRow}>
-          <Text
+          <AppText
+            variant="title"
             style={[
               styles.title,
-              { color: titleColor, textAlign: rtl ? 'right' : 'left' },
+              { color: titleColor ?? colors.foreground, textAlign: rtl ? 'right' : 'left' },
             ]}
             numberOfLines={2}
           >
             {title}
-          </Text>
+          </AppText>
           {badge ? <View style={styles.badgeSlot}>{badge}</View> : null}
         </View>
 
         {subtitle ? (
-          <Text
+          <AppText
+            variant="body"
+            tone="muted"
             style={[styles.subtitle, { textAlign: rtl ? 'right' : 'left' }]}
             numberOfLines={3}
           >
             {subtitle}
-          </Text>
+          </AppText>
         ) : null}
       </View>
     </View>
@@ -120,7 +133,6 @@ const styles = StyleSheet.create({
     borderRadius: aesRadii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: aesColors.surfaceSubdued,
   },
   spacer: {
     width: 40,
@@ -134,8 +146,9 @@ const styles = StyleSheet.create({
     gap: aesSpacing.xs,
   },
   overline: {
-    ...aesTypography.overline,
-    color: aesColors.textSecondary,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   titleRow: {
     flexDirection: 'row',
@@ -144,14 +157,12 @@ const styles = StyleSheet.create({
     gap: aesSpacing.sm,
   },
   title: {
-    ...aesTypography.heading1,
+    flexShrink: 1,
   },
   badgeSlot: {
-    marginLeft: aesSpacing.xs,
+    marginStart: aesSpacing.xs,
   },
   subtitle: {
-    ...aesTypography.bodySmall,
-    color: aesColors.textSecondary,
     marginTop: aesSpacing.xs,
   },
 });

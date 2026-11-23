@@ -1,9 +1,10 @@
+import AppText from '../../../components/AppText';
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { spacing, typography } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 import { useAuthStore } from '../hooks/use-auth-store';
-import { BreathingAnimation } from '../widgets/BreathingAnimation';
+import { SanadLogo } from '../../../components';
 
 export default function SplashScreen({ navigation }: any) {
   const { colors } = useTheme();
@@ -29,14 +30,12 @@ export default function SplashScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.spacer} />
       <View style={styles.logoContainer}>
-        <BreathingAnimation size={140} />
+        <SanadLogo size="large" showText={false} />
       </View>
-      <Text style={[styles.wordmark, { color: colors.primary }]}>Sanad</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>سند — RespiraCare</Text>
-      <Text style={[styles.tagline, { color: colors.mutedForeground }]}>Breathe easier with remote care</Text>
+      <AppText style={[styles.wordmark, { color: colors.primary }]}>SANAD</AppText>
       <View style={styles.spacer} />
       <ActivityIndicator size="small" color={colors.primary} style={styles.indicator} />
-      <Text style={[styles.version, { color: colors.mutedForeground }]}>v1.0.0</Text>
+      <AppText style={[styles.version, { color: colors.mutedForeground }]}>v1.0.0</AppText>
     </View>
   );
 }
@@ -57,18 +56,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     textAlign: 'center',
     letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.sm,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  tagline: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.md,
-    textAlign: 'center',
-    marginTop: spacing.xs,
   },
   indicator: {
     marginVertical: spacing.sm,

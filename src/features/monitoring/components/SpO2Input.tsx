@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
-import { evaluateSubmission } from '../../../utils/clinical/rule-engine';
 import { MeasurementSource } from '../../../types/monitoring';
+import { useLocale, t } from '../../../localization';
 
 interface SpO2InputProps {
   initialValue: number | null | undefined;
@@ -13,18 +13,20 @@ interface SpO2InputProps {
 
 export default function SpO2Input({ initialValue, measurementSource, onChanged }: SpO2InputProps) {
   const { colors } = useTheme();
+  const locale = useLocale();
   const [text, setText] = useState(initialValue !== null && initialValue !== undefined ? String(initialValue) : '');
   const [error, setError] = useState<string | null>(null);
+  const hasText = text.trim().length > 0;
 
   const validate = (raw: string) => {
     if (raw.trim().length === 0) {
-      setError('Veuillez saisir une valeur de SpO₂');
+      setError(t('monitoring.spo2.errorRequired', locale));
       onChanged(null);
       return;
     }
     const val = Number(raw.trim());
     if (!Number.isFinite(val) || val < 70 || val > 100) {
-      setError('Veuillez entrer une valeur valide entre 70% et 100%');
+      setError(t('monitoring.spo2.errorRange', locale));
       onChanged(null);
       return;
     }
@@ -33,7 +35,8 @@ export default function SpO2Input({ initialValue, measurementSource, onChanged }
   };
 
   const step = (delta: number) => {
-    const current = Number.isFinite(Number(text)) ? Number(text) : 95;
+    const current = Number(text);
+    if (!text.trim() || !Number.isFinite(current)) return;
     const next = Math.max(70, Math.min(100, current + delta));
     const nextStr = String(next);
     setText(nextStr);
@@ -44,16 +47,22 @@ export default function SpO2Input({ initialValue, measurementSource, onChanged }
     <View>
       <View style={[styles.badge, { borderColor: colors.primary + '33', backgroundColor: colors.primary + '14' }]}>
         <Text style={[styles.badgeText, { color: colors.primary }]}>
-          {measurementSource === 'bluetooth' ? 'Mesure Oxymètre Bluetooth' : 'Mode de saisie : Manuelle'}
+          {t(
+            measurementSource === 'bluetooth'
+              ? 'monitoring.spo2.modeBluetooth'
+              : 'monitoring.spo2.modeManual',
+            locale,
+          )}
         </Text>
       </View>
 
       <View style={styles.stepper}>
         <TouchableOpacity
           onPress={() => step(-1)}
-          style={[styles.stepperButton, { backgroundColor: colors.secondary }]}
+          style={[styles.stepperButton, { backgroundColor: colors.secondary }, !hasText && styles.disabled]}
+          disabled={!hasText}
           accessibilityRole="button"
-          accessibilityLabel="Diminuer la saturation"
+          accessibilityLabel={t('monitoring.spo2.decrease', locale)}
         >
           <Text style={[styles.stepperText, { color: colors.foreground }]}>−</Text>
         </TouchableOpacity>
@@ -63,32 +72,44 @@ export default function SpO2Input({ initialValue, measurementSource, onChanged }
             value={text}
             onChangeText={(t) => { setText(t); validate(t); }}
             keyboardType="numeric"
+            placeholder={t('monitoring.spo2.placeholder', locale)}
+            placeholderTextColor={colors.mutedForeground}
             textAlign="center"
             style={[styles.input, { color: colors.foreground }]}
-            accessibilityLabel="Valeur de SpO₂ en pourcentage"
+            accessibilityLabel={t('monitoring.spo2.accessibility', locale)}
           />
           <Text style={[styles.suffix, { color: colors.mutedForeground }]}>%</Text>
         </View>
 
         <TouchableOpacity
           onPress={() => step(1)}
-          style={[styles.stepperButton, { backgroundColor: colors.secondary }]}
+          style={[styles.stepperButton, { backgroundColor: colors.secondary }, !hasText && styles.disabled]}
+          disabled={!hasText}
           accessibilityRole="button"
-          accessibilityLabel="Augmenter la saturation"
+          accessibilityLabel={t('monitoring.spo2.increase', locale)}
         >
           <Text style={[styles.stepperText, { color: colors.foreground }]}>+</Text>
         </TouchableOpacity>
       </View>
 
-      {error ? <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
+      {error ? (
+        <Text
+          style={[styles.error, { color: colors.destructive }]}
+          accessibilityLiveRegion="polite"
+        >
+          {error}
+        </Text>
+      ) : null}
 
       <TouchableOpacity
         onPress={() => { setText(''); setError(null); onChanged(null); }}
         style={styles.noMeasure}
         accessibilityRole="button"
-        accessibilityLabel="Je n'ai pas de mesure pour le moment"
+        accessibilityLabel={t('monitoring.spo2.noMeasurement', locale)}
       >
-        <Text style={[styles.noMeasureText, { color: colors.mutedForeground }]}>Je n'ai pas de mesure pour le moment</Text>
+        <Text style={[styles.noMeasureText, { color: colors.mutedForeground }]}>
+          {t('monitoring.spo2.noMeasurement', locale)}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -106,6 +127,7 @@ const styles = StyleSheet.create({
   badgeText: { fontWeight: typography.fontWeight.semibold, fontSize: typography.fontSize.sm, fontFamily: typography.fontFamily.openSans },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[4] },
   stepperButton: { width: 48, height: 48, borderRadius: shapes.sm, alignItems: 'center', justifyContent: 'center' },
+  disabled: { opacity: 0.45 },
   stepperText: { fontSize: 24, fontWeight: typography.fontWeight.medium },
   inputContainer: { flexDirection: 'row', alignItems: 'center', width: 120, borderWidth: 1, borderRadius: shapes.sm, paddingHorizontal: spacing[2] },
   input: { flex: 1, fontSize: 32, fontWeight: typography.fontWeight.bold, textAlign: 'center', fontFamily: typography.fontFamily.urbanist, paddingVertical: spacing[2] },

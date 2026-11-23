@@ -12,12 +12,11 @@
  * - Role boundary: exposed_professional. Zero clinical milestone prescriptions.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,36 +33,15 @@ import { AesScreenContainer, AesButton, AesCard } from '../components';
 import { RootStackParamList } from '../../../navigation/routes';
 
 type ParamList = {
-  submissionConfirmation: { referenceNumber: string };
+  submissionConfirmation: { referenceNumber?: string };
 };
 
 export const SubmissionConfirmationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<ParamList, 'submissionConfirmation'>>();
-  const referenceNumber = route.params?.referenceNumber || 'AES-REF';
+  const referenceNumber = route.params?.referenceNumber?.trim();
   const locale = useLocale();
   const rtl = isRTL(locale);
-
-  const [copied, setCopied] = useState(false);
-  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current) {
-        clearTimeout(copyTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleCopyReference = () => {
-    setCopied(true);
-    if (copyTimeoutRef.current) {
-      clearTimeout(copyTimeoutRef.current);
-    }
-    copyTimeoutRef.current = setTimeout(() => {
-      setCopied(false);
-    }, 2500);
-  };
 
   const handleReturnToDeclarations = () => {
     navigation.navigate('declarations' as any);
@@ -89,31 +67,13 @@ export const SubmissionConfirmationScreen: React.FC = () => {
           {/* Monospace Reference Code Box */}
           <View style={styles.referenceContainer}>
             <Text style={styles.referenceLabel}>{t('confirm.refNumber', locale)}</Text>
-            <Text style={styles.referenceValue} testID="confirmation-reference-number">
-              {referenceNumber}
-            </Text>
-
-            <TouchableOpacity
-              style={styles.copyButton}
-              onPress={handleCopyReference}
-              accessibilityRole="button"
-              accessibilityLabel={t('confirm.copy', locale)}
-              testID="confirmation-copy-button"
+            <Text
+              style={styles.referenceValue}
+              testID="confirmation-reference-number"
+              selectable={Boolean(referenceNumber)}
             >
-              <Icon
-                name={copied ? 'check' : 'copy'}
-                size={14}
-                color={copied ? aesColors.accentGreen : aesColors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.copyButtonText,
-                  copied && styles.copyButtonTextCopied,
-                ]}
-              >
-                {copied ? t('confirm.copied', locale) : t('confirm.copy', locale)}
-              </Text>
-            </TouchableOpacity>
+              {referenceNumber || t('list.refUnavailable', locale)}
+            </Text>
           </View>
 
           {/* Formal Confirmation Notice */}
@@ -215,27 +175,6 @@ const styles = StyleSheet.create({
     color: aesColors.primaryAction,
     letterSpacing: 1.5,
     marginVertical: 4,
-  },
-  copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: aesRadii.chip,
-    backgroundColor: aesColors.surface,
-    borderWidth: 1,
-    borderColor: aesColors.borderSubdued,
-    marginTop: 2,
-  },
-  copyButtonText: {
-    ...aesTypography.caption,
-    color: aesColors.textSecondary,
-    fontWeight: '500',
-  },
-  copyButtonTextCopied: {
-    color: aesColors.accentGreen,
-    fontWeight: '600',
   },
   messageText: {
     ...aesTypography.bodySmall,

@@ -1,5 +1,6 @@
+import AppText from './AppText';
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import { shapes, spacing, typography } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -36,7 +37,7 @@ export const RespiBadge: React.FC<RespiBadgeProps> = ({
 
   return (
     <View style={[styles.badge, { backgroundColor: currentVariant.bg }, style]}>
-      <Text style={[styles.label, { color: currentVariant.text }]}>{label}</Text>
+      <AppText style={[styles.label, { color: currentVariant.text }]}>{label}</AppText>
     </View>
   );
 };

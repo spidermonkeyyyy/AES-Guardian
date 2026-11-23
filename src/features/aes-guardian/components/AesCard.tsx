@@ -1,8 +1,7 @@
 /**
  * AES Guardian — Reusable Card Component
  *
- * Implements 16px surface radius, subtle light border (#EEEEEE),
- * soft elevation, and optional interactive press states per UI Blueprint Section 5.1.
+ * Theme-aware surface card with subtle elevation and optional press states.
  */
 
 import React from 'react';
@@ -13,7 +12,8 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import { aesColors, aesRadii, aesShadows, aesSpacing } from '../../../theme/tokens';
+import { aesRadii, aesShadows, aesSpacing } from '../../../theme/tokens';
+import { useTheme } from '../../../theme/ThemeContext';
 
 export interface AesCardProps {
   children: React.ReactNode;
@@ -40,10 +40,12 @@ export const AesCard: React.FC<AesCardProps> = ({
   accessibilityRole,
   accessibilityLabel,
 }) => {
+  const { colors } = useTheme();
   const cardStyles = [
     styles.card,
+    { backgroundColor: colors.card, borderColor: colors.border },
     elevated ? styles.elevated : styles.flat,
-    selected && styles.selected,
+    selected && { borderColor: colors.primary, borderWidth: 1.5 },
     accentBorderColor ? { borderColor: accentBorderColor } : null,
     style,
   ];
@@ -74,10 +76,8 @@ export const AesCard: React.FC<AesCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: aesColors.surface,
     borderRadius: aesRadii.card,
     borderWidth: 1,
-    borderColor: aesColors.borderSubdued,
     padding: aesSpacing.cardPadding,
     marginVertical: aesSpacing.xs,
   },
@@ -86,9 +86,5 @@ const styles = StyleSheet.create({
   },
   flat: {
     ...aesShadows.none,
-  },
-  selected: {
-    borderColor: aesColors.accentGreen,
-    borderWidth: 1.5,
   },
 });

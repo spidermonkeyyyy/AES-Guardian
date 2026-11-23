@@ -6,7 +6,7 @@
  * - Central in-memory demonstration role switching (Zustand)
  * - Authorized vs strictly restricted capabilities list per role
  * - Runtime multilingual language switcher (FR, EN, AR) with immediate UI update
- * - Prototype identity, SQLite schema version (v7) and ethical privacy boundaries
+ * - Prototype identity and ethical privacy boundaries
  * - Two-step confirmation maintenance data reset for tech_admin
  */
 
@@ -122,7 +122,7 @@ export const AesGuardianProfileScreen: React.FC = () => {
     if (activeRole !== 'tech_admin') {
       Alert.alert(
         t('reset.errorTitle', locale),
-        'Seul l’administrateur technique peut déclencher cette opération.',
+        t('profile.error.techAdminOnly', locale),
       );
       return;
     }
@@ -162,23 +162,28 @@ export const AesGuardianProfileScreen: React.FC = () => {
 
   const executeReset = async () => {
     if (!activeContext.userId) {
-      Alert.alert(t('reset.errorTitle', locale), 'ID utilisateur introuvable.');
+      Alert.alert(
+        t('reset.errorTitle', locale),
+        t('profile.error.userIdMissing', locale),
+      );
       return;
     }
     setResetting(true);
     try {
       const db = getDatabase();
-      const res = await db.resetDemoScenario(activeContext.userId);
+      await db.resetDemoScenario(activeContext.userId);
       setResetting(false);
       Alert.alert(
         t('reset.successTitle', locale),
-        `${t('reset.successMessage', locale)}\n\n• ${res.declarationsCount} déclarations\n• ${res.preventionActionsCount} actions CAPA\n• Journal d'audit réinitialisé`,
+        t('reset.successMessage', locale),
       );
-    } catch (err: any) {
+    } catch (error: unknown) {
       setResetting(false);
+      const detail =
+        error instanceof Error ? error.message : t('error.generic', locale);
       Alert.alert(
         t('reset.errorTitle', locale),
-        `${t('reset.errorMessage', locale)} ${err?.message || 'Erreur inconnue'}`,
+        `${t('reset.errorMessage', locale)} ${detail}`,
       );
     }
   };
@@ -205,9 +210,6 @@ export const AesGuardianProfileScreen: React.FC = () => {
           <View style={styles.profileInfo}>
             <View style={styles.profileNameRow}>
               <Text style={styles.displayName}>{activeContext.displayName}</Text>
-              <View style={styles.idChip}>
-                <Text style={styles.idChipText}>ID #{activeContext.userId}</Text>
-              </View>
             </View>
             <Text style={styles.roleLabel}>
               {t(activeDef.labelKey as any, locale) || activeDef.defaultLabel}
@@ -239,7 +241,7 @@ export const AesGuardianProfileScreen: React.FC = () => {
                 style={[styles.rolePill, isSelected && styles.rolePillActive]}
                 onPress={() => setRole(def.role)}
                 accessibilityRole="button"
-                accessibilityLabel={def.defaultLabel}
+                accessibilityLabel={t(def.labelKey as any, locale) || def.defaultLabel}
               >
                 <Text
                   style={[styles.rolePillText, isSelected && styles.rolePillTextActive]}
@@ -356,7 +358,7 @@ export const AesGuardianProfileScreen: React.FC = () => {
         >
           <View style={styles.linkLeft}>
             <Text style={styles.linkIcon}>✨</Text>
-            <Text style={styles.linkText}>Visite guidée & Découverte (Onboarding)</Text>
+            <Text style={styles.linkText}>{t('profile.guidedTourLink', locale)}</Text>
           </View>
           <Text style={styles.linkChevron}>›</Text>
         </TouchableOpacity>
@@ -387,9 +389,10 @@ export const AesGuardianProfileScreen: React.FC = () => {
             onPress={handleResetData}
             disabled={resetting}
             accessibilityRole="button"
+            accessibilityLabel={t('reset.buttonLabel', locale)}
           >
             {resetting ? (
-              <ActivityIndicator color="#ffffff" size="small" />
+              <ActivityIndicator color={colors.dangerForeground} size="small" />
             ) : (
               <Text style={styles.resetButtonText}>
                 ⚠️ {t('reset.buttonLabel', locale)}
@@ -406,12 +409,6 @@ export const AesGuardianProfileScreen: React.FC = () => {
         </Text>
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{t('profile.appNameLabel', locale)}</Text>
-        </View>
-        <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{t('profile.appVersionLabel', locale)}</Text>
-        </View>
-        <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{t('profile.schemaVersionLabel', locale)}</Text>
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{t('profile.dbEngineLabel', locale)}</Text>
@@ -498,16 +495,6 @@ function createStyles(colors: any) {
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
     },
-    idChip: {
-      backgroundColor: colors.surfaceVariant,
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 1,
-      borderRadius: shapes.sm,
-    },
-    idChipText: {
-      fontSize: typography.fontSize.xs - 2,
-      color: colors.mutedForeground,
-    },
     roleLabel: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.semibold,
@@ -557,14 +544,14 @@ function createStyles(colors: any) {
     subheadingGreen: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
-      color: '#059669',
+      color: colors.success,
       marginTop: spacing.xs,
       marginBottom: spacing.xs,
     },
     subheadingRed: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
-      color: '#DC2626',
+      color: colors.danger,
       marginTop: spacing.sm,
       marginBottom: spacing.xs,
     },
@@ -577,7 +564,7 @@ function createStyles(colors: any) {
     },
     checkIcon: {
       fontSize: 12,
-      color: '#059669',
+      color: colors.success,
       fontWeight: 'bold',
     },
     crossIcon: {
@@ -659,24 +646,24 @@ function createStyles(colors: any) {
       lineHeight: 18,
     },
     techCard: {
-      backgroundColor: '#FEF2F2',
+      backgroundColor: colors.dangerBackground,
       borderLeftWidth: 4,
-      borderLeftColor: '#DC2626',
+      borderLeftColor: colors.danger,
     },
     techTitle: {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.bold,
-      color: '#991B1B',
+      color: colors.danger,
       marginBottom: spacing.xs,
     },
     techDesc: {
       fontSize: typography.fontSize.xs - 1,
-      color: '#B91C1C',
+      color: colors.danger,
       lineHeight: 16,
       marginBottom: spacing.md,
     },
     resetButton: {
-      backgroundColor: '#DC2626',
+      backgroundColor: colors.danger,
       paddingVertical: spacing.sm,
       borderRadius: shapes.sm,
       alignItems: 'center',
@@ -686,7 +673,7 @@ function createStyles(colors: any) {
       opacity: 0.6,
     },
     resetButtonText: {
-      color: '#ffffff',
+      color: colors.dangerForeground,
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
     },

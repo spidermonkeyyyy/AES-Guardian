@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { spacing, typography, shapes } from '../../../theme/tokens';
-import { AppHeader, AppCard, RespiBadge } from '../../../components';
+import { AppHeader, AppCard } from '../../../components';
 import { useTheme } from '../../../theme/ThemeContext';
+import { useLocale, t, isRTL } from '../../../localization';
 
 interface ConversationItem {
   id: string;
@@ -17,24 +18,24 @@ interface ConversationItem {
 const mockConversations: ConversationItem[] = [
   {
     id: '1',
-    patientName: 'Jean Dupont',
-    lastMessage: 'J\'ai eu une légère toux ce matin mais ça va mieux.',
+    patientName: 'Patient exemple A',
+    lastMessage: 'Exemple local : aucune donnée réelle n’est envoyée.',
     timestamp: '09:42',
     unreadCount: 1,
     priority: 'high',
   },
   {
     id: '2',
-    patientName: 'Marie Curie',
-    lastMessage: 'Mon taux SpO2 est remonté à 97% après les exercices.',
+    patientName: 'Patient exemple B',
+    lastMessage: 'Exemple local : l’historique est fictif.',
     timestamp: 'Hier',
     unreadCount: 0,
     priority: 'normal',
   },
   {
     id: '3',
-    patientName: 'Ahmed Benali',
-    lastMessage: 'Est-ce que je peux décaler la prise de Spiriva ?',
+    patientName: 'Patient exemple C',
+    lastMessage: 'Exemple local : aucune réponse ne sera enregistrée.',
     timestamp: '15 Sept',
     unreadCount: 0,
     priority: 'medium',
@@ -43,17 +44,28 @@ const mockConversations: ConversationItem[] = [
 
 export default function NurseMessagesScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const rtl = isRTL(locale);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader title="Messages Patients" />
+    <View style={[styles.container, { backgroundColor: colors.background, direction: rtl ? 'rtl' : 'ltr' }]}>
+      <AppHeader title={t('nurse.messages.title', locale)} />
+      <View style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
+        <Icon name="info" size={18} color={colors.info} />
+        <Text style={[styles.demoText, { color: colors.foreground }]}>
+          {t('nurse.messages.demoNotice', locale)}
+        </Text>
+      </View>
       <FlatList
         data={mockConversations}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity activeOpacity={0.7} onPress={() => {
-  const { colors } = useTheme();}}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            disabled
+            accessibilityLabel={t('nurse.messages.previewOnly', locale)}
+          >
             <AppCard variant="outlined" style={styles.card}>
               <View style={styles.row}>
                 <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
@@ -88,6 +100,21 @@ export default function NurseMessagesScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  demoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: shapes.md,
+  },
+  demoText: {
+    flex: 1,
+    fontFamily: typography.fontFamily.openSans,
+    fontSize: typography.fontSize.xs,
+    lineHeight: 18,
+  },
   list: { padding: spacing.lg, gap: spacing.sm },
   card: { padding: spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

@@ -106,7 +106,7 @@ const SmokingProgressScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colors.background },
@@ -138,7 +138,7 @@ function createStyles(colors: any) {
   historyTrigger: { fontSize: 11, color: colors.mutedForeground },
   backButton: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
   backButtonText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
-}
+});
 }
 
 export default SmokingProgressScreen;

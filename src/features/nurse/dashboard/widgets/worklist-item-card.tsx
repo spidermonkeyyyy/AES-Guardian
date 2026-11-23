@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../../../theme/ThemeContext';
 import { NurseWorklistItem } from '../../../../types/dashboard';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
 
 const TYPE_LABEL: Record<NurseWorklistItem['type'], string> = {
   alert: 'Alerte',
@@ -9,15 +10,14 @@ const TYPE_LABEL: Record<NurseWorklistItem['type'], string> = {
   task: 'Tâche',
 };
 
-const PRIORITY_COLOR: Record<string, string> = {
-  high: colors.destructive,
-  reviewRequired: colors.warning,
-  informational: colors.mutedForeground,
-};
-
 export function WorklistItemCard({ item, onPress }: { item: NurseWorklistItem; onPress?: (item: NurseWorklistItem) => void }) {
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const PRIORITY_COLOR: Record<string, string> = {
+    high: colors.destructive,
+    reviewRequired: colors.warning,
+    informational: colors.mutedForeground,
+  };
   const color = PRIORITY_COLOR[item.priorityRank != null ? String(item.priorityRank) : 'informational'] ?? colors.mutedForeground;
 
   return (
@@ -49,7 +49,7 @@ function formatTime(iso: string): string {
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -102,6 +102,6 @@ function createStyles(colors: any) {
     fontSize: 12,
     color: colors.mutedForeground,
   },
-}
+});
 
 }

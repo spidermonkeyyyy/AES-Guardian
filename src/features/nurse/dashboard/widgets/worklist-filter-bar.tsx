@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../../../../theme/ThemeContext';
 import { NurseWorklistFilter } from '../../../../types/dashboard';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
 
 const FILTER_LABEL: Record<NurseWorklistFilter, string> = {
   all: 'Tout',
@@ -48,7 +49,7 @@ export function WorklistFilterBar({
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 8,
@@ -74,6 +75,6 @@ function createStyles(colors: any) {
   chipTextActive: {
     color: colors.primaryForeground,
   },
-}
+});
 
 }

@@ -246,7 +246,7 @@ export const DeclarationListScreen: React.FC = () => {
             >
               <View style={styles.cardHeader}>
                 <Text style={[styles.referenceText, { color: aesColors.textPrimary }]}>
-                  {item.reference_number ?? `#${item.id}`}
+                  {item.reference_number || t('list.refUnavailable')}
                 </Text>
                 <AesStatusBadge status={item.status} domain="declaration" />
               </View>
@@ -262,7 +262,6 @@ export const DeclarationListScreen: React.FC = () => {
               ) : null}
               {item.circumstances ? (
                 <Text
-                  numberOfLines={2}
                   style={[styles.cardCircumstances, { color: aesColors.textPrimary }]}
                 >
                   {item.circumstances}

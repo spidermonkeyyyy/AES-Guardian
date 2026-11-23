@@ -1,6 +1,8 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import AppText from '../../../components/AppText';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
+import Icon from '../../../components/AppIcon';
 import { useMonitoringStore } from '../state/use-monitoring-store';
 
 export default function MonitoringResultScreen({ navigation }: any) {
@@ -16,8 +18,8 @@ export default function MonitoringResultScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.icon, { color: colors.primary }]}>{isNormal ? '✓' : 'ℹ'}</Text>
-      <Text style={[styles.title, { color: colors.foreground }]}>{isNormal ? 'Suivi envoyé ✓' : 'Suivi transmis'}</Text>
+      <Icon name={isNormal ? 'check-circle' : 'info'} size={48} color={colors.primary} />
+      <AppText style={[styles.title, { color: colors.foreground }]}>{isNormal ? 'Suivi envoyé' : 'Suivi transmis'}</AppText>
 
       <View style={[
         styles.messageBox,
@@ -25,11 +27,11 @@ export default function MonitoringResultScreen({ navigation }: any) {
           ? { backgroundColor: colors.primary + '14', borderColor: colors.primary + '33' }
           : { backgroundColor: colors.secondary, borderColor: colors.border },
       ]}>
-        <Text style={[styles.messageText, { color: colors.foreground }]}>{evaluationResult?.patientMessage}</Text>
+        <AppText style={[styles.messageText, { color: colors.foreground }]}>{evaluationResult?.patientMessage}</AppText>
       </View>
 
       <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleHome}>
-        <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>Retour à l'accueil</Text>
+        <AppText style={[styles.buttonText, { color: colors.primaryForeground }]}>Retour à l'accueil</AppText>
       </TouchableOpacity>
     </View>
   );

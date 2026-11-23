@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { NurseTabParamList } from '../../../../navigation/routes';
 import { Patient, PatientTimelineEvent } from '../../../../types/patient';
+import { spacing, typography, shapes } from '../../../../theme/tokens';
 
 type Navigation = NativeStackNavigationProp<NurseTabParamList, 'patients'>;
 
@@ -42,6 +43,8 @@ function formatRelativeDate(iso: string | null): string {
 
 export default function NursePatientsScreen() {
   const navigation = useNavigation<Navigation>();
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const { isLoading, errorMessage, patients, filter, searchQuery, loadPatients, searchPatients, setFilter } =
     useNursePatientsStore();
 
@@ -136,7 +139,7 @@ export default function NursePatientsScreen() {
 }
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
   content: { padding: spacing[6], paddingBottom: spacing[8] },
   title: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize['3xl'], fontWeight: typography.fontWeight.bold, color: colors.foreground, marginBottom: spacing[4] },
@@ -192,5 +195,5 @@ function createStyles(colors: any) {
   stateText: { fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md, color: colors.mutedForeground, textAlign: 'center' },
   retryButton: { marginTop: spacing[3], backgroundColor: colors.primary, borderRadius: spacing[3], paddingHorizontal: spacing[4], paddingVertical: spacing[2], minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   retryLabel: { color: colors.primaryForeground, fontFamily: typography.fontFamily.urbanist, fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold },
-}
+});
 }

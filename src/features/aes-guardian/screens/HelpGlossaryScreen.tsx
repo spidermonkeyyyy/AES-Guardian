@@ -99,6 +99,9 @@ export const HelpGlossaryScreen: React.FC = () => {
   };
 
   const filteredGlossary = useMemo(() => {
+    const normalizeSearchText = (value: string) =>
+      value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
     return GLOSSARY_ITEMS.filter((item) => {
       const matchesCategory =
         selectedCategory === 'all' || item.categoryGroup === selectedCategory;
@@ -106,9 +109,9 @@ export const HelpGlossaryScreen: React.FC = () => {
 
       if (!searchQuery.trim()) return true;
 
-      const q = searchQuery.toLowerCase().trim();
-      const termText = t(item.termKey, locale).toLowerCase();
-      const defText = t(item.definitionKey, locale).toLowerCase();
+      const q = normalizeSearchText(searchQuery.trim());
+      const termText = normalizeSearchText(t(item.termKey, locale));
+      const defText = normalizeSearchText(t(item.definitionKey, locale));
       return termText.includes(q) || defText.includes(q);
     });
   }, [searchQuery, selectedCategory, locale]);
@@ -148,6 +151,7 @@ export const HelpGlossaryScreen: React.FC = () => {
           onPress={() => setActiveTab('help')}
           accessibilityRole="button"
           accessibilityLabel={t('helpGlossary.tabHelp', locale)}
+          accessibilityState={{ selected: activeTab === 'help' }}
         >
           <Text
             style={[styles.tabText, activeTab === 'help' && styles.tabTextActive]}
@@ -162,6 +166,7 @@ export const HelpGlossaryScreen: React.FC = () => {
           onPress={() => setActiveTab('glossary')}
           accessibilityRole="button"
           accessibilityLabel={t('helpGlossary.tabGlossary', locale)}
+          accessibilityState={{ selected: activeTab === 'glossary' }}
         >
           <Text
             style={[styles.tabText, activeTab === 'glossary' && styles.tabTextActive]}
@@ -185,6 +190,8 @@ export const HelpGlossaryScreen: React.FC = () => {
                   onPress={() => toggleSection(sec.id)}
                   activeOpacity={0.7}
                   accessibilityRole="button"
+                  accessibilityLabel={t(sec.titleKey, locale)}
+                  accessibilityState={{ expanded: isExpanded }}
                 >
                   <View style={styles.cardHeaderLeft}>
                     <View style={styles.numberBadge}>
@@ -223,9 +230,14 @@ export const HelpGlossaryScreen: React.FC = () => {
               value={searchQuery}
               onChangeText={setSearchQuery}
               clearButtonMode="while-editing"
+              accessibilityLabel={t('helpGlossary.searchPlaceholder', locale)}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                accessibilityRole="button"
+                accessibilityLabel={t('helpGlossary.clearSearch', locale)}
+              >
                 <Text style={styles.clearIcon}>✕</Text>
               </TouchableOpacity>
             )}
@@ -246,6 +258,9 @@ export const HelpGlossaryScreen: React.FC = () => {
                   testID={`chip-${chip.id}`}
                   style={[styles.chip, isSelected && styles.chipActive]}
                   onPress={() => setSelectedCategory(chip.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(chip.labelKey, locale)}
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
                     {t(chip.labelKey, locale)}
@@ -265,16 +280,20 @@ export const HelpGlossaryScreen: React.FC = () => {
             </View>
           ) : (
             filteredGlossary.map((item) => {
-              const isExpanded = expandedTerms[item.id] !== false; // default open
+              const isExpanded = Boolean(expandedTerms[item.id]);
               return (
                 <TouchableOpacity
                   key={item.id}
+                  testID={`glossary-${item.id}`}
                   style={styles.glossaryCard}
                   onPress={() => toggleTerm(item.id)}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(item.termKey, locale)}
+                  accessibilityState={{ expanded: isExpanded }}
                 >
                   <View style={styles.glossaryHeaderRow}>
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.glossaryTermInfo}>
                       <View style={styles.termTitleRow}>
                         <Text style={styles.glossaryTermTitle}>
                           {t(item.termKey, locale)}
@@ -341,9 +360,9 @@ function createStyles(colors: any) {
       fontFamily: typography.fontFamily.openSans,
     },
     disclaimerBanner: {
-      backgroundColor: '#FEF3C7',
+      backgroundColor: colors.warningBackground,
       borderLeftWidth: 4,
-      borderLeftColor: '#F59E0B',
+      borderLeftColor: colors.warning,
       borderRadius: shapes.sm,
       padding: spacing.sm,
       marginBottom: spacing.md,
@@ -359,7 +378,7 @@ function createStyles(colors: any) {
     disclaimerText: {
       flex: 1,
       fontSize: typography.fontSize.xs - 1,
-      color: '#92400E',
+      color: colors.warning,
       lineHeight: 16,
       fontFamily: typography.fontFamily.openSans,
     },
@@ -517,6 +536,9 @@ function createStyles(colors: any) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
+    },
+    glossaryTermInfo: {
+      flex: 1,
     },
     termTitleRow: {
       flexDirection: 'row',

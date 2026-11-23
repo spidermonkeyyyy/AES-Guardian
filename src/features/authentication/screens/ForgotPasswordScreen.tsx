@@ -4,9 +4,11 @@ import { spacing, shapes, typography } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 import { useAuthStore } from '../hooks/use-auth-store';
 import { resetPassword } from '../hooks/use-auth';
+import { formatNotificationText, t, useLocale } from '../../../localization';
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const locale = useLocale();
   const [email, setEmail] = useState('');
   const [emailSent, setEmailSent] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
@@ -14,8 +16,8 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   const errorMessage = useAuthStore((s) => s.errorMessage);
 
   const validate = () => {
-    if (!email.trim()) return 'Email is required';
-    if (!email.includes('@')) return 'Enter a valid email';
+    if (!email.trim()) return t('auth.error.emailRequired', locale);
+    if (!email.includes('@')) return t('auth.error.emailInvalid', locale);
     return null;
   };
 
@@ -38,12 +40,21 @@ export default function ForgotPasswordScreen({ navigation }: any) {
         <View style={styles.successIcon}>
           <Text style={styles.successIconText}>📧</Text>
         </View>
-        <Text style={[styles.successTitle, { color: colors.foreground }]}>Check your email</Text>
-        <Text style={[styles.successBody, { color: colors.mutedForeground }]}>
-          We have sent a password reset link to:{'\n'}{email}
+        <Text style={[styles.successTitle, { color: colors.foreground }]}>
+          {t('auth.forgot.emailSentTitle', locale)}
         </Text>
-        <TouchableOpacity style={[styles.submitButton, { backgroundColor: colors.primary }]} onPress={() => navigation.goBack()}>
-          <Text style={[styles.submitButtonText, { color: colors.primaryForeground }]}>Back to Sign In</Text>
+        <Text style={[styles.successBody, { color: colors.mutedForeground }]}>
+          {formatNotificationText('auth.forgot.emailSentBody', { email }, locale)}
+        </Text>
+        <TouchableOpacity
+          style={[styles.submitButton, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t('auth.forgot.backToSignIn', locale)}
+        >
+          <Text style={[styles.submitButtonText, { color: colors.primaryForeground }]}>
+            {t('auth.forgot.backToSignIn', locale)}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     );
@@ -51,16 +62,24 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Back">
-        <Text style={[styles.backButton, { color: colors.foreground }]}>← Retour</Text>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel={t('auth.back', locale)}
+      >
+        <Text style={[styles.backButton, { color: colors.foreground }]}>
+          ← {t('auth.back', locale)}
+        </Text>
       </TouchableOpacity>
 
       <View style={styles.iconRow}>
         <Text style={styles.icon}>🔒</Text>
       </View>
-      <Text style={[styles.title, { color: colors.foreground }]}>Forgot your password?</Text>
+      <Text style={[styles.title, { color: colors.foreground }]}>
+        {t('auth.forgot.title', locale)}
+      </Text>
       <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-        Enter your email and we will send you a link to reset your password.
+        {t('auth.forgot.subtitle', locale)}
       </Text>
 
       {(clientError || errorMessage) && (
@@ -68,17 +87,17 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       )}
 
       <View style={styles.field}>
-        <Text style={[styles.label, { color: colors.foreground }]}>Email</Text>
+        <Text style={[styles.label, { color: colors.foreground }]}>{t('auth.email', locale)}</Text>
         <TextInput
           style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
-          placeholder="your@email.com"
+          placeholder={t('auth.emailPlaceholder', locale)}
           placeholderTextColor={colors.mutedForeground}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
           textContentType="emailAddress"
-          accessibilityLabel="Email for password reset"
+          accessibilityLabel={t('auth.forgot.emailAccessibility', locale)}
         />
       </View>
 
@@ -86,8 +105,14 @@ export default function ForgotPasswordScreen({ navigation }: any) {
         style={[styles.submitButton, { backgroundColor: colors.primary }, isLoading && styles.submitButtonDisabled]}
         onPress={handleSubmit}
         disabled={isLoading}
+        accessibilityRole="button"
+        accessibilityLabel={t('auth.forgot.sendResetLink', locale)}
       >
-        <Text style={[styles.submitButtonText, { color: colors.primaryForeground }]}>{isLoading ? 'Sending...' : 'Send Reset Link'}</Text>
+        <Text style={[styles.submitButtonText, { color: colors.primaryForeground }]}>
+          {isLoading
+            ? t('auth.forgot.sending', locale)
+            : t('auth.forgot.sendResetLink', locale)}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

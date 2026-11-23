@@ -33,3 +33,4 @@ dependencyResolutionManagement {
 rootProject.name = "sanad-rn"
 include ":app"
 include ":compat"
+include ":compat-pointer-events"

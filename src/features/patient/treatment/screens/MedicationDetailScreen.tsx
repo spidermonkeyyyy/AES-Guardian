@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useTheme } from '../../../theme/ThemeContext';
+import { useTheme } from '../../../../theme/ThemeContext';
 import { useTreatmentStore } from '../state/use-treatment-store';
 import { MedicationReminder, MedicationStatus } from '../../../../types/treatment';
 
@@ -18,7 +18,7 @@ function statusText(s: MedicationStatus): string {
     case 'confirmed': return 'Pris';
     case 'notConfirmed': return 'Non confirmé';
   }
-}
+  }
 
 interface Props {
   reminder: MedicationReminder;
@@ -35,7 +35,7 @@ const MedicationDetailScreen: React.FC<Props> = ({ reminder, onNavigate }) => {
   const onConfirm = () => {
     Alert.alert(
       'Confirmer la prise ?',
-      `${current.medicationLabel}\import { useTheme } from '../../../theme/ThemeContext';\nn\nHoraire: ${formatTime(current.scheduledAt)}`,
+      `${current.medicationLabel}\n\nHoraire: ${formatTime(current.scheduledAt)}`,
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Confirmer', onPress: () => confirmReminder(current.id) },
@@ -88,7 +88,7 @@ const MedicationDetailScreen: React.FC<Props> = ({ reminder, onNavigate }) => {
 };
 
 function createStyles(colors: any) {
-  return {
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16 },
   title: { fontSize: 24, fontWeight: '700', color: colors.primary, marginBottom: 24 },
@@ -116,7 +116,7 @@ function createStyles(colors: any) {
   confirmButtonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '600' },
   educationLink: { marginTop: 16, alignItems: 'center', padding: 12 },
   educationLinkText: { color: colors.primary, fontSize: 14, fontWeight: '500' },
-}
+});
 }
 
 export default MedicationDetailScreen;

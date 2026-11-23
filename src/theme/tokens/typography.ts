@@ -1,9 +1,13 @@
+import { appFontFamilies } from './fontFamilies';
+
 export const typography = {
   fontFamily: {
-    urbanist: 'Urbanist',
-    openSans: 'OpenSans',
-    display: 'Urbanist',
-    body: 'OpenSans',
+    urbanist: appFontFamilies.display,
+    openSans: appFontFamilies.body,
+    display: appFontFamilies.display,
+    body: appFontFamilies.body,
+    arabic: appFontFamilies.arabic,
+    monospace: appFontFamilies.monospace,
   },
   fontSize: {
     labelSmall: 11,

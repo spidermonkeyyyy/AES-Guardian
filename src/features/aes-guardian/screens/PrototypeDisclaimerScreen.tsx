@@ -11,17 +11,17 @@
  * - Button is strictly disabled until the acknowledgement checkbox is checked.
  */
 
+import AppText from '../../../components/AppText';
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -29,14 +29,22 @@ import {
   aesRadii,
   aesShadows,
 } from '../../../theme/tokens';
-import { useLocale, t, isRTL } from '../../../localization';
+import {
+  useLocale,
+  t,
+  useLayoutDirection,
+  getLayoutRowDirection,
+  getLayoutTextAlign,
+} from '../../../localization';
 import { AesScreenContainer, AesButton } from '../components';
 import { RootStackParamList } from '../../../navigation/routes';
 
 export const PrototypeDisclaimerScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const locale = useLocale();
-  const rtl = isRTL(locale);
+  const layoutDirection = useLayoutDirection();
+  const rowDirection = getLayoutRowDirection(layoutDirection);
+  const textAlign = getLayoutTextAlign(layoutDirection);
   const [acknowledged, setAcknowledged] = useState(false);
 
   const handleAccept = () => {
@@ -52,20 +60,20 @@ export const PrototypeDisclaimerScreen: React.FC = () => {
           <View style={styles.badgeRow}>
             <View style={styles.amberBadge}>
               <Icon name="alert-triangle" size={14} color="#7C4400" />
-              <Text style={styles.amberBadgeText}>
+              <AppText style={styles.amberBadgeText}>
                 {t('onboarding.disclaimer.badge', locale)}
-              </Text>
+              </AppText>
             </View>
           </View>
 
-          <Text
+          <AppText
             style={[
               styles.title,
-              { textAlign: rtl ? 'right' : 'left' },
+              { textAlign },
             ]}
           >
             {t('onboarding.disclaimer.title', locale)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Scrollable Terms & Clauses Container */}
@@ -76,27 +84,27 @@ export const PrototypeDisclaimerScreen: React.FC = () => {
             showsVerticalScrollIndicator={true}
           >
             <View style={styles.clauseItem}>
-              <Text style={styles.clauseText}>
+              <AppText style={[styles.clauseText, { textAlign }]}>
                 {t('onboarding.disclaimer.p1', locale)}
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.clauseItem}>
-              <Text style={styles.clauseText}>
+              <AppText style={[styles.clauseText, { textAlign }]}>
                 {t('onboarding.disclaimer.p2', locale)}
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.clauseItem}>
-              <Text style={styles.clauseText}>
+              <AppText style={[styles.clauseText, { textAlign }]}>
                 {t('onboarding.disclaimer.p3', locale)}
-              </Text>
+              </AppText>
             </View>
 
             <View style={[styles.clauseItem, styles.emergencyClause]}>
-              <Text style={styles.emergencyText}>
+              <AppText style={[styles.emergencyText, { textAlign }]}>
                 {t('onboarding.disclaimer.p4', locale)}
-              </Text>
+              </AppText>
             </View>
           </ScrollView>
         </View>
@@ -105,7 +113,7 @@ export const PrototypeDisclaimerScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             styles.checkboxRow,
-            { flexDirection: rtl ? 'row-reverse' : 'row' },
+            { flexDirection: rowDirection },
           ]}
           onPress={() => setAcknowledged((prev) => !prev)}
           activeOpacity={0.8}
@@ -124,14 +132,14 @@ export const PrototypeDisclaimerScreen: React.FC = () => {
               <Icon name="check" size={16} color={aesColors.textInverse} />
             )}
           </View>
-          <Text
+          <AppText
             style={[
               styles.checkboxLabel,
-              { textAlign: rtl ? 'right' : 'left' },
+              { textAlign },
             ]}
           >
             {t('onboarding.disclaimer.checkbox', locale)}
-          </Text>
+          </AppText>
         </TouchableOpacity>
 
         {/* Bottom Accept Action */}
@@ -216,8 +224,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFEBEE',
     padding: aesSpacing.md,
     borderRadius: aesRadii.input,
-    borderLeftWidth: 3,
-    borderLeftColor: aesColors.banners.error.text,
+    borderStartWidth: 3,
+    borderStartColor: aesColors.banners.error.text,
   },
   emergencyText: {
     ...aesTypography.bodySmall,
