@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIconSurface } from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -56,9 +56,15 @@ export const SubmissionConfirmationScreen: React.FC = () => {
         {/* Central Confirmation Card */}
         <AesCard style={styles.confirmationCard}>
           {/* Hero Success Icon Circle */}
-          <View style={styles.heroCircle} testID="confirmation-hero-circle">
-            <Icon name="check" size={36} color={aesColors.textInverse} />
-          </View>
+          <AppIconSurface
+            name="check"
+            iconSize={36}
+            surfaceSize={68}
+            radius={34}
+            variant="success"
+            style={styles.heroCircle}
+            testID="confirmation-hero-circle"
+          />
 
           {/* Title & Subtitle */}
           <Text style={styles.titleText}>{t('confirm.title', locale)}</Text>

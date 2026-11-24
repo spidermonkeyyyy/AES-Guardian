@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { aesTypography, aesSpacing, aesRadii } from '../../../theme/tokens';
 import {
   useLocale,
@@ -113,7 +113,7 @@ export const LanguageSelectionScreen: React.FC = () => {
                   ]}
                 >
                   {isSelected ? (
-                      <Icon name="check" size={16} color={colors.primaryForeground} />
+                      <AppIcon name="check" size={16} color={colors.primaryForeground} />
                   ) : null}
                 </View>
               </TouchableOpacity>

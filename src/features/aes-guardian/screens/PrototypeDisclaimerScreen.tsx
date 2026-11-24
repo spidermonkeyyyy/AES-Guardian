@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -59,7 +59,7 @@ export const PrototypeDisclaimerScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.badgeRow}>
             <View style={styles.amberBadge}>
-              <Icon name="alert-triangle" size={14} color="#7C4400" />
+              <AppIcon name="alert-triangle" size={14} color="#7C4400" />
               <AppText style={styles.amberBadgeText}>
                 {t('onboarding.disclaimer.badge', locale)}
               </AppText>
@@ -129,7 +129,7 @@ export const PrototypeDisclaimerScreen: React.FC = () => {
             ]}
           >
             {acknowledged && (
-              <Icon name="check" size={16} color={aesColors.textInverse} />
+              <AppIcon name="check" size={16} color={aesColors.textInverse} />
             )}
           </View>
           <AppText

@@ -2,9 +2,6 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-jest.mock('react-native-vector-icons/Feather', () => 'Feather');
-jest.mock('react-native-vector-icons/Ionicons', () => 'Ionicons');
-
 jest.mock('@hugeicons/react-native', () => {
   const ReactRuntime = require('react');
   const { View } = require('react-native');

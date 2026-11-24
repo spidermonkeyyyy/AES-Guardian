@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppButton, AppCard, AppHeader, AppInput, RespiBadge } from '../../../components';
 import { useNursePatientsStore } from '../patients/state/use-nurse-patients-store';
@@ -96,7 +96,7 @@ export default function NursePatientsScreen({ navigation }: any) {
 
       <View style={[styles.searchSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
-          <Icon name="info" size={18} color={colors.info} />
+          <AppIcon name="info" size={18} color={colors.info} />
           <Text style={[styles.demoNoticeText, { color: colors.foreground }]}>
             {t('nurse.patients.demoNotice', locale)}
           </Text>
@@ -105,7 +105,7 @@ export default function NursePatientsScreen({ navigation }: any) {
           placeholder={t('nurse.patients.searchPlaceholder', locale)}
           value={searchQuery}
           onChangeText={searchPatients}
-          leftIcon={<Icon name="search" size={20} color={colors.mutedForeground} />}
+          leftIcon={<AppIcon name="search" size={20} color={colors.mutedForeground} />}
           containerStyle={styles.searchInput}
         />
 

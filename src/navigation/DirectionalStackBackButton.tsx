@@ -2,7 +2,7 @@ import AppText from '../components/AppText';
 import React from 'react';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from '../components/AppIcon';
+import { AppIcon } from '../components/AppIcon';
 import { aesColors, aesRadii } from '../theme/tokens';
 import {
   getLayoutTextAlign,
@@ -73,7 +73,7 @@ export const DirectionalStackBackButton: React.FC<DirectionalStackBackButtonProp
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       testID={`stack-back-${side}`}
     >
-      <Icon
+      <AppIcon
         name="back"
         size={22}
         color={aesColors.textPrimary}

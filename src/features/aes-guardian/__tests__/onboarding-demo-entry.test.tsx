@@ -18,7 +18,7 @@
 
 import React from 'react';
 import { Text } from 'react-native';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { SplashScreen } from '../screens/SplashScreen';
 import { LanguageSelectionScreen } from '../screens/LanguageSelectionScreen';
@@ -100,13 +100,13 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       const { StyleSheet } = require('react-native');
       setLocale('fr');
       const ltr = render(<SplashScreen />);
-      expect(ltr.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+      expect(ltr.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
       expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
       expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-subtitle').props.style).textAlign).toBe('center');
 
       setLocale('ar');
       const rtl = render(<SplashScreen />);
-      expect(rtl.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+      expect(rtl.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
       expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
       expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-subtitle').props.style).textAlign).toBe('center');
       setLocale('fr');
@@ -282,7 +282,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(ltr.getByText('Déclaration Rapide & Protégée')).toBeTruthy();
       const ltrTitle = ltr.getByText('Déclaration Rapide & Protégée');
       expect(StyleSheet.flatten(ltrTitle.props.style).textAlign).toBe('left');
-      expect(ltr.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+      expect(ltr.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
 
       fireEvent.press(ltr.getByTestId('carousel-next-button'));
       expect(ltr.getByText('Suivi de Coordination SST Confidentiel')).toBeTruthy();
@@ -293,7 +293,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(rtl.getByText('إبلاغ سريع ومحمي عن الحوادث')).toBeTruthy();
       const rtlTitle = rtl.getByText('إبلاغ سريع ومحمي عن الحوادث');
       expect(StyleSheet.flatten(rtlTitle.props.style).textAlign).toBe('right');
-      expect(rtl.UNSAFE_getAllByType(Icon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
+      expect(rtl.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
 
       fireEvent.press(rtl.getByTestId('carousel-next-button'));
       expect(rtl.getByTestId('carousel-next-button')).toBeTruthy();
@@ -949,23 +949,23 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       const ltrForward = render(
         <AesRoundArrowButton onPress={jest.fn()} direction="forward" testID="ltr-forward" />
       );
-      expect(ltrForward.UNSAFE_getAllByType(Icon)[0].props.name).toBe('forward');
+      expect(ltrForward.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('forward');
 
       const ltrBack = render(
         <AesRoundArrowButton onPress={jest.fn()} direction="back" testID="ltr-back" />
       );
-      expect(ltrBack.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back');
+      expect(ltrBack.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('back');
 
       setLocale('ar');
       const rtlForward = render(
         <AesRoundArrowButton onPress={jest.fn()} direction="forward" testID="rtl-forward" />
       );
-      expect(rtlForward.UNSAFE_getAllByType(Icon)[0].props.name).toBe('forward');
+      expect(rtlForward.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('forward');
 
       const rtlBack = render(
         <AesRoundArrowButton onPress={jest.fn()} direction="back" testID="rtl-back" />
       );
-      expect(rtlBack.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back');
+      expect(rtlBack.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('back');
       setLocale('fr');
     });
 
@@ -983,7 +983,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(ltr.getByText('LTR Screen').props.style).toEqual(
         expect.arrayContaining([expect.objectContaining({ textAlign: 'left' })])
       );
-      expect(ltr.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back-chevron');
+      expect(ltr.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('back-chevron');
 
       setLocale('ar');
       const rtl = render(
@@ -999,7 +999,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(rtl.getByText('الشاشة').props.style).toEqual(
         expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })])
       );
-      expect(rtl.UNSAFE_getAllByType(Icon)[0].props.name).toBe('back-chevron');
+      expect(rtl.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('back-chevron');
       setLocale('fr');
     });
 

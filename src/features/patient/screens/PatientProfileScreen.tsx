@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme, ThemeMode } from '../../../theme/ThemeContext';
 import { AppHeader, AppCard } from '../../../components';
@@ -48,7 +48,7 @@ export default function PatientProfileScreen() {
             {initials ? (
               <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
             ) : (
-              <Icon name="user" size={28} color={colors.primary} />
+              <AppIcon name="user" size={28} color={colors.primary} />
             )}
           </View>
           <Text style={[styles.userName, { color: colors.foreground }]}>
@@ -70,7 +70,7 @@ export default function PatientProfileScreen() {
         <AppCard variant="outlined" style={styles.preferenceCard}>
           <View style={styles.themeRow}>
             <View style={[styles.iconCircle, { backgroundColor: colors.secondary }]}>
-              <Icon name={isDark ? 'moon' : 'sun'} size={18} color={colors.primary} />
+              <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={colors.primary} />
             </View>
             <View style={styles.settingTextContainer}>
               <Text style={[styles.settingTitle, { color: colors.foreground }]}>
@@ -99,7 +99,7 @@ export default function PatientProfileScreen() {
                   accessibilityState={{ selected }}
                   accessibilityLabel={t(option.label, locale)}
                 >
-                  <Icon
+                  <AppIcon
                     name={option.icon}
                     size={14}
                     color={selected ? colors.primaryForeground : colors.foreground}
@@ -168,7 +168,7 @@ export default function PatientProfileScreen() {
           onPress={() => logout()}
           accessibilityRole="button"
         >
-          <Icon name="log-out" size={18} color={colors.destructive} />
+          <AppIcon name="log-out" size={18} color={colors.destructive} />
           <Text style={[styles.logoutText, { color: colors.destructive }]}>
             {t('patient.profile.logout', locale)}
           </Text>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppHeader, AppButton, AppCard } from '../../../components';
 import SpO2Input from '../components/SpO2Input';
@@ -58,7 +58,7 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
         <AppHeader title={t('monitoring.resultHeader', locale)} />
         <View style={styles.centerContent}>
           <View style={[styles.resultIconCircle, { backgroundColor: result.status === 'review_required' ? colors.warningBackground : colors.secondary }]}>
-            <Icon
+            <AppIcon
               name={result.status === 'review_required' ? 'alert-circle' : 'check-circle'}
               size={48}
               color={result.status === 'review_required' ? colors.warning : colors.primary}
@@ -102,7 +102,7 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
         <ScrollView contentContainerStyle={[styles.introContent, { direction: rtl ? 'rtl' : 'ltr' }]}>
           <View style={styles.introHero}>
             <View style={[styles.heroIconCircle, { backgroundColor: colors.secondary }]}>
-              <Icon name="clipboard" size={48} color={colors.primary} />
+              <AppIcon name="clipboard" size={48} color={colors.primary} />
             </View>
             <Text style={[styles.introTitle, { color: colors.foreground }]}>
               {t('monitoring.introTitle', locale)}
@@ -114,13 +114,13 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
 
           <AppCard variant="flat" style={styles.infoBox}>
             <View style={styles.infoRow}>
-              <Icon name="clock" size={20} color={colors.primary} />
+              <AppIcon name="clock" size={20} color={colors.primary} />
               <Text style={[styles.infoText, { color: colors.foreground }]}>
                 {t('monitoring.estimatedDuration', locale)}
               </Text>
             </View>
             <View style={[styles.infoRow, styles.disclosureRow]}>
-              <Icon name="info" size={20} color={colors.info} />
+              <AppIcon name="info" size={20} color={colors.info} />
               <Text style={[styles.infoText, { color: colors.foreground }]}>
                 {t('monitoring.demoDisclosure', locale)}
               </Text>
@@ -221,7 +221,7 @@ export default function MonitoringIntroScreen({ navigation }: { navigation: any 
                     {t(optionLabelKeys[opt.id], locale)}
                   </Text>
                   {answers[current.id]?.value === opt.id && (
-                    <Icon name="check" size={18} color={colors.primary} />
+                    <AppIcon name="check" size={18} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               ))

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppHeader, AppCard, RespiBadge } from '../../../components';
 import { useLocale, t, isRTL, TranslationKey } from '../../../localization';
@@ -96,7 +96,7 @@ export default function NurseAlertsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <AppHeader title={t('nurse.alerts.title', locale)} />
       <View style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
-        <Icon name="info" size={18} color={colors.info} />
+        <AppIcon name="info" size={18} color={colors.info} />
         <Text style={[styles.demoNoticeText, { color: colors.foreground }]}>
           {t('nurse.alerts.demoNotice', locale)}
         </Text>
@@ -171,7 +171,7 @@ export default function NurseAlertsScreen() {
             >
               <View style={styles.cardHeader}>
                 <View style={styles.patientRow}>
-                  <Icon
+                  <AppIcon
                     name={critical ? 'alert-triangle' : 'alert-circle'}
                     size={20}
                     color={critical ? colors.destructive : colors.warning}
@@ -210,7 +210,7 @@ export default function NurseAlertsScreen() {
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.ackBadge}>
-                    <Icon name="check" size={14} color={colors.primary} />
+                    <AppIcon name="check" size={14} color={colors.primary} />
                     <Text style={[styles.ackBadgeText, { color: colors.primary }]}>
                       {t('nurse.alerts.acknowledged', locale)}
                     </Text>

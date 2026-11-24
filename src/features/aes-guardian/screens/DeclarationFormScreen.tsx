@@ -31,7 +31,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -473,7 +473,7 @@ export const DeclarationFormScreen: React.FC = () => {
               accessibilityLabel={t('form.step.prev', locale)}
               testID="declaration-back-button"
             >
-              <Icon
+              <AppIcon
                 name={rtl ? 'chevron-right' : 'chevron-left'}
                 size={24}
                 color={aesColors.textPrimary}
@@ -492,12 +492,12 @@ export const DeclarationFormScreen: React.FC = () => {
                 <Text style={styles.syncText}>{t('form.saving', locale)}</Text>
               ) : autoSaveError ? (
                 <View style={styles.syncErrorBadge} testID="declaration-sync-error">
-                  <Icon name="alert-circle" size={12} color={aesColors.banners.error.text} />
+                  <AppIcon name="alert-circle" size={12} color={aesColors.banners.error.text} />
                   <Text style={styles.syncErrorText}>{t('form.autoSaveFailed', locale)}</Text>
                 </View>
               ) : lastSaved ? (
                 <View style={styles.syncedBadge} testID="declaration-sync-success">
-                  <Icon name="check" size={12} color={aesColors.accentGreen} />
+                  <AppIcon name="check" size={12} color={aesColors.accentGreen} />
                   <Text style={styles.syncText}>{t('form.autoSaved', locale)}</Text>
                 </View>
               ) : null}
@@ -741,7 +741,7 @@ export const DeclarationFormScreen: React.FC = () => {
           {step === 4 && (
             <View style={styles.stepContainer} testID="declaration-step-4">
               <View style={styles.freeTextNotice}>
-                <Icon name="info" size={16} color="#0D47A1" style={styles.noticeIcon} />
+                <AppIcon name="info" size={16} color="#0D47A1" style={styles.noticeIcon} />
                 <Text style={styles.noticeText}>
                   {t('form.step4.advisory', locale)}
                 </Text>

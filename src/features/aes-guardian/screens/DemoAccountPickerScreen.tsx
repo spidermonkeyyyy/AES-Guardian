@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -128,7 +128,7 @@ export const DemoAccountPickerScreen: React.FC = () => {
 
         {/* Informative Synthetic Identity Banner */}
         <View style={styles.infoBanner}>
-          <Icon name="info" size={16} color="#0D47A1" style={styles.bannerIcon} />
+          <AppIcon name="info" size={16} color="#0D47A1" style={styles.bannerIcon} />
           <Text style={styles.bannerText}>
             {t('onboarding.picker.syntheticNotice', locale)}
           </Text>

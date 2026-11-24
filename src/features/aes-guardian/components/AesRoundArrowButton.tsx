@@ -12,7 +12,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import { aesColors, aesRadii } from '../../../theme/tokens';
 import { useLayoutDirection } from '../../../localization';
 
@@ -59,7 +59,7 @@ export const AesRoundArrowButton: React.FC<AesRoundArrowButtonProps> = ({
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
     >
-      <Icon
+      <AppIcon
         name={direction === 'back' ? 'back' : 'forward'}
         size={22}
         color={aesColors.textInverse}

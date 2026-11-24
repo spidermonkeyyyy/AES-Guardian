@@ -5,7 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIconSurface } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppCard, AppButton } from '../../../components';
 import { useAuthStore } from '../../authentication/hooks/use-auth-store';
@@ -47,7 +47,7 @@ export default function PatientHomeScreen({ navigation }: any) {
           accessibilityRole="button"
           accessibilityLabel={t('patient.home.profileButton', locale)}
         >
-          <Icon name="user" size={20} color={colors.primary} />
+          <AppIconSurface name="user" iconSize={20} surfaceSize={40} radius={20} variant="subtle" />
         </TouchableOpacity>
       </View>
 
@@ -63,9 +63,7 @@ export default function PatientHomeScreen({ navigation }: any) {
       {/* Daily monitoring */}
       <AppCard variant="outlined" style={styles.actionCard}>
         <View style={styles.actionCardHeader}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.secondary }]}>
-            <Icon name="activity" size={24} color={colors.primary} />
-          </View>
+          <AppIconSurface name="activity" iconSize={24} surfaceSize={48} radius={12} variant="subtle" />
           <View style={styles.actionTextContainer}>
             <Text style={[styles.actionTitle, { color: colors.foreground }]}>
               {t('patient.home.monitorTitle', locale)}
@@ -86,9 +84,7 @@ export default function PatientHomeScreen({ navigation }: any) {
       {/* Care plan */}
       <AppCard variant="outlined" style={styles.actionCard}>
         <View style={styles.actionCardHeader}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.secondary }]}>
-            <Icon name="clipboard" size={24} color={colors.primary} />
-          </View>
+          <AppIconSurface name="clipboard" iconSize={24} surfaceSize={48} radius={12} variant="subtle" />
           <View style={styles.actionTextContainer}>
             <Text style={[styles.actionTitle, { color: colors.foreground }]}>
               {t('patient.home.carePlanTitle', locale)}
@@ -109,9 +105,7 @@ export default function PatientHomeScreen({ navigation }: any) {
       {/* Care team */}
       <AppCard variant="flat" style={styles.teamCard}>
         <View style={styles.actionCardHeader}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.secondary }]}>
-            <Icon name="message-square" size={24} color={colors.primary} />
-          </View>
+          <AppIconSurface name="message-square" iconSize={24} surfaceSize={48} radius={12} variant="subtle" />
           <View style={styles.actionTextContainer}>
             <Text style={[styles.actionTitle, { color: colors.foreground }]}>
               {t('patient.home.careTeamTitle', locale)}

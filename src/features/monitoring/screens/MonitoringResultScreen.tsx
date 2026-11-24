@@ -2,7 +2,7 @@ import AppText from '../../../components/AppText';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import { useMonitoringStore } from '../state/use-monitoring-store';
 
 export default function MonitoringResultScreen({ navigation }: any) {
@@ -18,7 +18,7 @@ export default function MonitoringResultScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Icon name={isNormal ? 'check-circle' : 'info'} size={48} color={colors.primary} />
+      <AppIcon name={isNormal ? 'check-circle' : 'info'} size={48} color={colors.primary} />
       <AppText style={[styles.title, { color: colors.foreground }]}>{isNormal ? 'Suivi envoyé' : 'Suivi transmis'}</AppText>
 
       <View style={[

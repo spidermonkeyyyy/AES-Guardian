@@ -4,7 +4,7 @@ import { spacing, shapes, typography } from '../../../theme/tokens';
 import { useAuthStore } from '../hooks/use-auth-store';
 import { login } from '../hooks/use-auth';
 import { SanadLogo, AppInput, AppButton } from '../../../components';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { useTheme } from '../../../theme/ThemeContext';
 import { t, useLocale } from '../../../localization';
 
@@ -62,7 +62,7 @@ export default function LoginScreen({ navigation }: any) {
 
       {displayError && (
         <View style={[styles.errorBox, { backgroundColor: colors.destructive + '14', borderColor: colors.destructive + '4D' }]}>
-          <Icon name="alert-circle" size={18} color={colors.destructive} />
+          <AppIcon name="alert-circle" size={18} color={colors.destructive} />
           <Text style={[styles.errorText, { color: colors.destructive }]}>{displayError}</Text>
         </View>
       )}
@@ -126,7 +126,7 @@ export default function LoginScreen({ navigation }: any) {
             onPress={() => fillMockCredentials('patient@respiracare.org', 'password123')}
             accessibilityRole="button"
           >
-            <Icon name="user" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+            <AppIcon name="user" size={16} color={colors.primary} style={{ marginRight: 6 }} />
             <Text style={[styles.mockButtonText, { color: colors.foreground }]}>
               {t('auth.login.patientDemo', locale)}
             </Text>
@@ -136,7 +136,7 @@ export default function LoginScreen({ navigation }: any) {
             onPress={() => fillMockCredentials('nurse@respiracare.org', 'password123')}
             accessibilityRole="button"
           >
-            <Icon name="activity" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+            <AppIcon name="activity" size={16} color={colors.primary} style={{ marginRight: 6 }} />
             <Text style={[styles.mockButtonText, { color: colors.foreground }]}>
               {t('auth.login.nurseDemo', locale)}
             </Text>

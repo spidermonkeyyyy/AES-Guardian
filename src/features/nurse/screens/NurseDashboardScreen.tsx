@@ -8,7 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppButton, AppCard, AppHeader, RespiBadge } from '../../../components';
 import { useNurseDashboardStore } from '../dashboard/state/use-nurse-dashboard-store';
@@ -111,7 +111,7 @@ export default function NurseDashboardScreen({ navigation }: any) {
             accessibilityRole="button"
             accessibilityLabel={t('nurse.dashboard.rules', locale)}
           >
-            <Icon name="sliders" size={20} color={colors.primary} />
+            <AppIcon name="sliders" size={20} color={colors.primary} />
           </TouchableOpacity>
         }
       />
@@ -121,7 +121,7 @@ export default function NurseDashboardScreen({ navigation }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
       >
         <View style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
-          <Icon name="info" size={18} color={colors.info} />
+          <AppIcon name="info" size={18} color={colors.info} />
           <Text style={[styles.demoNoticeText, { color: colors.foreground }]}>
             {t('nurse.dashboard.demoNotice', locale)}
           </Text>
@@ -139,7 +139,7 @@ export default function NurseDashboardScreen({ navigation }: any) {
         <AppCard variant="elevated" style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <View style={styles.summaryTitleRow}>
-              <Icon name="bell" size={20} color={colors.warning} />
+              <AppIcon name="bell" size={20} color={colors.warning} />
               <Text style={[styles.summaryTitle, { color: colors.foreground }]}>
                 {t('nurse.dashboard.attentionRequired', locale)}
               </Text>
@@ -256,7 +256,7 @@ export default function NurseDashboardScreen({ navigation }: any) {
           <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
         ) : filteredItems.length === 0 ? (
           <AppCard variant="flat" style={styles.emptyCard}>
-            <Icon name="check-circle" size={32} color={colors.primary} />
+            <AppIcon name="check-circle" size={32} color={colors.primary} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
               {t('nurse.dashboard.empty.title', locale)}
             </Text>

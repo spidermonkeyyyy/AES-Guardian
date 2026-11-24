@@ -31,7 +31,7 @@ import {
   TextStyle,
   StyleProp,
 } from 'react-native';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 
 import {
   AesScreenContainer,
@@ -236,7 +236,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                   {r.label}
                 </AppText>
                 {isBlocked && (
-                  <Icon
+                  <AppIcon
                     name="lock"
                     size={14}
                     color={active ? aesColors.banners.error.text : aesColors.textSecondary}
@@ -262,7 +262,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
           testID="surveillance-unauthorized-card"
         >
           <View style={styles.unauthorizedContent}>
-            <Icon name="alert-circle" size={32} color={aesColors.banners.error.text} style={styles.unauthorizedIcon} />
+            <AppIcon name="alert-circle" size={32} color={aesColors.banners.error.text} style={styles.unauthorizedIcon} />
             <AppText style={[styles.unauthorizedTitle, { color: aesColors.banners.error.text }]}>
               {t('surveillance.unauthorized')}
             </AppText>
@@ -299,7 +299,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         {renderRoleSwitcher()}
         <AesCard style={styles.errorCard} elevated testID="surveillance-error-card">
           <View style={styles.errorContent}>
-            <Icon name="alert-triangle" size={32} color={aesColors.banners.error.text} style={styles.errorIcon} />
+            <AppIcon name="alert-triangle" size={32} color={aesColors.banners.error.text} style={styles.errorIcon} />
             <AppText style={[styles.errorTitle, { color: aesColors.banners.error.text }]}>{error ?? t('error.loadFailed')}</AppText>
             <AesButton
               title={t('oh.queue.refresh')}
@@ -343,7 +343,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
       <AesCard style={styles.disclaimerCard} elevated={false} testID="surveillance-disclaimer">
         <View style={disclaimerRowStyle}>
-          <Icon name="info" size={16} color={aesColors.accentGreen} style={styles.disclaimerIcon} />
+          <AppIcon name="info" size={16} color={aesColors.accentGreen} style={styles.disclaimerIcon} />
           <AppText style={[styles.disclaimerText, { textAlign }]}>{t('surveillance.disclaimer')}</AppText>
         </View>
       </AesCard>
@@ -356,7 +356,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
           testID="surveillance-filter-summary"
         >
           <View style={filterSummaryRowStyle}>
-            <Icon name="filter" size={16} color={aesColors.accentGreen} />
+            <AppIcon name="filter" size={16} color={aesColors.accentGreen} />
             <AppText style={[styles.filterSummaryText, { textAlign }]}>
               {t('surveillance.filters.title')} : {filterSummary.matchingDeclarations} / {filterSummary.totalRecords} {t('surveillance.filters.declarationCountLabel', locale)}
             </AppText>

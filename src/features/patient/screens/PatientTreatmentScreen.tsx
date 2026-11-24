@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { AppButton, AppCard, AppHeader } from '../../../components';
 import { useLocale, t } from '../../../localization';
 import { spacing, typography } from '../../../theme/tokens';
@@ -18,7 +18,7 @@ export default function PatientTreatmentScreen({ navigation }: any) {
           style={[styles.notice, { backgroundColor: colors.infoBackground }]}
         >
           <View style={styles.noticeHeader}>
-            <Icon name="info" size={20} color={colors.info} />
+            <AppIcon name="info" size={20} color={colors.info} />
             <Text style={[styles.noticeText, { color: colors.foreground }]}>
               {t('patient.treatment.demoNotice', locale)}
             </Text>

@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import { aesColors, aesTypography, aesSpacing, aesRadii } from '../../../theme/tokens';
 import { isFirstLaunchCompleted } from '../utils/onboardingStorage';
 import { t, useLocale, useLayoutDirection } from '../../../localization';
@@ -90,7 +90,7 @@ export const SplashScreen: React.FC = () => {
         <View style={styles.centerBlock}>
           {/* Clinical Shield Mark */}
           <View style={styles.shieldContainer} testID="aes-splash-shield">
-            <Icon name="shield" size={48} color={aesColors.textInverse} />
+            <AppIcon name="shield" size={48} color={aesColors.textInverse} />
           </View>
 
           {/* Serif Wordmark */}
@@ -110,7 +110,7 @@ export const SplashScreen: React.FC = () => {
             <AppText style={styles.enterPillText}>
               {t('splash.enter', locale)}
             </AppText>
-            <Icon
+            <AppIcon
               name="forward"
               size={16}
               color={aesColors.accentGreen}

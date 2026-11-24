@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppHeader, AppCard } from '../../../components';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -51,7 +51,7 @@ export default function NurseMessagesScreen({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: colors.background, direction: rtl ? 'rtl' : 'ltr' }]}>
       <AppHeader title={t('nurse.messages.title', locale)} />
       <View style={[styles.demoNotice, { backgroundColor: colors.infoBackground }]}>
-        <Icon name="info" size={18} color={colors.info} />
+        <AppIcon name="info" size={18} color={colors.info} />
         <Text style={[styles.demoText, { color: colors.foreground }]}>
           {t('nurse.messages.demoNotice', locale)}
         </Text>

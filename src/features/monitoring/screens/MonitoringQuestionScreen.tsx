@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import { useMonitoringStore } from '../state/use-monitoring-store';
 import MonitoringProgress from '../components/MonitoringProgress';
 import QuestionRenderer from '../components/QuestionRenderer';
@@ -93,7 +93,7 @@ export default function MonitoringQuestionScreen() {
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Retour">
-          <Icon name="back" size={20} color={colors.foreground} />
+          <AppIcon name="back" size={20} color={colors.foreground} />
         </TouchableOpacity>
         <MonitoringProgress currentStep={currentStepIndex + 1} totalSteps={questions.length} />
       </View>

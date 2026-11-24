@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon } from '../../../components/AppIcon';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import { AppHeader } from '../../../components';
 import { useLocale, t, isRTL } from '../../../localization';
@@ -121,7 +121,7 @@ export default function PatientMessagesScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.headerNotice, { backgroundColor: colors.infoBackground }]}>
-          <Icon name="info" size={18} color={colors.info} />
+          <AppIcon name="info" size={18} color={colors.info} />
           <Text style={[styles.noticeText, { color: colors.foreground }]}>
             {t('patient.messages.demoNotice', locale)}
           </Text>
@@ -129,7 +129,7 @@ export default function PatientMessagesScreen() {
 
         {messages.length === 0 ? (
           <View style={styles.emptyState}>
-            <Icon name="message-square" size={28} color={colors.mutedForeground} />
+            <AppIcon name="message-square" size={28} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               {t('patient.messages.empty', locale)}
             </Text>
@@ -221,7 +221,7 @@ export default function PatientMessagesScreen() {
           accessibilityLabel={t('patient.messages.addPreview', locale)}
           accessibilityState={{ disabled: !inputText.trim() }}
         >
-          <Icon name="send" size={18} color={colors.primaryForeground} />
+          <AppIcon name="send" size={18} color={colors.primaryForeground} />
         </TouchableOpacity>
       </View>
     </View>

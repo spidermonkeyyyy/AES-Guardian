@@ -229,6 +229,66 @@ export const AppIcon: React.FC<AppIconProps> = ({
   );
 };
 
+export type AppIconSurfaceVariant =
+  | 'subtle'
+  | 'primary'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info';
+
+export interface AppIconSurfaceProps extends Omit<AppIconProps, 'size' | 'style'> {
+  iconSize?: number | keyof typeof iconSizes;
+  surfaceSize?: number;
+  radius?: number;
+  variant?: AppIconSurfaceVariant;
+  style?: StyleProp<ViewStyle>;
+}
+
+export const AppIconSurface: React.FC<AppIconSurfaceProps> = ({
+  name,
+  iconSize = 'lg',
+  surfaceSize = 48,
+  radius = 12,
+  variant = 'subtle',
+  style,
+  ...iconProps
+}) => {
+  const { colors } = useTheme();
+  const palette = {
+    subtle: { background: colors.secondary, foreground: colors.primary },
+    primary: { background: colors.primary, foreground: colors.primaryForeground },
+    success: { background: colors.success, foreground: colors.successForeground },
+    warning: { background: colors.warningBackground, foreground: colors.warning },
+    danger: { background: colors.dangerBackground, foreground: colors.danger },
+    info: { background: colors.infoBackground, foreground: colors.info },
+  } as const;
+  const selected = palette[variant];
+
+  return (
+    <View
+      style={[
+        {
+          width: surfaceSize,
+          height: surfaceSize,
+          borderRadius: radius,
+          backgroundColor: selected.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}
+    >
+      <AppIcon
+        {...iconProps}
+        name={name}
+        size={iconSize}
+        color={selected.foreground}
+      />
+    </View>
+  );
+};
+
 export interface AppIconLabelProps {
   name: AppIconName;
   children: React.ReactNode;

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from 'react-native-vector-icons/Feather';
+import { AppIcon, AppIconSurface } from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -115,13 +115,14 @@ export const WelcomeCarouselScreen: React.FC = () => {
 
         {/* Editorial Value Card (Hinge iOS pattern) */}
         <View style={styles.cardContainer} testID={`carousel-slide-${currentIndex}`}>
-          <View style={styles.iconCircle}>
-            <Icon
-              name={activeSlide.iconName}
-              size={36}
-              color={aesColors.accentGreen}
-            />
-          </View>
+          <AppIconSurface
+            name={activeSlide.iconName}
+            iconSize={36}
+            surfaceSize={64}
+            radius={32}
+            variant="subtle"
+            style={styles.iconCircle}
+          />
 
           <Text
             style={[
@@ -143,7 +144,7 @@ export const WelcomeCarouselScreen: React.FC = () => {
                 ]}
               >
                 <View style={styles.checkCircle}>
-                  <Icon name="check" size={14} color={aesColors.accentGreen} />
+                  <AppIcon name="check" size={14} color={aesColors.accentGreen} />
                 </View>
                 <Text
                   style={[

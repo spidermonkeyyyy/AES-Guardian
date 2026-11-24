@@ -66,7 +66,7 @@ import {
   NotificationCentreScreen,
 } from '../features/aes-guardian';
 
-import Icon from '../components/AppIcon';
+import { AppIcon } from '../components/AppIcon';
 
 import { RootStackParamList, PatientTabParamList, NurseTabParamList } from './routes';
 import {
@@ -111,7 +111,7 @@ function PatientTabsNavigator() {
         options={{
           title: 'Accueil',
           tabBarLabel: 'Accueil',
-          tabBarIcon: ({ color, size }) => <Icon name="home" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="home" color={color} size={size} />,
         }}
       />
       <PatientTabs.Screen
@@ -120,7 +120,7 @@ function PatientTabsNavigator() {
         options={{
           title: 'Suivi',
           tabBarLabel: 'Suivi',
-          tabBarIcon: ({ color, size }) => <Icon name="activity" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="activity" color={color} size={size} />,
         }}
       />
       <PatientTabs.Screen
@@ -129,7 +129,7 @@ function PatientTabsNavigator() {
         options={{
           title: 'Messages',
           tabBarLabel: 'Messages',
-          tabBarIcon: ({ color, size }) => <Icon name="message-circle" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="message-circle" color={color} size={size} />,
         }}
       />
       <PatientTabs.Screen
@@ -138,7 +138,7 @@ function PatientTabsNavigator() {
         options={{
           title: 'Traitement',
           tabBarLabel: 'Traitement',
-          tabBarIcon: ({ color, size }) => <Icon name="package" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="package" color={color} size={size} />,
         }}
       />
       <PatientTabs.Screen
@@ -147,7 +147,7 @@ function PatientTabsNavigator() {
         options={{
           title: 'Profil',
           tabBarLabel: 'Profil',
-          tabBarIcon: ({ color, size }) => <Icon name="user" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="user" color={color} size={size} />,
         }}
       />
     </PatientTabs.Navigator>
@@ -183,7 +183,7 @@ function NurseTabsNavigator() {
         options={{
           title: 'Accueil',
           tabBarLabel: 'Accueil',
-          tabBarIcon: ({ color, size }) => <Icon name="home" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="home" color={color} size={size} />,
         }}
       />
       <NurseTabs.Screen
@@ -192,7 +192,7 @@ function NurseTabsNavigator() {
         options={{
           title: 'Patients',
           tabBarLabel: 'Patients',
-          tabBarIcon: ({ color, size }) => <Icon name="users" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="users" color={color} size={size} />,
         }}
       />
       <NurseTabs.Screen
@@ -201,7 +201,7 @@ function NurseTabsNavigator() {
         options={{
           title: 'Alertes',
           tabBarLabel: 'Alertes',
-          tabBarIcon: ({ color, size }) => <Icon name="bell" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="bell" color={color} size={size} />,
         }}
       />
       <NurseTabs.Screen
@@ -210,7 +210,7 @@ function NurseTabsNavigator() {
         options={{
           title: 'Messages',
           tabBarLabel: 'Messages',
-          tabBarIcon: ({ color, size }) => <Icon name="message-circle" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="message-circle" color={color} size={size} />,
         }}
       />
       <NurseTabs.Screen
@@ -219,7 +219,7 @@ function NurseTabsNavigator() {
         options={{
           title: 'Profil',
           tabBarLabel: 'Profil',
-          tabBarIcon: ({ color, size }) => <Icon name="user" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <AppIcon name="user" color={color} size={size} />,
         }}
       />
     </NurseTabs.Navigator>

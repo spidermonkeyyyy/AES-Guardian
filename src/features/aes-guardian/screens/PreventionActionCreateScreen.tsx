@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import {
   getDatabase,
   useDemoRoleStore,
@@ -367,7 +367,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel={t('app.back', locale)}
           >
-            <Icon
+            <AppIcon
               name="back-chevron"
               size={24}
               color={aesColors.textPrimary}

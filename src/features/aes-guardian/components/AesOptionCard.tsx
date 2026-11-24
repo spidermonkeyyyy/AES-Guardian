@@ -15,7 +15,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Icon from '../../../components/AppIcon';
+import { AppIcon } from '../../../components/AppIcon';
 import {
   aesColors,
   aesTypography,
@@ -94,7 +94,7 @@ export const AesOptionCard: React.FC<AesOptionCardProps> = ({
             ]}
           >
             {selected && (
-              <Icon name="check" size={14} color={aesColors.textInverse} />
+              <AppIcon name="check" size={14} color={aesColors.textInverse} />
             )}
           </View>
         )}
