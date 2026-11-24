@@ -14,7 +14,6 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 
 const STACK_TITLE_KEYS: Partial<Record<string, TranslationKey>> = {
-  access: 'access.navigationTitle',
   aesGuardianWorkspace: 'workspace.nav.title',
   declarations: 'list.title',
   newDeclaration: 'form.title.new',

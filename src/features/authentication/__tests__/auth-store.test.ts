@@ -18,7 +18,7 @@ describe('Auth State Machine', () => {
   });
 
   it('loginSuccess transitions to authenticated', () => {
-    const user = { id: '1', name: 'Test', email: 'test@test.com', role: 'patient' as const };
+    const user = { id: '1', name: 'Test', email: 'test@test.com', role: 'exposed_professional' as const };
     useAuthStore.getState().loginSuccess(user);
     const state = useAuthStore.getState();
     expect(state.status).toBe('authenticated');
@@ -34,7 +34,7 @@ describe('Auth State Machine', () => {
   });
 
   it('logout transitions to unauthenticated', () => {
-    const user = { id: '1', name: 'Test', email: 'test@test.com', role: 'patient' as const };
+    const user = { id: '1', name: 'Test', email: 'test@test.com', role: 'exposed_professional' as const };
     useAuthStore.getState().loginSuccess(user);
     useAuthStore.getState().logout();
     const state = useAuthStore.getState();
@@ -44,7 +44,7 @@ describe('Auth State Machine', () => {
 
   it('logout resets onboardingCompleted', () => {
     useAuthStore.setState({ isOnboardingCompleted: true });
-    const user = { id: '1', name: 'Test', email: 'test@test.com', role: 'patient' as const };
+    const user = { id: '1', name: 'Test', email: 'test@test.com', role: 'exposed_professional' as const };
     useAuthStore.getState().loginSuccess(user);
     useAuthStore.getState().logout();
     const state = useAuthStore.getState();

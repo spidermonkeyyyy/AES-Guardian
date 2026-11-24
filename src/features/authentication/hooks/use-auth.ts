@@ -1,4 +1,5 @@
 import { AppUser, AuthStatus } from '../../../types/auth';
+import { AesGuardianRole } from '../../../core/database/types';
 import { useAuthStore } from '../hooks/use-auth-store';
 import { MockAuthRepository } from '../../../services/repositories/auth-repository.mock';
 
@@ -24,9 +25,7 @@ export async function register(params: {
   name: string;
   email: string;
   password: string;
-  role: 'patient' | 'nurse' | 'pneumologist' | 'admin';
-  phone?: string;
-  dateOfBirth?: string;
+  role: AesGuardianRole;
 }): Promise<boolean> {
   useAuthStore.getState().setStatus('authenticating');
   useAuthStore.getState().setError(null);

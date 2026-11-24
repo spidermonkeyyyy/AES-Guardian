@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
-import { restoreSession } from './src/features/authentication/hooks/use-auth';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { initializeDatabase, logAuditEvent, SYNTHETIC_DEMO_CONTEXT } from './src/core';
 import { t, useLocale } from './src/localization';
@@ -29,8 +28,6 @@ function MainApp() {
         setInitError(err?.message || 'Database initialization error');
       }
     })();
-
-    restoreSession();
   }, []);
 
   if (!dbReady && !initError) {

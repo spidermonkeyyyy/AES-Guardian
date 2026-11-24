@@ -1,4 +1,4 @@
-import { AppUser, AuthFailure, AuthState } from '../../types/auth';
+import { AppUser, UserRole } from '../../types/auth';
 
 export interface AuthRepository {
   login(email: string, password: string): Promise<AppUser>;
@@ -6,9 +6,7 @@ export interface AuthRepository {
     name: string;
     email: string;
     password: string;
-    role: 'patient' | 'nurse' | 'pneumologist' | 'admin';
-    phone?: string;
-    dateOfBirth?: string;
+    role: UserRole;
   }): Promise<AppUser>;
   resetPassword(email: string): Promise<void>;
   logout(): Promise<void>;

@@ -1,19 +1,4 @@
 export type RootStackParamList = {
-  splash: undefined;
-  authGate: undefined;
-  access: undefined;
-  signIn: undefined;
-  signUp: undefined;
-  forgotPassword: undefined;
-  patientTabs: undefined;
-  nurseTabs: undefined;
-  rules: undefined;
-  ruleDetail: { ruleId: string };
-  ruleBuilder: { ruleId?: string };
-  designSystem: undefined;
-
-  // AES Guardian routes
-  // Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry
   aesSplash: { replay?: boolean } | undefined;
   aesLanguageSelect: undefined;
   aesWelcomeCarousel: undefined;
@@ -45,28 +30,4 @@ export type RootStackParamList = {
   aesGuardianProfile: undefined;
   // Phase 2D.2G: Notification Centre
   notificationCentre: undefined;
-};
-
-export type PatientTabParamList = {
-  patientHome: undefined;
-  monitor: undefined;
-  monitorQuestion: undefined;
-  monitorReview: undefined;
-  monitorResult: undefined;
-  monitorHistory: undefined;
-  messages: undefined;
-  treatment: undefined;
-  profile: undefined;
-};
-
-export type NurseTabParamList = {
-  nurseDashboard: undefined;
-  patients: undefined;
-  patientDetail: { patientId: string };
-  alerts: undefined;
-  messages: undefined;
-  profile: undefined;
-  rules: undefined;
-  ruleDetail: { ruleId: string };
-  ruleBuilder: { ruleId?: string };
 };

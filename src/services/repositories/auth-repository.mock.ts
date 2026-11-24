@@ -8,34 +8,15 @@ export class MockAuthRepository implements AuthRepository {
     await new Promise((r) => setTimeout(r, 200));
     const lowerEmail = email.toLowerCase().trim();
 
-    let role: UserRole = 'patient';
-    let name = 'Jean Dupont (Patient)';
-    let id = 'patient-1';
-
-    if (
-      lowerEmail.includes('nurse') ||
-      lowerEmail.includes('infirmier') ||
-      lowerEmail.includes('pneumo') ||
-      lowerEmail.includes('admin')
-    ) {
-      if (lowerEmail.includes('pneumo')) {
-        role = 'pneumologist';
-        name = 'Dr. Aris (Pneumologue)';
-        id = 'pneumo-1';
-      } else if (lowerEmail.includes('admin')) {
-        role = 'admin';
-        name = 'Administrateur Sanad';
-        id = 'admin-1';
-      } else {
-        role = 'nurse';
-        name = 'Sarah Martin (Infirmière)';
-        id = 'nurse-1';
-      }
-    }
+    let role: UserRole = 'exposed_professional';
+    if (lowerEmail.includes('admin') || lowerEmail.includes('review')) role = 'admin_reviewer';
+    else if (lowerEmail.includes('occupational') || lowerEmail.includes('work-health')) role = 'oh_professional';
+    else if (lowerEmail.includes('quality')) role = 'quality_staff';
+    else if (lowerEmail.includes('tech')) role = 'tech_admin';
 
     const user: AppUser = {
-      id,
-      name,
+      id: `${role}-demo`,
+      name: 'Utilisateur de démonstration',
       email: lowerEmail,
       role,
     };
@@ -48,18 +29,14 @@ export class MockAuthRepository implements AuthRepository {
     name: string;
     email: string;
     password: string;
-    role: 'patient' | 'nurse' | 'pneumologist' | 'admin';
-    phone?: string;
-    dateOfBirth?: string;
+    role: UserRole;
   }): Promise<AppUser> {
     await new Promise((r) => setTimeout(r, 200));
     const user: AppUser = {
       id: `user-${Date.now()}`,
       name: params.name,
       email: params.email.toLowerCase().trim(),
-      role: params.role || 'patient',
-      phone: params.phone,
-      dateOfBirth: params.dateOfBirth,
+      role: params.role,
     };
     this.currentUser = user;
     return user;

@@ -685,30 +685,17 @@ describe('Phase 2D.2G — Notification Centre UI & Interaction Integration', () 
   describe('Phase 2D.2G.1 — Integration Closure (Corrections A, B, C, D)', () => {
     // ── Correction A: Navigation Registration Isolation ──
     describe('Correction A: Navigation Stack Isolation', () => {
-      test('notificationCentre route is only registered in authenticated paths', () => {
+      test('notificationCentre is registered once in the SANAD AES navigation stack', () => {
         const fs = require('fs');
         const path = require('path');
         const navigatorPath = path.resolve(__dirname, '../../../navigation/AppNavigator.tsx');
         const content = fs.readFileSync(navigatorPath, 'utf8');
 
-        // Extract occurrences of notificationCentre screen registration
         const screenRegex = /<Stack\.Screen\s+name=["']notificationCentre["'][^>]*\/>/g;
         const matches = content.match(screenRegex) || [];
-
-        // Exactly 2 registrations: authenticated nurseSide and authenticated !nurseSide
-        expect(matches.length).toBe(2);
-
-        // Ensure NOT registered in unauthenticated or loading or fallback branches
-        const unauthBranchRegex = /status === 'unauthenticated' \|\| status === 'error'[\s\S]*?: status === 'authenticated'/;
-        const unauthBranchMatch = content.match(unauthBranchRegex);
-        expect(unauthBranchMatch).toBeTruthy();
-        expect(unauthBranchMatch![0]).not.toContain('name="notificationCentre"');
-
-        // Fallback branch
-        const fallbackRegex = /:\s*\(\s*<>[\s\S]*?authGate[\s\S]*?<\/Stack\.Navigator>/;
-        const fallbackMatch = content.match(fallbackRegex);
-        expect(fallbackMatch).toBeTruthy();
-        expect(fallbackMatch![0]).not.toContain('name="notificationCentre"');
+        expect(matches).toHaveLength(1);
+        expect(content).toContain('initialRouteName="aesSplash"');
+        expect(content).not.toMatch(/name=["'](?:authGate|patientTabs|nurseTabs)["']/);
       });
     });
 

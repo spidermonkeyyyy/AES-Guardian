@@ -1,12 +1,12 @@
-export type UserRole = 'patient' | 'nurse' | 'pneumologist' | 'admin';
+import { AesGuardianRole } from '../core/database/types';
+
+export type UserRole = AesGuardianRole;
 
 export interface AppUser {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  phone?: string | null;
-  dateOfBirth?: string | null;
 }
 
 export type AuthStatus = 'initializing' | 'unauthenticated' | 'authenticating' | 'authenticated' | 'error';
@@ -24,9 +24,7 @@ export interface AuthRepository {
     name: string;
     email: string;
     password: string;
-    role: 'patient' | 'nurse' | 'pneumologist' | 'admin';
-    phone?: string;
-    dateOfBirth?: string;
+    role: UserRole;
   }): Promise<AppUser>;
   resetPassword(email: string): Promise<void>;
   logout(): Promise<void>;
