@@ -67,6 +67,25 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
     resetDatabaseForTesting();
   });
 
+  const readCapaPersistenceCounts = async () => {
+    const [actions, operations, auditEvents, notifications] = await Promise.all([
+      db.query<{ count: number }>('SELECT COUNT(*) AS count FROM prevention_actions'),
+      db.query<{ count: number }>('SELECT COUNT(*) AS count FROM capa_creation_operations'),
+      db.query<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM audit_events WHERE entity_type = 'prevention_action'`,
+      ),
+      db.query<{ count: number }>(
+        `SELECT COUNT(*) AS count FROM in_app_notifications WHERE entity_type = 'prevention_action'`,
+      ),
+    ]);
+    return {
+      actions: actions.rows[0].count,
+      operations: operations.rows[0].count,
+      auditEvents: auditEvents.rows[0].count,
+      notifications: notifications.rows[0].count,
+    };
+  };
+
   // ─── 1. Creation & Required-Field Validation ──────────────────
 
   test('quality_staff successfully creates a prevention action with valid fields', async () => {
@@ -401,6 +420,7 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
   });
 
   test('Rejects surveillance_reference referencing individual declarations (AES-XXXX)', async () => {
+    const before = await readCapaPersistenceCounts();
     await expect(
       db.createPreventionAction(qualityUserId, {
         title: 'Action avec ref individuelle',
@@ -410,7 +430,10 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
         rationale: 'Observation surveillance',
         surveillance_reference: 'AES-2026-00042',
       }),
-    ).rejects.toThrow(/surveillance_reference must be an aggregate surveillance observation/);
+    ).rejects.toThrow(
+      /createPreventionAction: surveillance_reference must not reference individual declarations\./,
+    );
+    expect(await readCapaPersistenceCounts()).toEqual(before);
   });
 
   // ─── 5. Role Authorization Matrix ────────────────────────────
@@ -440,6 +463,7 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
     await expect(db.getPreventionOverview(adminUserId)).resolves.toBeDefined();
 
     // Cannot create
+    const beforeCreate = await readCapaPersistenceCounts();
     await expect(
       db.createPreventionAction(adminUserId, {
         title: 'Action Tentée par Admin RH',
@@ -448,7 +472,10 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
         contributing_factor: 'device_safety_design',
         rationale: 'Raison non autorisée',
       }),
-    ).rejects.toThrow(/Only quality_staff may create and manage prevention actions/);
+    ).rejects.toThrow(
+      /reserveCapaCreationOperation: only quality_staff may create or recover prevention actions\./,
+    );
+    expect(await readCapaPersistenceCounts()).toEqual(beforeCreate);
 
     // Create an action with quality staff
     const action = await db.createPreventionAction(qualityUserId, {
@@ -460,9 +487,15 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
     });
 
     // Admin reviewer cannot update status
+    const beforeUpdate = await readCapaPersistenceCounts();
+    const beforeAction = await db.getPreventionActionById(adminUserId, action.id);
     await expect(
       db.updatePreventionActionStatus(adminUserId, action.id, 'in_progress'),
     ).rejects.toThrow(/Only quality_staff may manage prevention actions/);
+    expect(await readCapaPersistenceCounts()).toEqual(beforeUpdate);
+    expect((await db.getPreventionActionById(adminUserId, action.id))?.status).toBe(
+      beforeAction?.status,
+    );
   });
 
   test('oh_professional has read-only access to prevention register, cannot create or update', async () => {
@@ -471,6 +504,7 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
     await expect(db.getPreventionOverview(ohUserId)).resolves.toBeDefined();
 
     // Cannot create
+    const beforeCreate = await readCapaPersistenceCounts();
     await expect(
       db.createPreventionAction(ohUserId, {
         title: 'Action Tentée par SST',
@@ -479,7 +513,10 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
         contributing_factor: 'device_safety_design',
         rationale: 'Raison non autorisée',
       }),
-    ).rejects.toThrow(/Only quality_staff may create and manage prevention actions/);
+    ).rejects.toThrow(
+      /reserveCapaCreationOperation: only quality_staff may create or recover prevention actions\./,
+    );
+    expect(await readCapaPersistenceCounts()).toEqual(beforeCreate);
   });
 
   test('exposed_professional is strictly prohibited from prevention actions', async () => {
@@ -489,6 +526,7 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
     await expect(db.getPreventionOverview(exposedUserId)).rejects.toThrow(
       /exposed_professional' is strictly prohibited/,
     );
+    const beforeCreate = await readCapaPersistenceCounts();
     await expect(
       db.createPreventionAction(exposedUserId, {
         title: 'Action Exposé',
@@ -497,7 +535,10 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
         contributing_factor: 'device_safety_design',
         rationale: 'Raison',
       }),
-    ).rejects.toThrow(/Only quality_staff may create and manage/);
+    ).rejects.toThrow(
+      /reserveCapaCreationOperation: only quality_staff may create or recover prevention actions\./,
+    );
+    expect(await readCapaPersistenceCounts()).toEqual(beforeCreate);
   });
 
   test('tech_admin is strictly prohibited from prevention actions', async () => {
@@ -507,6 +548,7 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
     await expect(db.getPreventionOverview(techUserId)).rejects.toThrow(
       /tech_admin' is strictly prohibited/,
     );
+    const beforeCreate = await readCapaPersistenceCounts();
     await expect(
       db.createPreventionAction(techUserId, {
         title: 'Action Tech',
@@ -515,7 +557,10 @@ describe('Phase 2C.6 — Prevention & Corrective-Action Management (CAPA)', () =
         contributing_factor: 'device_safety_design',
         rationale: 'Raison',
       }),
-    ).rejects.toThrow(/Only quality_staff may create and manage/);
+    ).rejects.toThrow(
+      /reserveCapaCreationOperation: only quality_staff may create or recover prevention actions\./,
+    );
+    expect(await readCapaPersistenceCounts()).toEqual(beforeCreate);
   });
 
   test('canManagePreventionActions and canViewPreventionActions evaluate role boundaries', () => {

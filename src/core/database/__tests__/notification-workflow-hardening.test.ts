@@ -894,7 +894,7 @@ describe('AES Guardian — Phase 2D.2C.1: Hardening & Remediation Verification',
       await assertZeroForeignKeyViolations();
     });
 
-    test('stable CAPA reference reconciles a committed action after readback failure without duplicates', async () => {
+    test('durable operation ID reconciles a committed action after readback failure without duplicates', async () => {
       const input = {
         title: 'Review protective equipment stock',
         description: 'Review the availability of protective equipment.',
@@ -904,21 +904,37 @@ describe('AES Guardian — Phase 2D.2C.1: Hardening & Remediation Verification',
       };
       const referenceCode = 'CAPA-2026-90001';
       const operationId = '10101010-1010-4010-8010-101010101010';
+      const reservation = await db.reserveCapaCreationOperation(
+        qualityStaffId,
+        input,
+        operationId,
+        referenceCode,
+        'new',
+      );
       const readback = jest
         .spyOn(db, 'getPreventionActionById')
         .mockRejectedValueOnce(new Error('Simulated post-commit readback failure'));
 
-      await expect(db.createPreventionActionForOperation(qualityStaffId, input, operationId, referenceCode, 'new'))
+      await expect(db.createPreventionActionForOperation(
+        qualityStaffId,
+        input,
+        operationId,
+        reservation.reference_code,
+        'new',
+      ))
         .rejects.toBeInstanceOf(PreventionActionCreationUncertainError);
       readback.mockRestore();
 
-      const reconciled = await db.reconcilePreventionActionCreation(
+      const reconciled = await db.reconcileCapaCreationOperation(
         qualityStaffId,
+        operationId,
         input,
-        referenceCode,
       );
       expect(reconciled?.id).toBeGreaterThan(0);
       expect(reconciled?.reference_code).toBe(referenceCode);
+      await expect(
+        db.reconcilePreventionActionCreation(qualityStaffId, input, referenceCode),
+      ).rejects.toBeInstanceOf(PreventionActionCreationUncertainError);
       const retried = await db.createPreventionActionForOperation(qualityStaffId, input, operationId, referenceCode, 'retry');
       expect(retried.id).toBe(reconciled?.id);
 

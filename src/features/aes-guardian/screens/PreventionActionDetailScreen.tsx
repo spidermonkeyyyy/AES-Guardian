@@ -74,6 +74,12 @@ export const PreventionActionDetailScreen: React.FC = () => {
 
   const loadAction = useCallback(async (): Promise<PreventionActionDetail | null> => {
     const request = ++requestId.current;
+    if (!Number.isSafeInteger(actionId) || actionId <= 0) {
+      setAction(null);
+      setLoading(false);
+      setLoadError(false);
+      return null;
+    }
     if (!userId || !canView) {
       setAction(null);
       setLoading(false);
@@ -110,10 +116,14 @@ export const PreventionActionDetailScreen: React.FC = () => {
 
   useEffect(() => {
     void loadAction();
+    const unsubscribe = navigation.addListener('focus', () => {
+      void loadAction();
+    });
     return () => {
+      unsubscribe();
       requestId.current += 1;
     };
-  }, [loadAction]);
+  }, [loadAction, navigation]);
 
   const closeTransition = () => {
     setTransitionStatus(null);
@@ -519,7 +529,11 @@ export const PreventionActionDetailScreen: React.FC = () => {
               </AppText>
             ) : (
               action.audit_history.map((event) => (
-                <View key={event.id} style={[styles.auditRow, { flexDirection: rowDirection }]}>
+                <View
+                  key={event.id}
+                  testID={`prevention-detail-audit-event-${event.id}`}
+                  style={[styles.auditRow, { flexDirection: rowDirection }]}
+                >
                   <View style={styles.auditMarker} />
                   <View style={styles.auditContent}>
                     <AppText style={[styles.auditDescription, rtl && styles.rtlText]}>

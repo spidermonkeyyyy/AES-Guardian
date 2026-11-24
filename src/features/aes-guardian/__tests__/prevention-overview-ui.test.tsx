@@ -9,12 +9,24 @@ jest.setTimeout(15000);
 
 const mockNavigate = jest.fn();
 const mockGetPreventionOverview = jest.fn();
+const mockGetSurveillanceMetrics = jest.fn();
+const mockFocusListeners: Array<() => void> = [];
+const mockNavigation = {
+  navigate: mockNavigate,
+  addListener: (_event: string, listener: () => void) => {
+    mockFocusListeners.push(listener);
+    return () => {
+      const index = mockFocusListeners.indexOf(listener);
+      if (index >= 0) mockFocusListeners.splice(index, 1);
+    };
+  },
+};
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   return {
     ...actual,
-    useNavigation: () => ({ navigate: mockNavigate }),
+    useNavigation: () => mockNavigation,
   };
 });
 
@@ -24,6 +36,7 @@ jest.mock('../../../core', () => {
     ...actual,
     getDatabase: jest.fn(() => ({
       getPreventionOverview: mockGetPreventionOverview,
+      getSurveillanceDashboardMetrics: mockGetSurveillanceMetrics,
     })),
   };
 });
@@ -39,9 +52,13 @@ const overview = {
 describe('PreventionOverviewScreen AES UI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFocusListeners.length = 0;
     setLocale('fr');
     useDemoRoleStore.getState().setRole('quality_staff');
     mockGetPreventionOverview.mockResolvedValue(overview);
+    mockGetSurveillanceMetrics.mockResolvedValue({
+      overview: { totalDeclarations: 6 },
+    });
   });
 
   test('quality staff renders aggregate metrics', async () => {
@@ -51,6 +68,7 @@ describe('PreventionOverviewScreen AES UI', () => {
     expect(getByTestId('prevention-overview-count-in_progress').props.children).toBe(2);
     expect(getByTestId('prevention-overview-count-completed').props.children).toBe(3);
     expect(getByTestId('prevention-overview-count-cancelled').props.children).toBe(1);
+    expect(getByTestId('prevention-overview-declaration-count').props.children).toBe(6);
   });
 
   test('Overview reads the globally active identity and has no independent role selector', async () => {
@@ -140,6 +158,36 @@ describe('PreventionOverviewScreen AES UI', () => {
     expect(mockNavigate).toHaveBeenCalledWith('preventionRegister');
   });
 
+  test('refreshes persisted overview metrics when returning to the screen', async () => {
+    const screen = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(3));
+    mockGetSurveillanceMetrics.mockResolvedValue({
+      overview: { totalDeclarations: 7 },
+    });
+    mockGetPreventionOverview.mockResolvedValue({
+      total: 10,
+      proposed: 4,
+      in_progress: 2,
+      completed: 3,
+      cancelled: 1,
+    });
+
+    await act(async () => mockFocusListeners[0]?.());
+
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(4));
+    expect(screen.getByTestId('prevention-overview-declaration-count').props.children).toBe(7);
+    expect(mockGetPreventionOverview).toHaveBeenCalledTimes(2);
+    expect(mockGetSurveillanceMetrics).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not present partial statistics when the persisted declaration query fails', async () => {
+    mockGetSurveillanceMetrics.mockRejectedValueOnce(new Error('database details remain private'));
+    const screen = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-error-card')).toBeTruthy());
+    expect(screen.queryByTestId('prevention-overview-declaration-count')).toBeNull();
+    expect(screen.queryByTestId('prevention-overview-total')).toBeNull();
+  });
+
   test('shows loading and empty states', async () => {
     mockGetPreventionOverview.mockImplementation(() => new Promise(() => {}));
     const loading = render(<PreventionOverviewScreen />);
@@ -153,8 +201,12 @@ describe('PreventionOverviewScreen AES UI', () => {
       completed: 0,
       cancelled: 0,
     });
+    mockGetSurveillanceMetrics.mockResolvedValue({
+      overview: { totalDeclarations: 0 },
+    });
     const empty = render(<PreventionOverviewScreen />);
     await waitFor(() => expect(empty.getByTestId('prevention-overview-empty')).toBeTruthy());
+    expect(empty.getByTestId('prevention-overview-declaration-count').props.children).toBe(0);
   });
 
   test('uses localized generic error text and retries', async () => {
@@ -170,6 +222,7 @@ describe('PreventionOverviewScreen AES UI', () => {
     fireEvent.press(screen.getByTestId('prevention-overview-retry'));
     await waitFor(() => expect(screen.getByTestId('prevention-overview-total')).toBeTruthy());
     expect(mockGetPreventionOverview).toHaveBeenCalledTimes(2);
+    expect(mockGetSurveillanceMetrics).toHaveBeenCalledTimes(2);
   });
 
   test('renders localized overview labels in French, English and Arabic', async () => {
@@ -181,7 +234,7 @@ describe('PreventionOverviewScreen AES UI', () => {
     }
   });
 
-  test('FR, EN and AR switch header and overview rows without changing metrics', async () => {
+  test('FR, EN and AR localize header alignment without changing metrics', async () => {
     const screen = render(<PreventionOverviewScreen />);
     await waitFor(() => expect(screen.getByTestId('prevention-overview-metrics')).toBeTruthy());
     expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(3);
@@ -191,9 +244,9 @@ describe('PreventionOverviewScreen AES UI', () => {
       await waitFor(() => {
         expect(
           StyleSheet.flatten(
-            screen.getByTestId('prevention-overview-header-top-row').props.style,
-          ).flexDirection,
-        ).toBe(locale === 'ar' ? 'row-reverse' : 'row');
+            screen.getByText(t('prevention.overview.title', locale)).props.style,
+          ).textAlign,
+        ).toBe(locale === 'ar' ? 'right' : 'left');
       });
       expect(screen.getByTestId('prevention-overview-count-proposed').props.children).toBe(3);
     }

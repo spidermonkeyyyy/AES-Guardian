@@ -66,6 +66,41 @@ const fillValidForm = (getByTestId: (testID: string) => any) => {
   );
 };
 
+const makeOperation = (
+  operationId: string,
+  referenceCode: string,
+  creatorId: number,
+  payload: Record<string, unknown>,
+  status: 'pending' | 'committed' = 'pending',
+) => ({
+  operation_id: operationId,
+  created_by_user_id: creatorId,
+  payload_json: JSON.stringify(payload),
+  payload_hash: 'test-payload-hash',
+  reference_code: referenceCode,
+  status,
+  prevention_action_id: status === 'committed' ? 21 : null,
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+  acknowledged_at: null,
+});
+
+const makeReservationForInput = (
+  userId: number,
+  input: Record<string, unknown>,
+  operationId: string,
+  referenceCode: string,
+) =>
+  makeOperation(operationId, referenceCode, userId, {
+    title: input.title,
+    description: input.description,
+    action_type: input.action_type,
+    contributing_factor: input.contributing_factor,
+    rationale: input.rationale,
+    target_date: input.target_date ?? null,
+    surveillance_reference: input.surveillance_reference ?? null,
+  });
+
 describe('PreventionActionCreateScreen AES UI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -79,11 +114,9 @@ describe('PreventionActionCreateScreen AES UI', () => {
     mockCreateReferenceCode.mockReturnValue('CAPA-2026-00021');
     mockReconcileCreation.mockResolvedValue(null);
     mockListPendingCreation.mockResolvedValue([]);
-    mockReserveCreation.mockResolvedValue({
-      operation_id: '11111111-1111-4111-8111-111111111111',
-      reference_code: 'CAPA-2026-00021',
-      status: 'pending',
-    });
+    mockReserveCreation.mockImplementation((userId, input, operationId) =>
+      Promise.resolve(makeReservationForInput(userId, input, operationId, 'CAPA-2026-00021')),
+    );
     mockReconcileOperation.mockResolvedValue(null);
     mockListUnacknowledged.mockResolvedValue([]);
     mockCreateForOperation.mockResolvedValue({
@@ -91,15 +124,14 @@ describe('PreventionActionCreateScreen AES UI', () => {
       reference_code: 'CAPA-2026-00021',
       status: 'proposed',
     });
-    mockCreateForOperation.mockImplementation(
-      (userId, input, operationId, referenceCode, intent) => {
-        if (intent === 'new') {
-          return mockCreatePreventionAction(userId, input, referenceCode);
-        }
-        return mockCreatePreventionAction(userId, input, referenceCode, operationId);
-      },
+    mockAcknowledgeOperation.mockImplementation((userId, operationId) =>
+      Promise.resolve({
+        operation_id: operationId,
+        created_by_user_id: userId,
+        status: 'committed',
+        acknowledged_at: '2026-01-01T00:00:00.000Z',
+      }),
     );
-    mockAcknowledgeOperation.mockResolvedValue({});
   });
 
   test('authorized quality staff can render the form', () => {
@@ -148,7 +180,8 @@ describe('PreventionActionCreateScreen AES UI', () => {
     expect(getByText(t('prevention.create.validation.title'))).toBeTruthy();
     expect(getByText(t('prevention.create.validation.description'))).toBeTruthy();
     expect(getByText(t('prevention.create.validation.rationale'))).toBeTruthy();
-    expect(mockCreatePreventionAction).not.toHaveBeenCalled();
+    expect(mockReserveCreation).not.toHaveBeenCalled();
+    expect(mockCreateForOperation).not.toHaveBeenCalled();
   });
 
   test('target date and surveillance reference accept optional values', () => {
@@ -175,7 +208,7 @@ describe('PreventionActionCreateScreen AES UI', () => {
     await act(async () => {
       fireEvent.press(getByTestId('prevention-create-submit'));
     });
-    expect(mockCreatePreventionAction).toHaveBeenCalledWith(
+    expect(mockCreateForOperation).toHaveBeenCalledWith(
       4,
       expect.objectContaining({
         title: 'Dotation en collecteurs de sécurité',
@@ -186,8 +219,12 @@ describe('PreventionActionCreateScreen AES UI', () => {
         surveillance_reference: 'Observation T3-2026',
         target_date: '2026-12-31',
       }),
+      '11111111-1111-4111-8111-111111111111',
       'CAPA-2026-00021',
+      'new',
     );
+    expect(mockReserveCreation).toHaveBeenCalledTimes(1);
+    expect(mockCreatePreventionAction).not.toHaveBeenCalled();
   });
 
   test('initial Stage A and Stage B use new with the same operation ID', async () => {
@@ -224,6 +261,8 @@ describe('PreventionActionCreateScreen AES UI', () => {
       surveillance_reference: undefined,
     });
     expect(mockCreateOperationId).toHaveBeenCalledTimes(1);
+    expect(mockReserveCreation).toHaveBeenCalledTimes(1);
+    expect(mockCreatePreventionAction).not.toHaveBeenCalled();
   });
 
   test('initial submission passes new intent to Stage A and Stage B with the same ID', async () => {
@@ -251,21 +290,34 @@ describe('PreventionActionCreateScreen AES UI', () => {
       'CAPA-2026-00021',
       'new',
     );
+    expect(mockReserveCreation).toHaveBeenCalledTimes(1);
+  });
+
+  test('Stage A operation-ID collision is an error and Stage B is not called', async () => {
+    mockReserveCreation.mockRejectedValueOnce(new Error('operation ID collision'));
+    const { getByTestId, queryByTestId } = renderCreate();
+    fillValidForm(getByTestId);
+    await act(async () => fireEvent.press(getByTestId('prevention-create-submit')));
+
+    await waitFor(() => expect(getByTestId('prevention-create-error')).toBeTruthy());
+    expect(queryByTestId('prevention-create-result')).toBeNull();
+    expect(mockReserveCreation).toHaveBeenCalledTimes(1);
+    expect(mockCreateForOperation).not.toHaveBeenCalled();
+    expect(mockCreatePreventionAction).not.toHaveBeenCalled();
   });
 
   test('duplicate rapid submissions create only one action', async () => {
-    mockCreatePreventionAction.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ id: 21, status: 'proposed' }), 50)),
-    );
+    mockCreateForOperation.mockImplementation(() => new Promise(() => {}));
     const { getByTestId } = renderCreate();
     fillValidForm(getByTestId);
     fireEvent.press(getByTestId('prevention-create-submit'));
     fireEvent.press(getByTestId('prevention-create-submit'));
-    await waitFor(() => expect(mockCreatePreventionAction).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockCreateForOperation).toHaveBeenCalledTimes(1));
+    expect(mockReserveCreation).toHaveBeenCalledTimes(1);
   });
 
   test('submission loading state is honest and prevents a second press', async () => {
-    mockCreatePreventionAction.mockImplementation(() => new Promise(() => {}));
+    mockCreateForOperation.mockImplementation(() => new Promise(() => {}));
     const { getByTestId } = renderCreate();
     fillValidForm(getByTestId);
     fireEvent.press(getByTestId('prevention-create-submit'));
@@ -273,7 +325,7 @@ describe('PreventionActionCreateScreen AES UI', () => {
   });
 
   test('repository failure shows localized error and preserves entered values', async () => {
-    mockCreatePreventionAction.mockRejectedValue(new Error('Sensitive database detail'));
+    mockCreateForOperation.mockRejectedValue(new Error('Sensitive database detail'));
     const { getByTestId, getByText } = renderCreate();
     fillValidForm(getByTestId);
     await act(async () => {
@@ -288,7 +340,7 @@ describe('PreventionActionCreateScreen AES UI', () => {
   });
 
   test('retry behavior resubmits the preserved form with the same stable reference', async () => {
-    mockCreatePreventionAction
+    mockCreateForOperation
       .mockRejectedValueOnce(new Error('failure'))
       .mockResolvedValueOnce({ id: 22, reference_code: 'CAPA-2026-00021', status: 'proposed' });
     const { getByTestId, queryByTestId } = renderCreate();
@@ -297,9 +349,13 @@ describe('PreventionActionCreateScreen AES UI', () => {
     await waitFor(() => expect(getByTestId('prevention-create-error')).toBeTruthy());
     await act(async () => fireEvent.press(getByTestId('prevention-create-retry')));
     await waitFor(() => expect(queryByTestId('prevention-create-error')).toBeNull());
-    expect(mockCreatePreventionAction).toHaveBeenCalledTimes(2);
-    expect(mockCreatePreventionAction.mock.calls[0][2]).toBe('CAPA-2026-00021');
-    expect(mockCreatePreventionAction.mock.calls[1][2]).toBe('CAPA-2026-00021');
+    expect(mockCreateForOperation).toHaveBeenCalledTimes(2);
+    expect(mockCreateForOperation.mock.calls[0][3]).toBe('CAPA-2026-00021');
+    expect(mockCreateForOperation.mock.calls[1][3]).toBe('CAPA-2026-00021');
+    expect(mockCreateForOperation.mock.calls[1][1]).toEqual(
+      mockCreateForOperation.mock.calls[0][1],
+    );
+    expect(mockReserveCreation).toHaveBeenCalledTimes(1);
     expect(mockCreateForOperation.mock.calls[0][4]).toBe('new');
     expect(mockCreateForOperation.mock.calls[1][4]).toBe('retry');
     expect(mockCreateForOperation.mock.calls[0][2]).toBe(
@@ -308,9 +364,18 @@ describe('PreventionActionCreateScreen AES UI', () => {
     expect(mockCreateOperationId).toHaveBeenCalledTimes(1);
   });
 
-  test('uncertain creation blocks blind retry until exact-reference reconciliation confirms absence', async () => {
-    mockCreatePreventionAction.mockRejectedValueOnce(
-      new PreventionActionCreationUncertainError('CAPA-2026-00021'),
+  test('uncertain creation blocks blind retry until operation-ID reconciliation confirms absence', async () => {
+    mockReconcileCreation.mockResolvedValue({
+      id: 21,
+      reference_code: 'CAPA-2026-00021',
+      status: 'proposed',
+    });
+    mockCreateForOperation.mockRejectedValueOnce(
+      new PreventionActionCreationUncertainError(
+        'CAPA transaction outcome uncertain',
+        'CAPA-2026-00021',
+        '11111111-1111-4111-8111-111111111111',
+      ),
     );
     mockReconcileOperation.mockResolvedValueOnce(null);
     const { getByTestId, queryByTestId, getByText } = renderCreate();
@@ -330,9 +395,12 @@ describe('PreventionActionCreateScreen AES UI', () => {
       expect.objectContaining({ title: 'Dotation en collecteurs de sécurité' }),
     );
     expect(getByText(t('prevention.create.reconcileAbsent'))).toBeTruthy();
+    expect(queryByTestId('prevention-create-result')).toBeNull();
+    expect(mockReconcileCreation).not.toHaveBeenCalled();
     await act(async () => fireEvent.press(getByTestId('prevention-create-retry')));
-    expect(mockCreatePreventionAction).toHaveBeenCalledTimes(2);
-    expect(mockCreatePreventionAction.mock.calls[0][2]).toBe(mockCreatePreventionAction.mock.calls[1][2]);
+    expect(mockCreateForOperation).toHaveBeenCalledTimes(2);
+    expect(mockReconcileCreation).not.toHaveBeenCalled();
+    expect(mockCreatePreventionAction).not.toHaveBeenCalled();
     expect(mockCreateForOperation.mock.calls[0][2]).toBe(
       mockCreateForOperation.mock.calls[1][2],
     );
@@ -342,8 +410,12 @@ describe('PreventionActionCreateScreen AES UI', () => {
   });
 
   test('reconciliation presents exact action and waits for explicit confirmation', async () => {
-    mockCreatePreventionAction.mockRejectedValueOnce(
-      new PreventionActionCreationUncertainError('CAPA-2026-00021'),
+    mockCreateForOperation.mockRejectedValueOnce(
+      new PreventionActionCreationUncertainError(
+        'CAPA transaction outcome uncertain',
+        'CAPA-2026-00021',
+        '11111111-1111-4111-8111-111111111111',
+      ),
     );
     mockReconcileOperation.mockResolvedValueOnce({ id: 21, reference_code: 'CAPA-2026-00021' });
     const { getByTestId } = renderCreate();
@@ -357,11 +429,12 @@ describe('PreventionActionCreateScreen AES UI', () => {
     await act(async () => fireEvent.press(getByTestId('prevention-create-confirm-presentation')));
     await waitFor(() => expect(mockAcknowledgeOperation).toHaveBeenCalledWith(4, '11111111-1111-4111-8111-111111111111'));
     await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
-    expect(mockCreatePreventionAction).toHaveBeenCalledTimes(1);
+    expect(mockCreateForOperation).toHaveBeenCalledTimes(1);
+    expect(mockReconcileCreation).not.toHaveBeenCalled();
   });
 
   test('does not navigate after repository failure', async () => {
-    mockCreatePreventionAction.mockRejectedValue(new Error('failure'));
+    mockCreateForOperation.mockRejectedValue(new Error('failure'));
     const { getByTestId } = renderCreate();
     fillValidForm(getByTestId);
     await act(async () => fireEvent.press(getByTestId('prevention-create-submit')));
@@ -375,16 +448,16 @@ describe('PreventionActionCreateScreen AES UI', () => {
       .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
       .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
     mockReserveCreation
-      .mockResolvedValueOnce({
-        operation_id: '11111111-1111-4111-8111-111111111111',
-        reference_code: 'CAPA-2026-00021',
-        status: 'pending',
-      })
-      .mockResolvedValueOnce({
-        operation_id: '22222222-2222-4222-8222-222222222222',
-        reference_code: 'CAPA-2026-00022',
-        status: 'pending',
-      });
+      .mockImplementationOnce((userId, input, operationId) =>
+        Promise.resolve(
+          makeReservationForInput(userId, input, operationId, 'CAPA-2026-00021'),
+        ),
+      )
+      .mockImplementationOnce((userId, input, operationId) =>
+        Promise.resolve(
+          makeReservationForInput(userId, input, operationId, 'CAPA-2026-00022'),
+        ),
+      );
     mockCreateForOperation
       .mockResolvedValueOnce({
         id: 21,
@@ -438,11 +511,11 @@ describe('PreventionActionCreateScreen AES UI', () => {
 
   test('remount restores one pending operation instead of generating a new operation', async () => {
     mockListPendingCreation.mockResolvedValue([
-      {
-        operation_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        reference_code: 'CAPA-2026-00022',
-        status: 'pending',
-        payload_json: JSON.stringify({
+      makeOperation(
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'CAPA-2026-00022',
+        4,
+        {
           title: 'Restored durable operation',
           description: 'Restored from the durable operation table.',
           action_type: 'preventive',
@@ -450,14 +523,15 @@ describe('PreventionActionCreateScreen AES UI', () => {
           rationale: 'Recovery must preserve the original operation.',
           target_date: null,
           surveillance_reference: null,
-        }),
-      },
+        },
+      ),
     ]);
     const screen = renderCreate();
     await waitFor(() =>
       expect(screen.getByTestId('prevention-create-title-input').props.value)
         .toBe('Restored durable operation'),
     );
+    expect(mockReconcileOperation).not.toHaveBeenCalled();
     await act(async () => fireEvent.press(screen.getByTestId('prevention-create-submit')));
     expect(mockReserveCreation).not.toHaveBeenCalled();
     expect(mockCreateForOperation).toHaveBeenCalledWith(
@@ -469,13 +543,38 @@ describe('PreventionActionCreateScreen AES UI', () => {
     );
   });
 
+  test('recovery rejects an operation belonging to a different creator', async () => {
+    mockListPendingCreation.mockResolvedValue([
+      makeOperation(
+        'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        'CAPA-2026-00026',
+        99,
+        {
+          title: 'Foreign creator operation',
+          description: 'This operation belongs to another creator.',
+          action_type: 'preventive',
+          contributing_factor: 'protective_equipment',
+          rationale: 'Do not resume another creator operation.',
+          target_date: null,
+          surveillance_reference: null,
+        },
+      ),
+    ]);
+    const screen = renderCreate();
+    await waitFor(() => expect(screen.getByTestId('prevention-create-error')).toBeTruthy());
+    expect(screen.getByTestId('prevention-create-title-input').props.value).toBe('');
+    fireEvent.press(screen.getByTestId('prevention-create-submit'));
+    expect(mockReserveCreation).not.toHaveBeenCalled();
+    expect(mockCreateForOperation).not.toHaveBeenCalled();
+  });
+
   test('committed unacknowledged operation is recovered and acknowledged after presentation', async () => {
     mockListUnacknowledged.mockResolvedValue([
-      {
-        operation_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-        reference_code: 'CAPA-2026-00025',
-        status: 'committed',
-        payload_json: JSON.stringify({
+      makeOperation(
+        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        'CAPA-2026-00025',
+        4,
+        {
           title: 'Recovered committed operation',
           description: 'Recovered after process restart.',
           action_type: 'preventive',
@@ -483,8 +582,9 @@ describe('PreventionActionCreateScreen AES UI', () => {
           rationale: 'No duplicate creation is permitted.',
           target_date: null,
           surveillance_reference: null,
-        }),
-      },
+        },
+        'committed',
+      ),
     ]);
     mockReconcileOperation.mockResolvedValue({
       id: 25,
@@ -493,6 +593,11 @@ describe('PreventionActionCreateScreen AES UI', () => {
     const screen = renderCreate();
     await waitFor(() =>
       expect(screen.getByTestId('prevention-create-result')).toBeTruthy(),
+    );
+    expect(mockReconcileOperation).toHaveBeenCalledWith(
+      4,
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      expect.objectContaining({ title: 'Recovered committed operation' }),
     );
     expect(mockAcknowledgeOperation).not.toHaveBeenCalled();
     await act(async () =>
@@ -511,14 +616,21 @@ describe('PreventionActionCreateScreen AES UI', () => {
     fillValidForm(getByTestId);
     mockAcknowledgeOperation
       .mockRejectedValueOnce(new Error('acknowledgement failure'))
-      .mockResolvedValueOnce({});
+      .mockImplementationOnce((userId, operationId) =>
+        Promise.resolve({
+          operation_id: operationId,
+          created_by_user_id: userId,
+          status: 'committed',
+          acknowledged_at: '2026-01-01T00:00:00.000Z',
+        }),
+      );
     await act(async () => fireEvent.press(getByTestId('prevention-create-submit')));
     await waitFor(() => expect(getByTestId('prevention-create-result')).toBeTruthy());
     await act(async () => fireEvent.press(getByTestId('prevention-create-confirm-presentation')));
     await waitFor(() =>
       expect(getByTestId('prevention-create-acknowledgement-error')).toBeTruthy(),
     );
-    expect(mockCreatePreventionAction).toHaveBeenCalledTimes(1);
+    expect(mockCreateForOperation).toHaveBeenCalledTimes(1);
     await act(async () => fireEvent.press(getByTestId('prevention-create-confirm-presentation')));
     await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
     expect(mockAcknowledgeOperation).toHaveBeenCalledTimes(2);
@@ -538,7 +650,7 @@ describe('PreventionActionCreateScreen AES UI', () => {
     fireEvent.press(getByTestId('prevention-create-confirm-presentation'));
 
     await waitFor(() => expect(mockAcknowledgeOperation).toHaveBeenCalledTimes(1));
-    expect(mockCreatePreventionAction).toHaveBeenCalledTimes(1);
+    expect(mockCreateForOperation).toHaveBeenCalledTimes(1);
     expect(mockGoBack).not.toHaveBeenCalled();
   });
 
@@ -550,7 +662,8 @@ describe('PreventionActionCreateScreen AES UI', () => {
     const screen = renderCreate();
     await waitFor(() => expect(screen.getByTestId('prevention-create-error')).toBeTruthy());
     fireEvent.press(screen.getByTestId('prevention-create-submit'));
-    expect(mockCreatePreventionAction).not.toHaveBeenCalled();
+    expect(mockReserveCreation).not.toHaveBeenCalled();
+    expect(mockCreateForOperation).not.toHaveBeenCalled();
   });
 
   test('supports French, English, and Arabic localized copy', () => {

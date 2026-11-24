@@ -19,6 +19,7 @@ import {
   CreatePreventionActionInput,
   PreventionActionCreationUncertainError,
   CapaCreationOperation,
+  PreventionActionDetail,
 } from '../../../core';
 import {
   t,
@@ -68,14 +69,21 @@ export const PreventionActionCreateScreen: React.FC = () => {
   const [operationId, setOperationId] = useState<string | null>(null);
   const [operationIntent, setOperationIntent] = useState<'new' | 'retry' | null>(null);
   const [recoveryConflict, setRecoveryConflict] = useState(false);
-  const [recoveredCommittedAction, setRecoveredCommittedAction] = useState<any | null>(null);
-  const [presentedAction, setPresentedAction] = useState<any | null>(null);
+  const [recoveredCommittedAction, setRecoveredCommittedAction] =
+    useState<PreventionActionDetail | null>(null);
+  const [presentedAction, setPresentedAction] = useState<PreventionActionDetail | null>(null);
   const [acknowledging, setAcknowledging] = useState(false);
   const [acknowledgementError, setAcknowledgementError] = useState(false);
   const [validation, setValidation] = useState<string[]>([]);
   const submissionLock = useRef(false);
   const acknowledgementLock = useRef(false);
   const creationReference = useRef<string | null>(null);
+  const operationPayload = useRef<CreatePreventionActionInput | null>(null);
+
+  const restoreOperationPayload = (operation: CapaCreationOperation) => {
+    if (operation.created_by_user_id !== userId) return null;
+    return parseOperationPayload(operation.payload_json);
+  };
 
   const validate = (): string[] => {
     const messages: string[] = [];
@@ -110,24 +118,12 @@ export const PreventionActionCreateScreen: React.FC = () => {
   useEffect(() => {
     if (!isAuthorized || !userId) return;
     let cancelled = false;
-    const db = getDatabase() as any;
-    if (
-      typeof db.listPendingCapaCreationOperations !== 'function' &&
-      typeof db.listUnacknowledgedCommittedCapaCreationOperations !== 'function'
-    ) {
-      return () => {
-        cancelled = true;
-      };
-    }
+    const db = getDatabase();
     Promise.all([
-      typeof db.listPendingCapaCreationOperations === 'function'
-        ? db.listPendingCapaCreationOperations(userId)
-        : Promise.resolve([]),
-      typeof db.listUnacknowledgedCommittedCapaCreationOperations === 'function'
-        ? db.listUnacknowledgedCommittedCapaCreationOperations(userId)
-        : Promise.resolve([]),
+      db.listPendingCapaCreationOperations(userId),
+      db.listUnacknowledgedCommittedCapaCreationOperations(userId),
     ])
-      .then(async ([pending, committed]: [CapaCreationOperation[], CapaCreationOperation[]]) => {
+      .then(async ([pending, committed]) => {
         if (cancelled) return;
         if (pending.length + committed.length > 1) {
           setRecoveryConflict(true);
@@ -136,14 +132,13 @@ export const PreventionActionCreateScreen: React.FC = () => {
         }
         if (pending.length === 1) {
           const operation = pending[0];
-          let payload: CreatePreventionActionInput;
-          try {
-            payload = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
-          } catch {
+          const payload = restoreOperationPayload(operation);
+          if (!payload || !operation.reference_code) {
             setError(true);
             setRecoveryConflict(true);
             return;
           }
+          operationPayload.current = payload;
           setTitle(payload.title);
           setDescription(payload.description);
           setActionType(payload.action_type);
@@ -156,31 +151,35 @@ export const PreventionActionCreateScreen: React.FC = () => {
           creationReference.current = operation.reference_code;
         } else if (committed.length === 1) {
           const operation = committed[0];
-          let payload: CreatePreventionActionInput;
-          try {
-            payload = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
-          } catch {
+          const payload = restoreOperationPayload(operation);
+          if (!payload || !operation.reference_code) {
             setRecoveryConflict(true);
             setError(true);
             return;
           }
-          if (typeof db.reconcileCapaCreationOperation === 'function') {
-            const action = await db.reconcileCapaCreationOperation(
-              userId,
-              operation.operation_id,
-              payload,
-            );
-            if (!cancelled && action) {
-              setOperationId(operation.operation_id);
-              setOperationIntent('retry');
-              setRecoveredCommittedAction(action);
-              setPresentedAction(action);
-            }
+          const action = await db.reconcileCapaCreationOperation(
+            userId,
+            operation.operation_id,
+            payload,
+          );
+          if (!cancelled && action) {
+            operationPayload.current = payload;
+            creationReference.current = operation.reference_code;
+            setOperationId(operation.operation_id);
+            setOperationIntent('retry');
+            setRecoveredCommittedAction(action);
+            setPresentedAction(action);
+          } else if (!cancelled) {
+            setRecoveryConflict(true);
+            setError(true);
           }
         }
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (!cancelled) {
+          setError(true);
+          setRecoveryConflict(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -200,12 +199,21 @@ export const PreventionActionCreateScreen: React.FC = () => {
     setAcknowledging(true);
     setAcknowledgementError(false);
     try {
-      await getDatabase().acknowledgeCapaCreationOperation(userId, operationId);
+      const acknowledged = await getDatabase().acknowledgeCapaCreationOperation(userId, operationId);
+      if (
+        acknowledged.operation_id !== operationId ||
+        acknowledged.created_by_user_id !== userId ||
+        acknowledged.status !== 'committed' ||
+        !acknowledged.acknowledged_at
+      ) {
+        throw new Error('CAPA operation acknowledgement was not verified.');
+      }
       setPresentedAction(null);
       setRecoveredCommittedAction(null);
       setOperationId(null);
       setOperationIntent(null);
       creationReference.current = null;
+      operationPayload.current = null;
       setAcknowledgementError(false);
       navigation.goBack();
     } catch {
@@ -235,50 +243,69 @@ export const PreventionActionCreateScreen: React.FC = () => {
     setConfirmedAbsent(false);
     submissionLock.current = true;
     setSubmitting(true);
+    let reservationAttempted = false;
     try {
-      const db = getDatabase() as any;
+      const db = getDatabase();
       let activeOperationId = operationId;
+      let payload = operationPayload.current;
       let operationReference = creationReference.current;
-      let stageIntent: 'new' | 'retry' =
-        operationIntent ?? (activeOperationId ? 'retry' : 'new');
-      if (!activeOperationId && typeof db.reserveCapaCreationOperation === 'function') {
+      let stageIntent: 'new' | 'retry' = operationIntent ?? 'new';
+      if (!activeOperationId) {
+        payload = createInput();
         activeOperationId = db.createCapaCreationOperationId();
-        setOperationIntent('new');
-        stageIntent = 'new';
+        reservationAttempted = true;
         const reserved = await db.reserveCapaCreationOperation(
           userId,
-          createInput(),
+          payload,
           activeOperationId,
           undefined,
           'new',
         );
+        if (
+          reserved.operation_id !== activeOperationId ||
+          reserved.created_by_user_id !== userId ||
+          reserved.status !== 'pending' ||
+          !reserved.reference_code ||
+          !payloadMatchesOperation(reserved.payload_json, payload)
+        ) {
+          throw new Error('CAPA operation reservation could not be verified.');
+        }
         operationReference = reserved.reference_code;
-        setOperationId(reserved.operation_id);
+        operationPayload.current = payload;
         creationReference.current = reserved.reference_code;
+        setOperationId(activeOperationId);
+        setOperationIntent('new');
+        stageIntent = 'new';
       }
-      if (
-        activeOperationId &&
-        typeof db.createPreventionActionForOperation === 'function'
-      ) {
-        const action = await db.createPreventionActionForOperation(
-          userId,
-          createInput(),
-          activeOperationId,
-          operationReference || db.createPreventionActionReferenceCode(),
-          stageIntent,
-        );
-        setPresentedAction(action);
+      if (!activeOperationId || !payload || !operationReference) {
+        throw new Error('A verified CAPA reservation is required before creation.');
       }
+      const action = await db.createPreventionActionForOperation(
+        userId,
+        payload,
+        activeOperationId,
+        operationReference,
+        stageIntent,
+      );
+      setPresentedAction(action);
     } catch (caught) {
       setError(true);
-      if (creationReference.current) {
+      if (reservationAttempted && !operationPayload.current) {
+        setRecoveryConflict(true);
+      }
+      if (operationId || (operationPayload.current && creationReference.current)) {
         setOperationIntent('retry');
       }
       if (caught instanceof PreventionActionCreationUncertainError) {
-        creationReference.current = caught.referenceCode ?? null;
-        if (caught.operationId) setOperationId(caught.operationId);
-        setOperationIntent('retry');
-        setUncertain(true);
+        if (caught.operationId && caught.operationId === operationId) {
+          setOperationId(caught.operationId);
+        }
+        if (operationPayload.current && creationReference.current) {
+          setUncertain(true);
+          setOperationIntent('retry');
+        } else {
+          setRecoveryConflict(true);
+        }
       }
     } finally {
       submissionLock.current = false;
@@ -292,24 +319,18 @@ export const PreventionActionCreateScreen: React.FC = () => {
       !uncertain ||
       !isAuthorized ||
       !userId ||
-      (!operationId && !creationReference.current)
+      !operationId ||
+      !operationPayload.current
     ) return;
     submissionLock.current = true;
     setReconciling(true);
     try {
-      const db = getDatabase() as any;
-      const action =
-        typeof db.reconcileCapaCreationOperation === 'function' && operationId
-          ? await db.reconcileCapaCreationOperation(
-              userId,
-              operationId,
-              createInput(),
-            )
-          : await db.reconcilePreventionActionCreation(
-              userId,
-              createInput(),
-              creationReference.current,
-            );
+      const db = getDatabase();
+      const action = await db.reconcileCapaCreationOperation(
+        userId,
+        operationId,
+        operationPayload.current,
+      );
       if (action) {
         setPresentedAction(action);
         setUncertain(false);
@@ -366,7 +387,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             <AppTextInput
               testID="prevention-create-title-input"
               accessibilityLabel={t('prevention.create.actionTitle', locale)}
-              editable={!uncertain}
+              editable={!uncertain && !operationId}
               style={[styles.input, rtl && styles.rtlText, { textAlign: 'left', writingDirection: 'ltr' }]}
               value={title}
               onChangeText={(value) => {
@@ -382,7 +403,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             <AppTextInput
               testID="prevention-create-description-input"
               accessibilityLabel={t('prevention.create.description', locale)}
-              editable={!uncertain}
+              editable={!uncertain && !operationId}
               style={[styles.input, styles.multiline, rtl && styles.rtlText]}
               value={description}
               onChangeText={(value) => {
@@ -407,7 +428,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
                   testID={`prevention-create-action-type-${type}`}
                   title={t(`prevention.create.${type}`, locale)}
                   selected={actionType === type}
-                  disabled={uncertain}
+                  disabled={uncertain || !!operationId}
                   onPress={() => setActionType(type)}
                   style={styles.optionCard}
                 />
@@ -429,7 +450,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
                   testID={`prevention-create-factor-${category}`}
                   title={t(`prevention.factor.${category}`, locale)}
                   selected={factor === category}
-                  disabled={uncertain}
+                  disabled={uncertain || !!operationId}
                   onPress={() => setFactor(category)}
                   variant="radio"
                   style={styles.factorOption}
@@ -443,7 +464,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             <AppTextInput
               testID="prevention-create-rationale-input"
               accessibilityLabel={t('prevention.create.rationale', locale)}
-              editable={!uncertain}
+              editable={!uncertain && !operationId}
               style={[styles.input, styles.multiline, rtl && styles.rtlText]}
               value={rationale}
               onChangeText={(value) => {
@@ -462,7 +483,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             <AppTextInput
               testID="prevention-create-target-date-input"
               accessibilityLabel={t('prevention.create.target_date', locale)}
-              editable={!uncertain}
+              editable={!uncertain && !operationId}
               style={[styles.input, rtl && styles.rtlText]}
               value={targetDate}
               onChangeText={(value) => {
@@ -478,7 +499,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
             <AppTextInput
               testID="prevention-create-surveillance-reference-input"
               accessibilityLabel={t('prevention.create.surveillance_reference', locale)}
-              editable={!uncertain}
+              editable={!uncertain && !operationId}
               style={[styles.input, rtl && styles.rtlText, { textAlign: 'left', writingDirection: 'ltr' }]}
               value={survRef}
               onChangeText={(value) => {
@@ -561,7 +582,7 @@ export const PreventionActionCreateScreen: React.FC = () => {
                     disabled={submitting || reconciling}
                   />
                 </>
-              ) : (
+              ) : recoveryConflict ? null : (
                 <AesButton
                   testID="prevention-create-retry"
                   title={t('prevention.create.retry', locale)}
@@ -595,6 +616,73 @@ export const PreventionActionCreateScreen: React.FC = () => {
     </AesScreenContainer>
   );
 };
+
+function parseOperationPayload(payloadJson: string): CreatePreventionActionInput | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(payloadJson);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== 'object') return null;
+
+  const payload = value as Record<string, unknown>;
+  if (
+    typeof payload.title !== 'string' ||
+    typeof payload.description !== 'string' ||
+    typeof payload.rationale !== 'string' ||
+    !isPreventionActionType(payload.action_type) ||
+    !isContributingFactorCategory(payload.contributing_factor) ||
+    (payload.target_date !== undefined &&
+      payload.target_date !== null &&
+      typeof payload.target_date !== 'string') ||
+    (payload.surveillance_reference !== undefined &&
+      payload.surveillance_reference !== null &&
+      typeof payload.surveillance_reference !== 'string')
+  ) {
+    return null;
+  }
+
+  return {
+    title: payload.title,
+    description: payload.description,
+    action_type: payload.action_type,
+    contributing_factor: payload.contributing_factor,
+    rationale: payload.rationale,
+    target_date: typeof payload.target_date === 'string' ? payload.target_date : undefined,
+    surveillance_reference:
+      typeof payload.surveillance_reference === 'string'
+        ? payload.surveillance_reference
+        : undefined,
+  };
+}
+
+function isPreventionActionType(value: unknown): value is PreventionActionType {
+  return typeof value === 'string' &&
+    PREVENTION_ACTION_TYPES.some((item) => item === value);
+}
+
+function isContributingFactorCategory(
+  value: unknown,
+): value is ContributingFactorCategory {
+  return typeof value === 'string' &&
+    CONTRIBUTING_FACTOR_CATEGORIES.some((item) => item === value);
+}
+
+function payloadMatchesOperation(
+  payloadJson: string,
+  expected: CreatePreventionActionInput,
+): boolean {
+  const actual = parseOperationPayload(payloadJson);
+  return !!actual &&
+    actual.title === expected.title &&
+    actual.description === expected.description &&
+    actual.action_type === expected.action_type &&
+    actual.contributing_factor === expected.contributing_factor &&
+    actual.rationale === expected.rationale &&
+    (actual.target_date ?? null) === (expected.target_date ?? null) &&
+    (actual.surveillance_reference ?? null) === (expected.surveillance_reference ?? null);
+}
 
 function createStyles(rtl: boolean) {
   return StyleSheet.create({

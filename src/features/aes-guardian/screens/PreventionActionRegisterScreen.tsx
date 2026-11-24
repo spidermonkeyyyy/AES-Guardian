@@ -157,10 +157,14 @@ export const PreventionActionRegisterScreen: React.FC = () => {
 
   useEffect(() => {
     void loadActions();
+    const unsubscribe = navigation.addListener('focus', () => {
+      void loadActions();
+    });
     return () => {
+      unsubscribe();
       requestVersion.current += 1;
     };
-  }, [loadActions]);
+  }, [loadActions, navigation]);
 
   const filterLabel = (label: string, testID: string) => (
     <AppText

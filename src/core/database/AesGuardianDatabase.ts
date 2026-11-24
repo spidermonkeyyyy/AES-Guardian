@@ -64,7 +64,16 @@ import type {
   OhQueueFilterOptions,
   SqlQueryExecutor,
   TransactionExecutor,
+  CapaCreationOperation,
 } from './types';
+import {
+  canonicalCapaPayload,
+  CapaOperationIdCollisionError,
+  createCapaOperationId,
+  isValidCapaOperationId,
+  sha256Hex,
+  type CapaPayloadForHash,
+} from './capa-operation-utils';
 import {
   AES_GUARDIAN_ROLES,
   AES_INCIDENT_TYPES,
@@ -82,7 +91,7 @@ import {
 } from './types';
 
 /** Current schema version. Increment when migrations are added. */
-const CURRENT_SCHEMA_VERSION = 8;
+const CURRENT_SCHEMA_VERSION = 10;
 
 /**
  * Ordered list of migrations.
@@ -432,6 +441,39 @@ export const MIGRATIONS: Array<{
       `CREATE INDEX IF NOT EXISTS idx_notifications_recipient_all ON in_app_notifications(recipient_user_id, created_at)`,
     ],
   },
+  {
+    version: 9,
+    description: 'Durable CAPA creation operations: pending/committed lifecycle, payload binding, linked CAPA',
+    up: [
+      `CREATE TABLE IF NOT EXISTS capa_creation_operations (
+        operation_id          TEXT PRIMARY KEY,
+        created_by_user_id    INTEGER NOT NULL REFERENCES demo_users(id),
+        payload_json          TEXT NOT NULL,
+        payload_hash          TEXT NOT NULL,
+        reference_code        TEXT NOT NULL,
+        status                TEXT NOT NULL CHECK (status IN ('pending', 'committed')),
+        prevention_action_id  INTEGER UNIQUE REFERENCES prevention_actions(id),
+        created_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        updated_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_capa_operation_reference
+       ON capa_creation_operations(reference_code)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_capa_operation_one_pending_per_creator
+       ON capa_creation_operations(created_by_user_id)
+       WHERE status = 'pending'`,
+      `CREATE INDEX IF NOT EXISTS idx_capa_operation_status
+       ON capa_creation_operations(status, updated_at)`,
+    ],
+  },
+  {
+    version: 10,
+    description: 'Add durable acknowledgement state for committed CAPA creation operations',
+    up: [
+      `ALTER TABLE capa_creation_operations ADD COLUMN acknowledged_at TEXT`,
+      `CREATE INDEX IF NOT EXISTS idx_capa_operation_unacknowledged
+       ON capa_creation_operations(created_by_user_id, status, acknowledged_at)`,
+    ],
+  },
 ];
 
 function generateReferenceNumber(): string {
@@ -444,6 +486,27 @@ function generateCapaReferenceNumber(): string {
   const year = new Date().getFullYear();
   const random = Math.floor(Math.random() * 90000) + 10000;
   return `CAPA-${year}-${random}`;
+}
+
+function getSqliteErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : '';
+}
+
+function isCapaReferenceConstraintError(error: unknown): boolean {
+  const message = getSqliteErrorMessage(error);
+  return (
+    /UNIQUE constraint failed:\s*prevention_actions\.reference_code/i.test(message) ||
+    /UNIQUE constraint failed:\s*capa_creation_operations\.reference_code/i.test(message) ||
+    /idx_capa_operation_reference/i.test(message)
+  );
+}
+
+function isPendingOperationConstraintError(error: unknown): boolean {
+  const message = getSqliteErrorMessage(error);
+  return (
+    /idx_capa_operation_one_pending_per_creator/i.test(message) ||
+    /UNIQUE constraint failed:\s*capa_creation_operations\.created_by_user_id/i.test(message)
+  );
 }
 
 const VALID_TRANSITIONS: Record<DeclarationStatus, DeclarationStatus[]> = {
@@ -2472,22 +2535,52 @@ export class AesGuardianDatabase {
     input: CreatePreventionActionInput,
     referenceCodeArg?: string | null,
   ): Promise<PreventionActionDetail> {
-    const userResult = await this.db.query<DemoUser>(
-      `SELECT * FROM demo_users WHERE id = ?`,
-      [userId],
+    const operationId = this.createCapaCreationOperationId();
+    const reservation = await this.reserveCapaCreationOperation(
+      userId,
+      input,
+      operationId,
+      referenceCodeArg || this.createPreventionActionReferenceCode(),
+      'new',
     );
-    if (userResult.rows.length === 0) {
-      throw new Error(`createPreventionAction: user ${userId} not found`);
+    return this.createPreventionActionForOperation(
+      userId,
+      input,
+      operationId,
+      reservation.reference_code,
+      'new',
+    );
+  }
+
+  createPreventionActionReferenceCode(): string {
+    return generateCapaReferenceNumber();
+  }
+
+  createCapaCreationOperationId(): string {
+    return createCapaOperationId();
+  }
+
+  private async requireCapaCreationRole(
+    userId: number,
+    method: string,
+  ): Promise<DemoUser> {
+    const user = await this.getDemoUser(userId);
+    if (!user) {
+      throw new Error(`${method}: user ${userId} not found`);
     }
-    const user = userResult.rows[0];
     if (user.role !== 'quality_staff') {
-      throw new Error(
-        `UnauthorizedError: role '${user.role}' is not permitted to create prevention actions. ` +
-          `Only quality_staff may create and manage prevention actions.`,
+      throw new CapaCreationOperationConflictError(
+        `${method}: only quality_staff may create or recover prevention actions.`,
       );
     }
+    return user;
+  }
 
-    // Required fields validation
+  private normalizeCapaCreationPayload(input: CreatePreventionActionInput): {
+    payload: CapaPayloadForHash;
+    canonicalPayload: string;
+    payloadHash: string;
+  } {
     const title = input.title?.trim();
     if (!title || title.length < 3) {
       throw new Error('createPreventionAction: title must be at least 3 characters');
@@ -2507,82 +2600,481 @@ export class AesGuardianDatabase {
       throw new Error('createPreventionAction: rationale must be at least 5 characters');
     }
 
-    // Optional target date validation (YYYY-MM-DD)
     let targetDate: string | null = null;
     if (input.target_date && input.target_date.trim().length > 0) {
-      const td = input.target_date.trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(td)) {
+      targetDate = input.target_date.trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
         throw new Error('createPreventionAction: target_date must be in YYYY-MM-DD format');
       }
-      targetDate = td;
+    }
+    const surveillanceReference = input.surveillance_reference?.trim() || null;
+    if (surveillanceReference && /^AES-\d{4}-\d+/i.test(surveillanceReference)) {
+      throw new Error(
+        'createPreventionAction: surveillance_reference must not reference individual declarations.',
+      );
     }
 
-    const surveillanceRef = input.surveillance_reference?.trim() || null;
-    if (surveillanceRef) {
-      if (/^AES-\d{4}-\d+/i.test(surveillanceRef)) {
-        throw new Error(
-          'createPreventionAction: surveillance_reference must be an aggregate surveillance observation (e.g., "Tendance T3-2026") and must not reference individual declarations (AES-XXXX).',
+    const payload: CapaPayloadForHash = {
+      title,
+      description,
+      action_type: input.action_type,
+      contributing_factor: input.contributing_factor,
+      rationale,
+      surveillance_reference: surveillanceReference,
+      target_date: targetDate,
+    };
+    const canonicalPayload = canonicalCapaPayload(payload);
+    return { payload, canonicalPayload, payloadHash: sha256Hex(canonicalPayload) };
+  }
+
+  private assertCapaOperationRecord(operation: CapaCreationOperation): void {
+    if (!isValidCapaOperationId(operation.operation_id)) {
+      throw new CapaCreationOperationIntegrityError(
+        `Persisted CAPA operation ID '${operation.operation_id}' is invalid.`,
+      );
+    }
+    if (!/^CAPA-\d{4}-\d{5}$/.test(operation.reference_code)) {
+      throw new CapaCreationOperationIntegrityError(
+        `Persisted CAPA operation ${operation.operation_id} has an invalid reference.`,
+      );
+    }
+    if (operation.status !== 'pending' && operation.status !== 'committed') {
+      throw new CapaCreationOperationIntegrityError(
+        `Persisted CAPA operation ${operation.operation_id} has an invalid status.`,
+      );
+    }
+    let parsedPayload: CreatePreventionActionInput;
+    try {
+      parsedPayload = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
+    } catch {
+      throw new CapaCreationOperationIntegrityError(
+        `Persisted CAPA operation ${operation.operation_id} has malformed payload data.`,
+      );
+    }
+    const normalized = this.normalizeCapaCreationPayload(parsedPayload);
+    if (
+      normalized.canonicalPayload !== operation.payload_json ||
+      normalized.payloadHash !== operation.payload_hash
+    ) {
+      throw new CapaCreationOperationIntegrityError(
+        `Persisted CAPA operation ${operation.operation_id} has inconsistent payload data.`,
+      );
+    }
+    if (
+      (operation.status === 'pending' && operation.prevention_action_id !== null) ||
+      (operation.status === 'committed' &&
+        (!Number.isSafeInteger(operation.prevention_action_id) ||
+          (operation.prevention_action_id ?? 0) <= 0))
+    ) {
+      throw new CapaCreationOperationIntegrityError(
+        `Persisted CAPA operation ${operation.operation_id} has inconsistent linked CAPA state.`,
+      );
+    }
+    if (operation.acknowledged_at && operation.status !== 'committed') {
+      throw new CapaCreationOperationIntegrityError(
+        `Pending CAPA operation ${operation.operation_id} cannot be acknowledged.`,
+      );
+    }
+  }
+
+  private async allocateCapaVisibleReference(
+    operationId: string,
+    preferredReference: string,
+  ): Promise<string> {
+    let candidate = preferredReference;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (!/^CAPA-\d{4}-\d{5}$/.test(candidate)) {
+        throw new CapaCreationOperationIntegrityError(
+          `CAPA operation ${operationId} has an invalid reference code.`,
+        );
+      }
+      const actionResult = await this.db.query<{ id: number }>(
+        `SELECT id FROM prevention_actions WHERE reference_code = ? LIMIT 2`,
+        [candidate],
+      );
+      const operationResult = await this.db.query<{ operation_id: string }>(
+        `SELECT operation_id FROM capa_creation_operations WHERE reference_code = ? LIMIT 2`,
+        [candidate],
+      );
+      if (
+        actionResult.rows.length === 0 &&
+        (operationResult.rows.length === 0 ||
+          (operationResult.rows.length === 1 &&
+            operationResult.rows[0].operation_id === operationId))
+      ) {
+        return candidate;
+      }
+      candidate = this.createPreventionActionReferenceCode();
+    }
+    throw new CapaCreationOperationConflictError(
+      `Unable to allocate an available CAPA reference code for ${operationId}.`,
+    );
+  }
+
+  async reconcileCapaCreationOperation(
+    userId: number,
+    operationId: string,
+    input: CreatePreventionActionInput,
+  ): Promise<PreventionActionDetail | null> {
+    await this.requireCapaCreationRole(userId, 'reconcileCapaCreationOperation');
+    if (!isValidCapaOperationId(operationId)) {
+      throw new CapaCreationOperationIntegrityError('CAPA operation ID is invalid.');
+    }
+    const normalized = this.normalizeCapaCreationPayload(input);
+    const operationResult = await this.db.query<CapaCreationOperation>(
+      `SELECT * FROM capa_creation_operations WHERE operation_id = ?`,
+      [operationId],
+    );
+    if (operationResult.rows.length === 0) return null;
+    if (operationResult.rows.length !== 1) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} is ambiguous.`,
+      );
+    }
+    const operation = operationResult.rows[0];
+    this.assertCapaOperationRecord(operation);
+    if (operation.created_by_user_id !== userId) {
+      throw new CapaCreationOperationConflictError(
+        `CAPA operation ${operationId} belongs to a different creator.`,
+      );
+    }
+    if (
+      operation.payload_hash !== normalized.payloadHash ||
+      operation.payload_json !== normalized.canonicalPayload
+    ) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} payload differs from the persisted operation.`,
+      );
+    }
+    if (operation.status === 'pending') return null;
+
+    const action = await this.getPreventionActionById(
+      userId,
+      operation.prevention_action_id!,
+    );
+    if (!action) {
+      throw new CapaCreationOperationIntegrityError(
+        `Committed CAPA operation ${operationId} is missing its linked action.`,
+      );
+    }
+    if (
+      action.reference_code !== operation.reference_code ||
+      action.created_by_user_id !== userId ||
+      action.title !== normalized.payload.title ||
+      action.description !== normalized.payload.description ||
+      action.action_type !== normalized.payload.action_type ||
+      action.contributing_factor !== normalized.payload.contributing_factor ||
+      action.rationale !== normalized.payload.rationale ||
+      (action.target_date ?? null) !== normalized.payload.target_date ||
+      (action.surveillance_reference ?? null) !== normalized.payload.surveillance_reference
+    ) {
+      throw new CapaCreationOperationIntegrityError(
+        `Linked CAPA action for operation ${operationId} does not match its payload.`,
+      );
+    }
+
+    const auditResult = await this.db.query<AuditEvent>(
+      `SELECT * FROM audit_events
+       WHERE event_type = 'prevention_action_created'
+         AND user_id = ?
+         AND entity_type = 'prevention_action'
+         AND entity_id = ?`,
+      [userId, action.id],
+    );
+    if (auditResult.rows.length !== 1) {
+      throw new PreventionActionCreationUncertainError(
+        'CAPA creation audit evidence is missing or ambiguous.',
+        operation.reference_code,
+        operationId,
+      );
+    }
+    const notificationResult = await this.db.query<InAppNotification>(
+      `SELECT * FROM in_app_notifications
+       WHERE idempotency_key = ?
+         AND recipient_user_id = ?
+         AND event_type = 'capa_created'
+         AND entity_type = 'prevention_action'
+         AND entity_id = ?
+         AND entity_reference = ?`,
+      [
+        `notif:capa_created:prevention_action:${action.id}:${userId}`,
+        userId,
+        action.id,
+        operation.reference_code,
+      ],
+    );
+    if (notificationResult.rows.length !== 1) {
+      throw new PreventionActionCreationUncertainError(
+        'CAPA creation notification evidence is missing or ambiguous.',
+        operation.reference_code,
+        operationId,
+      );
+    }
+    return action;
+  }
+
+  async listPendingCapaCreationOperations(
+    userId: number,
+  ): Promise<CapaCreationOperation[]> {
+    await this.requireCapaCreationRole(userId, 'listPendingCapaCreationOperations');
+    const result = await this.db.query<CapaCreationOperation>(
+      `SELECT * FROM capa_creation_operations
+       WHERE created_by_user_id = ? AND status = 'pending'
+       ORDER BY created_at ASC, operation_id ASC`,
+      [userId],
+    );
+    if (result.rows.length > 1) {
+      throw new CapaCreationOperationIntegrityError(
+        `Multiple pending CAPA operations exist for creator ${userId}.`,
+      );
+    }
+    for (const operation of result.rows) this.assertCapaOperationRecord(operation);
+    return result.rows;
+  }
+
+  async listUnacknowledgedCommittedCapaCreationOperations(
+    userId: number,
+  ): Promise<CapaCreationOperation[]> {
+    await this.requireCapaCreationRole(
+      userId,
+      'listUnacknowledgedCommittedCapaCreationOperations',
+    );
+    const result = await this.db.query<CapaCreationOperation>(
+      `SELECT * FROM capa_creation_operations
+       WHERE created_by_user_id = ?
+         AND status = 'committed'
+         AND acknowledged_at IS NULL
+       ORDER BY updated_at ASC, operation_id ASC`,
+      [userId],
+    );
+    for (const operation of result.rows) {
+      this.assertCapaOperationRecord(operation);
+      const input = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
+      await this.reconcileCapaCreationOperation(userId, operation.operation_id, input);
+    }
+    return result.rows;
+  }
+
+  async getCapaCreationOperation(
+    userId: number,
+    operationId: string,
+  ): Promise<CapaCreationOperation | null> {
+    await this.requireCapaCreationRole(userId, 'getCapaCreationOperation');
+    if (!isValidCapaOperationId(operationId)) {
+      throw new CapaCreationOperationIntegrityError('CAPA operation ID is invalid.');
+    }
+    const result = await this.db.query<CapaCreationOperation>(
+      `SELECT * FROM capa_creation_operations WHERE operation_id = ?`,
+      [operationId],
+    );
+    if (result.rows.length === 0) return null;
+    if (result.rows.length !== 1) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} is ambiguous.`,
+      );
+    }
+    const operation = result.rows[0];
+    this.assertCapaOperationRecord(operation);
+    if (operation.created_by_user_id !== userId) {
+      throw new CapaCreationOperationConflictError(
+        `CAPA operation ${operationId} belongs to a different creator.`,
+      );
+    }
+    if (operation.status === 'committed') {
+      const input = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
+      const reconciled = await this.reconcileCapaCreationOperation(
+        userId,
+        operationId,
+        input,
+      );
+      if (!reconciled) {
+        throw new CapaCreationOperationIntegrityError(
+          `Committed CAPA operation ${operationId} could not be reconciled.`,
         );
       }
     }
-    const referenceCode = referenceCodeArg || generateCapaReferenceNumber();
-    let actionId = 0;
-    const now = new Date().toISOString();
-
-    await this.db.transaction(async tx => {
-      const result = await tx.execute(
-        `INSERT INTO prevention_actions
-           (reference_code, title, description, action_type, contributing_factor,
-            rationale, surveillance_reference, status, target_date, created_by_user_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
-        [
-          referenceCode,
-          title,
-          description,
-          input.action_type,
-          input.contributing_factor,
-          rationale,
-          surveillanceRef,
-          targetDate,
-          userId,
-        ],
-      );
-      actionId = result.insertId!;
-
-      // Inlined atomic audit event
-      await tx.execute(
-        `INSERT INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
-         VALUES ('prevention_action_created', ?, 'prevention_action', ?, ?, ?)`,
-        [
-          userId,
-          actionId,
-          `Création de la mesure de prévention: ${referenceCode} (${title})`,
-          now,
-        ],
-      );
-
-      // Event 9: capa_created (recipient: quality_staff)
-      await this.insertNotification(
-        {
-          recipient_user_id: userId,
-          event_type: 'capa_created',
-          title_key: 'notification.capaCreated.title',
-          message_key: 'notification.capaCreated.message',
-          entity_type: 'prevention_action',
-          entity_id: actionId,
-          entity_reference: referenceCode,
-          idempotency_key: `notif:capa_created:prevention_action:${actionId}:${userId}`,
-        },
-        tx,
-      );
-    });
-
-    const action = await this.getPreventionActionById(userId, actionId);
-    return action!;
+    return operation;
   }
 
-  createPreventionActionReferenceCode(): string {
-    return generateCapaReferenceNumber();
+  async acknowledgeCapaCreationOperation(
+    userId: number,
+    operationId: string,
+  ): Promise<CapaCreationOperation> {
+    await this.requireCapaCreationRole(userId, 'acknowledgeCapaCreationOperation');
+    const operation = await this.getCapaCreationOperation(userId, operationId);
+    if (!operation || operation.status !== 'committed') {
+      throw new CapaCreationOperationIntegrityError(
+        `Only a committed CAPA operation may be acknowledged.`,
+      );
+    }
+    const input = JSON.parse(operation.payload_json) as CreatePreventionActionInput;
+    const reconciled = await this.reconcileCapaCreationOperation(
+      userId,
+      operationId,
+      input,
+    );
+    if (!reconciled) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} could not be reconciled before acknowledgement.`,
+      );
+    }
+    if (!operation.acknowledged_at) {
+      await this.db.execute(
+        `UPDATE capa_creation_operations
+         SET acknowledged_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE operation_id = ?
+           AND created_by_user_id = ?
+           AND status = 'committed'
+           AND prevention_action_id = ?
+           AND acknowledged_at IS NULL`,
+        [operationId, userId, reconciled.id],
+      );
+    }
+    const updated = await this.getCapaCreationOperation(userId, operationId);
+    if (!updated?.acknowledged_at) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} acknowledgement was not persisted.`,
+      );
+    }
+    return updated;
+  }
+
+  async reserveCapaCreationOperation(
+    userId: number,
+    input: CreatePreventionActionInput,
+    operationId: string,
+    preferredReference: string | undefined,
+    intent: 'new' | 'retry',
+  ): Promise<CapaCreationOperation> {
+    await this.requireCapaCreationRole(userId, 'reserveCapaCreationOperation');
+    if (intent !== 'new' && intent !== 'retry') {
+      throw new CapaCreationOperationIntegrityError(
+        'A reservation intent of new or retry is required.',
+      );
+    }
+    const exactOperationId = operationId?.trim();
+    if (!exactOperationId || !isValidCapaOperationId(exactOperationId)) {
+      throw new CapaCreationOperationIntegrityError('CAPA operation ID is invalid.');
+    }
+    const normalized = this.normalizeCapaCreationPayload(input);
+    const existingResult = await this.db.query<CapaCreationOperation>(
+      `SELECT * FROM capa_creation_operations WHERE operation_id = ?`,
+      [exactOperationId],
+    );
+    if (existingResult.rows.length > 1) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${exactOperationId} is ambiguous.`,
+      );
+    }
+    if (existingResult.rows.length === 1) {
+      const existing = existingResult.rows[0];
+      this.assertCapaOperationRecord(existing);
+      if (intent === 'new') throw new CapaOperationIdCollisionError(exactOperationId);
+      if (existing.created_by_user_id !== userId) {
+        throw new CapaCreationOperationConflictError(
+          `CAPA operation ${exactOperationId} belongs to a different creator.`,
+        );
+      }
+      if (
+        existing.payload_hash !== normalized.payloadHash ||
+        existing.payload_json !== normalized.canonicalPayload
+      ) {
+        throw new CapaCreationOperationIntegrityError(
+          `CAPA operation ${exactOperationId} payload differs from the persisted operation.`,
+        );
+      }
+      if (existing.status === 'committed') {
+        await this.reconcileCapaCreationOperation(userId, exactOperationId, input);
+        return existing;
+      }
+      const availableReference = await this.allocateCapaVisibleReference(
+        exactOperationId,
+        existing.reference_code,
+      );
+      if (availableReference !== existing.reference_code) {
+        await this.db.execute(
+          `UPDATE capa_creation_operations
+           SET reference_code = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+           WHERE operation_id = ? AND status = 'pending'`,
+          [availableReference, exactOperationId],
+        );
+      }
+      return (await this.getCapaCreationOperation(userId, exactOperationId))!;
+    }
+    if (intent === 'retry') {
+      throw new CapaCreationOperationIntegrityError(
+        `Retry requires an existing CAPA operation ${exactOperationId}.`,
+      );
+    }
+
+    const pendingResult = await this.db.query<CapaCreationOperation>(
+      `SELECT * FROM capa_creation_operations
+       WHERE created_by_user_id = ? AND status = 'pending'
+       LIMIT 2`,
+      [userId],
+    );
+    if (pendingResult.rows.length > 0) {
+      throw new CapaCreationOperationConflictError(
+        `A different pending CAPA operation already exists for creator ${userId}.`,
+      );
+    }
+    const initialReference =
+      preferredReference || this.createPreventionActionReferenceCode();
+    let availableReference = await this.allocateCapaVisibleReference(
+      exactOperationId,
+      initialReference,
+    );
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const now = new Date().toISOString();
+      try {
+        await this.db.execute(
+          `INSERT INTO capa_creation_operations
+           (operation_id, created_by_user_id, payload_json, payload_hash,
+            reference_code, status, prevention_action_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'pending', NULL, ?, ?)`,
+          [
+            exactOperationId,
+            userId,
+            normalized.canonicalPayload,
+            normalized.payloadHash,
+            availableReference,
+            now,
+            now,
+          ],
+        );
+        return (await this.getCapaCreationOperation(userId, exactOperationId))!;
+      } catch (error) {
+        const afterInsert = await this.db.query<CapaCreationOperation>(
+          `SELECT * FROM capa_creation_operations WHERE operation_id = ?`,
+          [exactOperationId],
+        );
+        if (afterInsert.rows.length > 0) {
+          if (intent === 'new') throw new CapaOperationIdCollisionError(exactOperationId);
+          throw new CapaCreationOperationIntegrityError(
+            `Retry operation ${exactOperationId} appeared during reservation.`,
+          );
+        }
+        if (isPendingOperationConstraintError(error)) {
+          throw new CapaCreationOperationConflictError(
+            `A different pending CAPA operation already exists for creator ${userId}.`,
+          );
+        }
+        if (!isCapaReferenceConstraintError(error)) throw error;
+        if (attempt === 4) {
+          throw new CapaCreationOperationConflictError(
+            `Unable to allocate an available CAPA reference code for ${exactOperationId}.`,
+          );
+        }
+        availableReference = await this.allocateCapaVisibleReference(
+          exactOperationId,
+          this.createPreventionActionReferenceCode(),
+        );
+      }
+    }
+    throw new CapaCreationOperationConflictError(
+      `Unable to reserve CAPA operation ${exactOperationId}.`,
+    );
   }
 
   async reconcilePreventionActionCreation(
@@ -2590,135 +3082,321 @@ export class AesGuardianDatabase {
     input: CreatePreventionActionInput,
     referenceCode: string,
   ): Promise<PreventionActionDetail | null> {
-    const existing = await this.db.query<any>(
-      `SELECT id FROM prevention_actions WHERE reference_code = ?`,
+    await this.requireCapaCreationRole(userId, 'reconcilePreventionActionCreation');
+    const existing = await this.db.query<PreventionAction>(
+      `SELECT * FROM prevention_actions WHERE reference_code = ? LIMIT 2`,
       [referenceCode],
     );
-    if (existing.rows.length > 0) {
-      return this.getPreventionActionById(userId, existing.rows[0].id);
+    if (existing.rows.length === 0) return null;
+    if (existing.rows.length !== 1) {
+      throw new PreventionActionCreationUncertainError(
+        'Legacy CAPA reference is ambiguous.',
+        referenceCode,
+      );
     }
-    return null;
+    const action = existing.rows[0];
+    const linkedOperation = await this.db.query<{ operation_id: string }>(
+      `SELECT operation_id FROM capa_creation_operations
+       WHERE prevention_action_id = ? OR reference_code = ?`,
+      [action.id, referenceCode],
+    );
+    if (linkedOperation.rows.length > 0 || action.created_by_user_id !== userId) {
+      throw new PreventionActionCreationUncertainError(
+        'Reference-only reconciliation cannot establish durable operation identity.',
+        referenceCode,
+      );
+    }
+    const normalized = this.normalizeCapaCreationPayload(input);
+    if (
+      action.title !== normalized.payload.title ||
+      action.description !== normalized.payload.description ||
+      action.action_type !== normalized.payload.action_type ||
+      action.contributing_factor !== normalized.payload.contributing_factor ||
+      action.rationale !== normalized.payload.rationale ||
+      (action.target_date ?? null) !== normalized.payload.target_date ||
+      (action.surveillance_reference ?? null) !== normalized.payload.surveillance_reference
+    ) {
+      return null;
+    }
+    return this.getPreventionActionById(userId, action.id);
   }
 
   async createPreventionActionForOperation(
     userId: number,
     input: CreatePreventionActionInput,
     operationId: string,
-    explicitReferenceCode?: string | null,
-    intent: 'new' | 'retry' = 'new',
+    explicitReferenceCode: string | null | undefined,
+    intent: 'new' | 'retry',
   ): Promise<PreventionActionDetail> {
-    if (explicitReferenceCode) {
-      const existing = await this.db.query<any>(
-        `SELECT id FROM prevention_actions WHERE reference_code = ?`,
-        [explicitReferenceCode],
+    await this.requireCapaCreationRole(userId, 'createPreventionActionForOperation');
+    if (intent !== 'new' && intent !== 'retry') {
+      throw new CapaCreationOperationIntegrityError(
+        'A creation intent of new or retry is required.',
       );
-      if (existing.rows.length > 0) {
-        return (await this.getPreventionActionById(userId, existing.rows[0].id))!;
-      }
     }
-    const referenceCode = explicitReferenceCode || generateCapaReferenceNumber();
-    const userResult = await this.db.query<DemoUser>(
-      `SELECT * FROM demo_users WHERE id = ?`,
-      [userId],
+    if (!isValidCapaOperationId(operationId)) {
+      throw new CapaCreationOperationIntegrityError('CAPA operation ID is invalid.');
+    }
+    const normalized = this.normalizeCapaCreationPayload(input);
+    const operationResult = await this.db.query<CapaCreationOperation>(
+      `SELECT * FROM capa_creation_operations WHERE operation_id = ?`,
+      [operationId],
     );
-    if (userResult.rows.length === 0) {
-      throw new Error(`createPreventionActionForOperation: user ${userId} not found`);
-    }
-    const user = userResult.rows[0];
-    if (user.role !== 'quality_staff') {
-      throw new Error(
-        `UnauthorizedError: role '${user.role}' is not permitted to create prevention actions. ` +
-          `Only quality_staff may create and manage prevention actions.`,
+    if (operationResult.rows.length !== 1) {
+      throw new CapaCreationOperationIntegrityError(
+        `Stage B requires exactly one existing CAPA reservation for operation ${operationId}.`,
       );
     }
+    const operation = operationResult.rows[0];
+    this.assertCapaOperationRecord(operation);
+    if (operation.created_by_user_id !== userId) {
+      throw new CapaCreationOperationConflictError(
+        `CAPA operation ${operationId} belongs to a different creator.`,
+      );
+    }
+    if (
+      operation.payload_hash !== normalized.payloadHash ||
+      operation.payload_json !== normalized.canonicalPayload
+    ) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} payload differs from the persisted reservation.`,
+      );
+    }
+    if (
+      explicitReferenceCode != null &&
+      explicitReferenceCode !== operation.reference_code
+    ) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} reference differs from the persisted reservation.`,
+      );
+    }
+    if (operation.status === 'committed') {
+      const reconciled = await this.reconcileCapaCreationOperation(
+        userId,
+        operation.operation_id,
+        input,
+      );
+      if (!reconciled) {
+        throw new PreventionActionCreationUncertainError(
+          'Committed CAPA operation could not be reconciled.',
+          operation.reference_code,
+          operation.operation_id,
+        );
+      }
+      return reconciled;
+    }
+    if (operation.status !== 'pending' || operation.prevention_action_id !== null) {
+      throw new CapaCreationOperationIntegrityError(
+        `CAPA operation ${operationId} is not a valid pending reservation.`,
+      );
+    }
+    return this.commitCapaCreationOperation(
+      userId,
+      input,
+      normalized,
+      operation,
+    );
+  }
 
-    const title = input.title?.trim();
-    const description = input.description?.trim();
-    const rationale = input.rationale?.trim();
-    const surveillanceRef = input.surveillance_reference?.trim() || null;
-    const targetDate = input.target_date || null;
-    let actionId = 0;
+  private async commitCapaCreationOperation(
+    userId: number,
+    input: CreatePreventionActionInput,
+    normalized: {
+      payload: CapaPayloadForHash;
+      canonicalPayload: string;
+      payloadHash: string;
+    },
+    operation: CapaCreationOperation,
+  ): Promise<PreventionActionDetail> {
+    const referenceCode = await this.allocateCapaVisibleReference(
+      operation.operation_id,
+      operation.reference_code,
+    );
+    if (referenceCode !== operation.reference_code) {
+      await this.db.execute(
+        `UPDATE capa_creation_operations
+         SET reference_code = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+         WHERE operation_id = ? AND status = 'pending'`,
+        [referenceCode, operation.operation_id],
+      );
+      operation.reference_code = referenceCode;
+    }
     const now = new Date().toISOString();
-
-    await this.db.transaction(async tx => {
-      const result = await tx.execute(
-        `INSERT INTO prevention_actions
-           (reference_code, title, description, action_type, contributing_factor,
-            rationale, surveillance_reference, status, target_date, created_by_user_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
-        [
-          referenceCode,
-          title,
-          description,
-          input.action_type,
-          input.contributing_factor,
-          rationale,
-          surveillanceRef,
-          targetDate,
+    let transactionBodyCompleted = false;
+    let actionId = 0;
+    try {
+      actionId = await this.db.transaction(async tx => {
+        const creatorResult = await tx.query<DemoUser>(
+          `SELECT * FROM demo_users WHERE id = ?`,
+          [userId],
+        );
+        if (
+          creatorResult.rows.length !== 1 ||
+          creatorResult.rows[0].role !== 'quality_staff'
+        ) {
+          throw new CapaCreationOperationConflictError(
+            'CAPA creator is no longer authorized to create prevention actions.',
+          );
+        }
+        const operationResult = await tx.query<CapaCreationOperation>(
+          `SELECT * FROM capa_creation_operations WHERE operation_id = ?`,
+          [operation.operation_id],
+        );
+        if (operationResult.rows.length !== 1) {
+          throw new CapaCreationOperationIntegrityError(
+            `Pending CAPA operation ${operation.operation_id} is missing or ambiguous.`,
+          );
+        }
+        const persisted = operationResult.rows[0];
+        this.assertCapaOperationRecord(persisted);
+        if (
+          persisted.status !== 'pending' ||
+          persisted.created_by_user_id !== userId ||
+          persisted.payload_hash !== normalized.payloadHash ||
+          persisted.payload_json !== normalized.canonicalPayload ||
+          persisted.reference_code !== operation.reference_code
+        ) {
+          throw new CapaCreationOperationIntegrityError(
+            `Pending CAPA operation ${operation.operation_id} changed before commit.`,
+          );
+        }
+        const createResult = await tx.execute(
+          `INSERT INTO prevention_actions
+             (reference_code, title, description, action_type, contributing_factor,
+              rationale, surveillance_reference, status, target_date, created_by_user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`,
+          [
+            persisted.reference_code,
+            normalized.payload.title,
+            normalized.payload.description,
+            normalized.payload.action_type,
+            normalized.payload.contributing_factor,
+            normalized.payload.rationale,
+            normalized.payload.surveillance_reference,
+            normalized.payload.target_date,
+            userId,
+          ],
+        );
+        if (
+          typeof createResult.insertId !== 'number' ||
+          !Number.isSafeInteger(createResult.insertId) ||
+          createResult.insertId <= 0
+        ) {
+          throw new Error('createPreventionAction: SQLite did not return a valid inserted ID');
+        }
+        const createdId = createResult.insertId;
+        await tx.execute(
+          `INSERT INTO audit_events
+           (event_type, user_id, entity_type, entity_id, description, occurred_at)
+           VALUES ('prevention_action_created', ?, 'prevention_action', ?, ?, ?)`,
+          [
+            userId,
+            createdId,
+            `Création de la mesure de prévention: ${persisted.reference_code} (${normalized.payload.title})`,
+            now,
+          ],
+        );
+        await this.insertNotification(
+          {
+            recipient_user_id: userId,
+            event_type: 'capa_created',
+            title_key: 'notification.capaCreated.title',
+            message_key: 'notification.capaCreated.message',
+            entity_type: 'prevention_action',
+            entity_id: createdId,
+            entity_reference: persisted.reference_code,
+            idempotency_key: `notif:capa_created:prevention_action:${createdId}:${userId}`,
+          },
+          tx,
+        );
+        const updateResult = await tx.execute(
+          `UPDATE capa_creation_operations
+           SET status = 'committed', prevention_action_id = ?, updated_at = ?
+           WHERE operation_id = ? AND created_by_user_id = ?
+             AND status = 'pending' AND prevention_action_id IS NULL`,
+          [createdId, now, operation.operation_id, userId],
+        );
+        if (updateResult.rowsAffected !== 1) {
+          throw new CapaCreationOperationIntegrityError(
+            `CAPA operation ${operation.operation_id} could not be linked to its action.`,
+          );
+        }
+        transactionBodyCompleted = true;
+        return createdId;
+      });
+    } catch (error) {
+      if (transactionBodyCompleted) {
+        try {
+          const reconciled = await this.reconcileCapaCreationOperation(
+            userId,
+            operation.operation_id,
+            input,
+          );
+          if (reconciled) return reconciled;
+        } catch (reconciliationError) {
+          if (
+            reconciliationError instanceof CapaCreationOperationConflictError ||
+            reconciliationError instanceof CapaCreationOperationIntegrityError
+          ) {
+            throw reconciliationError;
+          }
+        }
+        throw new PreventionActionCreationUncertainError(
+          'CAPA transaction outcome is uncertain; reconcile the same operation before retrying.',
+          operation.reference_code,
+          operation.operation_id,
+        );
+      }
+      if (isCapaReferenceConstraintError(error)) {
+        const replacement = await this.allocateCapaVisibleReference(
+          operation.operation_id,
+          this.createPreventionActionReferenceCode(),
+        );
+        await this.db.execute(
+          `UPDATE capa_creation_operations
+           SET reference_code = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+           WHERE operation_id = ? AND created_by_user_id = ? AND status = 'pending'`,
+          [replacement, operation.operation_id, userId],
+        );
+        operation.reference_code = replacement;
+        return this.commitCapaCreationOperation(
           userId,
-        ],
-      );
-      actionId = result.insertId!;
-
-      await tx.execute(
-        `INSERT INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
-         VALUES ('prevention_action_created', ?, 'prevention_action', ?, ?, ?)`,
-        [
-          userId,
-          actionId,
-          `Création de la mesure de prévention: ${referenceCode} (${title})`,
-          now,
-        ],
-      );
-
-      await this.insertNotification(
-        {
-          recipient_user_id: userId,
-          event_type: 'capa_created',
-          title_key: 'notification.capaCreated.title',
-          message_key: 'notification.capaCreated.message',
-          entity_type: 'prevention_action',
-          entity_id: actionId,
-          entity_reference: referenceCode,
-          idempotency_key: `notif:capa_created:prevention_action:${actionId}:${userId}`,
-        },
-        tx,
-      );
-    });
+          input,
+          normalized,
+          operation,
+        );
+      }
+      throw error;
+    }
 
     try {
-      return (await this.getPreventionActionById(userId, actionId))!;
-    } catch {
+      const reconciled = await this.reconcileCapaCreationOperation(
+        userId,
+        operation.operation_id,
+        input,
+      );
+      if (!reconciled || reconciled.id !== actionId) {
+        throw new PreventionActionCreationUncertainError(
+          'CAPA committed but exact operation readback did not match.',
+          operation.reference_code,
+          operation.operation_id,
+        );
+      }
+      return reconciled;
+    } catch (error) {
+      if (
+        error instanceof CapaCreationOperationConflictError ||
+        error instanceof CapaCreationOperationIntegrityError ||
+        error instanceof PreventionActionCreationUncertainError
+      ) {
+        throw error;
+      }
       throw new PreventionActionCreationUncertainError(
-        `Prevention action was committed with reference ${referenceCode}, but readback verification failed.`,
-        referenceCode,
-        operationId,
+        'CAPA committed but exact operation readback failed.',
+        operation.reference_code,
+        operation.operation_id,
       );
     }
-  }
-
-  async reserveCapaCreationOperation(..._args: any[]): Promise<any> {
-    return { operation_id: 'reserved' };
-  }
-
-  async reconcileCapaCreationOperation(..._args: any[]): Promise<any> {
-    return null;
-  }
-
-  async listPendingCapaCreationOperations(..._args: any[]): Promise<any[]> {
-    return [];
-  }
-
-  async listUnacknowledgedCommittedCapaCreationOperations(..._args: any[]): Promise<any[]> {
-    return [];
-  }
-
-  async acknowledgeCapaCreationOperation(..._args: any[]): Promise<any> {
-    return null;
-  }
-
-  async getCapaCreationOperation(..._args: any[]): Promise<any> {
-    return null;
   }
 
   /**
@@ -3891,15 +4569,17 @@ export class AesGuardianDatabase {
       await tx.execute(`DELETE FROM administrative_reviews;`);
       // 6. Delete declarations
       await tx.execute(`DELETE FROM aes_declarations;`);
-      // 7. Delete prevention actions
+      // 7. Delete durable CAPA operation links before their actions
+      await tx.execute(`DELETE FROM capa_creation_operations;`);
+      // 8. Delete prevention actions
       await tx.execute(`DELETE FROM prevention_actions;`);
-      // 8. Delete audit events
+      // 9. Delete audit events
       await tx.execute(`DELETE FROM audit_events;`);
 
-      // 9. Reseed standard demonstration dataset within this transaction
+      // 10. Reseed standard demonstration dataset within this transaction
       await this.seedStandardScenarioInternal(tx);
 
-      // 10. Record the demonstration reset audit event
+      // 11. Record the demonstration reset audit event
       await tx.execute(
         `INSERT INTO audit_events (event_type, user_id, entity_type, entity_id, description, occurred_at)
          VALUES ('DEMO_DATA_RESET', ?, 'system', NULL, ?, ?)`,

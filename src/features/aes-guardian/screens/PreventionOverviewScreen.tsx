@@ -29,6 +29,7 @@ import {
   useDemoRoleStore,
   type AesGuardianRole,
   type PreventionOverview,
+  type SurveillanceDashboardMetrics,
 } from '../../../core';
 import {
   t,
@@ -75,6 +76,7 @@ export const PreventionOverviewScreen: React.FC = () => {
   const requestVersion = useRef(0);
 
   const [overview, setOverview] = useState<PreventionOverview | null>(null);
+  const [declarationTotal, setDeclarationTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryVersion, setRetryVersion] = useState(0);
@@ -82,6 +84,7 @@ export const PreventionOverviewScreen: React.FC = () => {
   const loadOverview = useCallback(async () => {
     const request = ++requestVersion.current;
     setOverview(null);
+    setDeclarationTotal(null);
     setError(false);
     if (!isAuthorized || !userId) {
       setLoading(false);
@@ -90,10 +93,18 @@ export const PreventionOverviewScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const data = await getDatabase().getPreventionOverview(userId);
+      const db = getDatabase();
+      const [data, surveillance]: [
+        PreventionOverview,
+        SurveillanceDashboardMetrics,
+      ] = await Promise.all([
+        db.getPreventionOverview(userId),
+        db.getSurveillanceDashboardMetrics(userId),
+      ]);
       const currentContext = useDemoRoleStore.getState().activeContext;
       if (request === requestVersion.current && currentContext === activeContext) {
         setOverview(data);
+        setDeclarationTotal(surveillance.overview.totalDeclarations);
       }
     } catch {
       const currentContext = useDemoRoleStore.getState().activeContext;
@@ -110,10 +121,14 @@ export const PreventionOverviewScreen: React.FC = () => {
 
   useEffect(() => {
     void loadOverview();
+    const unsubscribe = navigation.addListener('focus', () => {
+      void loadOverview();
+    });
     return () => {
+      unsubscribe();
       requestVersion.current += 1;
     };
-  }, [loadOverview, retryVersion]);
+  }, [loadOverview, navigation, retryVersion]);
 
   const renderActiveRole = () => (
     <View style={styles.activeRoleContainer} testID="prevention-overview-active-role">
@@ -162,7 +177,7 @@ export const PreventionOverviewScreen: React.FC = () => {
     );
   }
 
-  if (error || !overview) {
+  if (error || !overview || declarationTotal === null) {
     return (
       <AesScreenContainer scrollable testID="prevention-overview-error">
         <AesScreenHeader
@@ -214,6 +229,13 @@ export const PreventionOverviewScreen: React.FC = () => {
           {t('prevention.disclaimer')}
         </AppText>
       </View>
+
+      <AesCard elevated testID="prevention-overview-declarations">
+        <AppText style={styles.metricLabel}>{t('surveillance.overview.total', locale)}</AppText>
+        <AppText style={styles.totalValue} testID="prevention-overview-declaration-count">
+          {declarationTotal}
+        </AppText>
+      </AesCard>
 
       {overview.total === 0 ? (
         <AesCard elevated testID="prevention-overview-empty">

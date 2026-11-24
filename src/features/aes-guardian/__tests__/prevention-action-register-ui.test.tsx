@@ -9,12 +9,23 @@ import { formatPreventionDate } from '../prevention-date-format';
 
 const mockNavigate = jest.fn();
 const mockListPreventionActions = jest.fn();
+const mockFocusListeners: Array<() => void> = [];
+const mockNavigation = {
+  navigate: mockNavigate,
+  addListener: (_event: string, listener: () => void) => {
+    mockFocusListeners.push(listener);
+    return () => {
+      const index = mockFocusListeners.indexOf(listener);
+      if (index >= 0) mockFocusListeners.splice(index, 1);
+    };
+  },
+};
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   return {
     ...actual,
-    useNavigation: () => ({ navigate: mockNavigate }),
+    useNavigation: () => mockNavigation,
   };
 });
 
@@ -104,6 +115,7 @@ const renderRegister = async () => {
 describe('PreventionActionRegisterScreen AES UI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFocusListeners.length = 0;
     setLocale('fr');
     useDemoRoleStore.getState().setRole('quality_staff');
     mockListPreventionActions.mockResolvedValue(actions);
@@ -234,6 +246,24 @@ describe('PreventionActionRegisterScreen AES UI', () => {
     await waitForAct(() => expect(queryByTestId('prevention-register-loading')).toBeNull());
     fireEvent.press(getByTestId('prevention-register-detail-21'));
     expect(mockNavigate).toHaveBeenCalledWith('preventionActionDetail', { actionId: 21 });
+  });
+
+  test('refreshes persisted records when returning from another screen', async () => {
+    const screen = await renderRegister();
+    await waitForAct(() => expect(screen.getByText('Replace damaged sharps containers')).toBeTruthy());
+    mockListPreventionActions.mockResolvedValue([{
+      ...actions[0],
+      title: 'Updated persisted CAPA title',
+      status: 'in_progress',
+    }]);
+
+    await act(async () => mockFocusListeners[0]?.());
+
+    await waitForAct(() => expect(screen.getByText('Updated persisted CAPA title')).toBeTruthy());
+    expect(screen.getByTestId('prevention-register-status-21-text').props.children).toBe(
+      t('prevention.detail.status.in_progress'),
+    );
+    expect(mockListPreventionActions).toHaveBeenCalledTimes(2);
   });
 
   test('quality staff create action navigates to the existing create route', async () => {

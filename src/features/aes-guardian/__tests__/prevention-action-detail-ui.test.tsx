@@ -12,13 +12,25 @@ import { ThemeProvider } from '../../../theme/ThemeContext';
 const mockGoBack = jest.fn();
 const mockGetPreventionActionById = jest.fn();
 const mockUpdatePreventionActionStatus = jest.fn();
+const mockFocusListeners: Array<() => void> = [];
+let mockActionId = 21;
+const mockNavigation = {
+  goBack: mockGoBack,
+  addListener: (_event: string, listener: () => void) => {
+    mockFocusListeners.push(listener);
+    return () => {
+      const index = mockFocusListeners.indexOf(listener);
+      if (index >= 0) mockFocusListeners.splice(index, 1);
+    };
+  },
+};
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   return {
     ...actual,
-    useNavigation: () => ({ goBack: mockGoBack }),
-    useRoute: () => ({ params: { actionId: 21 } }),
+    useNavigation: () => mockNavigation,
+    useRoute: () => ({ params: { actionId: mockActionId } }),
   };
 });
 
@@ -76,6 +88,8 @@ const renderDetail = () =>
 describe('PreventionActionDetailScreen AES UI', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFocusListeners.length = 0;
+    mockActionId = 21;
     setLocale('fr');
     useDemoRoleStore.getState().setRole('quality_staff');
     mockGetPreventionActionById.mockResolvedValue(makeAction());
@@ -117,6 +131,88 @@ describe('PreventionActionDetailScreen AES UI', () => {
     const screen = renderDetail();
     await waitFor(() => expect(screen.getByTestId('prevention-detail-not-found')).toBeTruthy());
     expect(screen.getByText(t('prevention.detail.notFound'))).toBeTruthy();
+  });
+
+  test('invalid runtime action identities show not found without a database read', async () => {
+    mockActionId = 0;
+    const screen = renderDetail();
+    await waitFor(() => expect(screen.getByTestId('prevention-detail-not-found')).toBeTruthy());
+    expect(mockGetPreventionActionById).not.toHaveBeenCalled();
+  });
+
+  test('refreshes persisted status and audit history when the detail screen regains focus', async () => {
+    const screen = renderDetail();
+    await waitFor(() => expect(screen.getByTestId('prevention-detail-status')).toBeTruthy());
+    mockGetPreventionActionById.mockResolvedValue(
+      makeAction('in_progress', {
+        audit_history: [
+          {
+            id: 1,
+            event_type: 'prevention_action_created',
+            user_id: 4,
+            entity_type: 'prevention_action',
+            entity_id: 21,
+            description: 'CAPA action created.',
+            occurred_at: '2026-10-01T10:00:00.000Z',
+          },
+          {
+            id: 2,
+            event_type: 'prevention_status_changed',
+            user_id: 4,
+            entity_type: 'prevention_action',
+            entity_id: 21,
+            description: 'CAPA status changed to in progress.',
+            occurred_at: '2026-10-02T10:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    await act(async () => mockFocusListeners[0]?.());
+
+    await waitFor(() =>
+      expect(screen.getByTestId('prevention-detail-status').props.accessibilityLabel).toBe(
+        t('prevention.detail.status.in_progress'),
+      ),
+    );
+    expect(mockGetPreventionActionById).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('CAPA status changed to in progress.')).toBeTruthy();
+  });
+
+  test('renders persisted audit events in the repository chronological order', async () => {
+    mockGetPreventionActionById.mockResolvedValue(
+      makeAction('in_progress', {
+        audit_history: [
+          {
+            id: 8,
+            event_type: 'prevention_action_created',
+            user_id: 4,
+            entity_type: 'prevention_action',
+            entity_id: 21,
+            description: 'Earlier persisted event.',
+            occurred_at: '2026-10-01T10:00:00.000Z',
+          },
+          {
+            id: 9,
+            event_type: 'prevention_status_changed',
+            user_id: 4,
+            entity_type: 'prevention_action',
+            entity_id: 21,
+            description: 'Later persisted event.',
+            occurred_at: '2026-10-02T10:00:00.000Z',
+          },
+        ],
+      }),
+    );
+    const screen = renderDetail();
+    await waitFor(() => expect(screen.getByTestId('prevention-detail-audit-event-9')).toBeTruthy());
+
+    expect(
+      screen.getAllByTestId(/^prevention-detail-audit-event-/).map(event => event.props.testID),
+    ).toEqual([
+      'prevention-detail-audit-event-8',
+      'prevention-detail-audit-event-9',
+    ]);
   });
 
   test('shows a generic load error and retries the repository read', async () => {
@@ -318,9 +414,8 @@ describe('PreventionActionDetailScreen AES UI', () => {
     expect(screen.getByText('Action Detail')).toBeTruthy();
     act(() => setLocale('ar'));
     expect(screen.getByText('تفاصيل الإجراء')).toBeTruthy();
-    expect(screen.getByTestId('prevention-detail-title').props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })]),
-    );
+    expect(StyleSheet.flatten(screen.getByTestId('prevention-detail-title').props.style).textAlign)
+      .toBe('right');
   });
 
   test('lifecycle controls expose accessible labels and minimum 48dp touch targets', async () => {

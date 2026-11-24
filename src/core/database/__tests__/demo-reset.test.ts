@@ -148,6 +148,44 @@ describe('AES Guardian — Synthetic Demonstration Reset (resetDemoScenario)', (
       expect(fkCheck.rows.length).toBe(0);
     });
 
+    test('deletes durable operation links before resetting linked CAPAs', async () => {
+      const input = {
+        title: 'Reset linked operation',
+        description: 'Verify operation links are removed before CAPAs.',
+        action_type: 'preventive' as const,
+        contributing_factor: 'protective_equipment' as const,
+        rationale: 'Preserve foreign-key integrity during reset.',
+      };
+      const operationId = '25252525-2525-4525-8525-252525252525';
+      const reservation = await db.reserveCapaCreationOperation(
+        QUALITY_ID,
+        input,
+        operationId,
+        'CAPA-2026-92999',
+        'new',
+      );
+      const action = await db.createPreventionActionForOperation(
+        QUALITY_ID,
+        input,
+        operationId,
+        reservation.reference_code,
+        'new',
+      );
+      const linked = await db.query<{ prevention_action_id: number }>(
+        `SELECT prevention_action_id FROM capa_creation_operations
+         WHERE operation_id = ?`,
+        [operationId],
+      );
+      expect(linked.rows[0].prevention_action_id).toBe(action.id);
+
+      await db.resetDemoScenario(TECH_ADMIN_ID);
+
+      expect((await db.query(
+        `SELECT operation_id FROM capa_creation_operations`,
+      )).rows).toHaveLength(0);
+      expect((await db.query(`PRAGMA foreign_key_check`)).rows).toHaveLength(0);
+    });
+
     test('records DEMO_DATA_RESET audit event with user 5 and timestamp', async () => {
       const resetRes = await db.resetDemoScenario(TECH_ADMIN_ID);
 
