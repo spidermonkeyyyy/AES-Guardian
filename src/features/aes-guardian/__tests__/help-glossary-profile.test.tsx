@@ -139,7 +139,7 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
       expect(
         getByText(/Cette application est un prototype de démonstration académique/i),
       ).toBeTruthy();
-      expect(getByText(/1\. Présentation d'AES Guardian/i)).toBeTruthy();
+      expect(getByText(/1\. Présentation de SANAD/i)).toBeTruthy();
     });
 
     test('expands and collapses help section on header press', async () => {

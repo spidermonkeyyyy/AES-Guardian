@@ -1,113 +1,168 @@
 /**
- * AES Guardian — Screen 1.1: Splash Screen
+ * SANAD — canonical application welcome
  *
- * Minimalist full-bleed clinical green branding entry canvas
- * per UI Blueprint Screen 1.1 and Reference Mapping: Phantom iOS Onboarding 0.png.
- *
- * Behavior:
- * - Checks persistent first-launch state via onboardingStorage.
- * - Navigates to `aesLanguageSelect` on first launch or `aesGuardianWorkspace` on return.
- * - Pure branding canvas with zero third-party spinners or logos.
+ * The database initializes behind this screen so SANAD is the first rendered
+ * experience. Navigation remains disabled until initialization succeeds.
  */
 
 import AppText from '../../../components/AppText';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppIcon } from '../../../components/AppIcon';
-import { aesColors, aesTypography, aesSpacing, aesRadii } from '../../../theme/tokens';
-import { isFirstLaunchCompleted } from '../utils/onboardingStorage';
-import { t, useLocale, useLayoutDirection } from '../../../localization';
+import { SanadLogo } from '../../../components/SanadLogo';
+import { aesColors, aesSpacing, aesRadii } from '../../../theme/tokens';
+import {
+  LOCALE_LABELS,
+  SUPPORTED_LOCALES,
+  SupportedLocale,
+  persistLocale,
+  setLocale,
+  t,
+  useLocale,
+  useLayoutDirection,
+} from '../../../localization';
 import { RootStackParamList } from '../../../navigation/routes';
 
-export const SplashScreen: React.FC = () => {
+interface SplashScreenProps {
+  databaseReady?: boolean;
+  databaseError?: string | null;
+}
+
+export const SplashScreen: React.FC<SplashScreenProps> = ({
+  databaseReady = true,
+  databaseError = null,
+}) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'aesSplash'>>();
   const locale = useLocale();
   const layoutDirection = useLayoutDirection();
   const [isProceeding, setIsProceeding] = useState(false);
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   const handleProceed = useCallback(async () => {
-    if (isProceeding) return;
+    if (isProceeding || !databaseReady || databaseError) return;
     setIsProceeding(true);
-
-    try {
-      // Replay route param from profile/settings bypasses the firstLaunch check to allow re-visiting onboarding
-      const isReplay = route.params?.replay === true;
-      if (isReplay) {
-        if (isMountedRef.current) {
-          navigation.replace('aesLanguageSelect' as any);
-        }
-        return;
-      }
-
-      const completed = await isFirstLaunchCompleted();
-      if (!isMountedRef.current) return;
-
-      if (!completed) {
-        navigation.replace('aesLanguageSelect' as any);
-      } else {
-        navigation.replace('aesGuardianWorkspace' as any);
-      }
-    } catch {
-      // Storage failure fails closed/safe to the onboarding sequence
-      if (isMountedRef.current) {
-        navigation.replace('aesLanguageSelect' as any);
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsProceeding(false);
-      }
+    if (route.params?.replay === true) {
+      navigation.replace('aesLanguageSelect');
+    } else {
+      navigation.navigate('aesAccess');
     }
-  }, [navigation, isProceeding, route.params]);
+    setIsProceeding(false);
+  }, [navigation, isProceeding, route.params, databaseReady, databaseError]);
 
   return (
     <SafeAreaView style={styles.canvas} testID="aes-splash-screen">
       <StatusBar barStyle="light-content" backgroundColor={aesColors.accentGreen} />
-      
-      <TouchableOpacity
-        style={styles.touchableArea}
-        activeOpacity={0.95}
-        onPress={handleProceed}
-        accessibilityRole="button"
-        accessibilityLabel="AES Guardian Splash - Appuyer pour continuer"
-      >
-        <View style={styles.centerBlock}>
-          {/* Clinical Shield Mark */}
-          <View style={styles.shieldContainer} testID="aes-splash-shield">
-            <AppIcon name="shield" size={48} color={aesColors.textInverse} />
+      <View style={styles.page}>
+        <View style={styles.languageBar}>
+          <View
+            style={[
+              styles.languageSelector,
+              { flexDirection: layoutDirection === 'rtl' ? 'row-reverse' : 'row' },
+            ]}
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t('splash.languageSelector', locale)}
+          >
+            {SUPPORTED_LOCALES.map((supportedLocale: SupportedLocale) => {
+              const selected = locale === supportedLocale;
+              return (
+                <TouchableOpacity
+                  key={supportedLocale}
+                  style={[styles.languageOption, selected && styles.selectedLanguageOption]}
+                  onPress={() => {
+                    setLocale(supportedLocale);
+                    void persistLocale(supportedLocale);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityLabel={LOCALE_LABELS[supportedLocale]}
+                  accessibilityState={{ selected }}
+                  testID={`welcome-language-${supportedLocale}`}
+                >
+                  <AppText
+                    variant="caption"
+                    style={[
+                      styles.languageLabel,
+                      selected && styles.selectedLanguageLabel,
+                      { writingDirection: supportedLocale === 'ar' ? 'rtl' : 'ltr' },
+                    ]}
+                  >
+                    {LOCALE_LABELS[supportedLocale]}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-
-          {/* Serif Wordmark */}
-          <AppText style={styles.wordmark} testID="aes-splash-wordmark">
-            {t('splash.wordmark', locale)}
-          </AppText>
-
-          {/* Institutional Subtitle */}
-          <AppText style={styles.subtitle} testID="aes-splash-subtitle">
-            {t('splash.subtitle', locale)}
-          </AppText>
         </View>
 
-        {/* Bottom Entry Action */}
+        <ScrollView
+          contentContainerStyle={styles.centerBlock}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <SanadLogo
+            size="large"
+            showText={false}
+            style={styles.logo}
+            testID="sanad-splash-logo"
+          />
+          <AppText typographyRole="hero" style={styles.wordmark} testID="aes-splash-wordmark">
+            {t('splash.wordmark', locale)}
+          </AppText>
+          <AppText
+            variant="section"
+            style={styles.tagline}
+            testID="aes-splash-tagline"
+          >
+            {t('splash.tagline', locale)}
+          </AppText>
+          <AppText
+            variant="body"
+            style={[
+              styles.description,
+              { writingDirection: layoutDirection === 'rtl' ? 'rtl' : 'ltr' },
+            ]}
+            testID="aes-splash-description"
+          >
+            {t('splash.description', locale)}
+          </AppText>
+          {databaseError ? (
+            <AppText tone="danger" style={styles.databaseStatus} accessibilityRole="alert">
+              {`${t('db.error', locale)}: ${databaseError}`}
+            </AppText>
+          ) : !databaseReady ? (
+            <View style={styles.databaseStatus}>
+              <ActivityIndicator color={aesColors.textInverse} testID="welcome-db-loading" />
+              <AppText variant="caption" tone="inverse" style={styles.databaseStatusText}>
+                {t('db.initializing', locale)}
+              </AppText>
+            </View>
+          ) : null}
+        </ScrollView>
+
         <View style={styles.bottomBar}>
-          <View style={styles.enterPill}>
-            <AppText style={styles.enterPillText}>
+          <TouchableOpacity
+            style={[
+              styles.enterPill,
+              { flexDirection: layoutDirection === 'rtl' ? 'row-reverse' : 'row' },
+            ]}
+            activeOpacity={0.85}
+            onPress={handleProceed}
+            disabled={!databaseReady || Boolean(databaseError) || isProceeding}
+            accessibilityRole="button"
+            accessibilityLabel={t('splash.enter', locale)}
+            accessibilityState={{ disabled: !databaseReady || Boolean(databaseError) || isProceeding }}
+            testID="aes-splash-enter-button"
+          >
+            <AppText typographyRole="button" style={styles.enterPillText}>
               {t('splash.enter', locale)}
             </AppText>
             <AppIcon
@@ -116,9 +171,9 @@ export const SplashScreen: React.FC = () => {
               color={aesColors.accentGreen}
               testID="aes-splash-forward-icon"
             />
-          </View>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -128,55 +183,98 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: aesColors.accentGreen,
   },
-  touchableArea: {
+  page: {
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: aesSpacing.screenHorizontal,
     paddingVertical: aesSpacing.screenVertical,
   },
-  centerBlock: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: aesSpacing.sm,
+  languageBar: {
+    alignItems: 'flex-end',
+    minHeight: 44,
   },
-  shieldContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: aesRadii.card,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  languageSelector: {
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+    borderRadius: aesRadii.pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.14)',
+  },
+  languageOption: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: aesSpacing.sm,
+    borderRadius: aesRadii.pill,
+  },
+  selectedLanguageOption: {
+    backgroundColor: aesColors.textInverse,
+  },
+  languageLabel: {
+    color: aesColors.textInverse,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  selectedLanguageLabel: {
+    color: aesColors.accentGreen,
+    fontWeight: '700',
+  },
+  centerBlock: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: aesSpacing.md,
+    paddingVertical: aesSpacing.lg,
+    gap: aesSpacing.md,
+  },
+  logo: {
+    width: 112,
+    height: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: aesColors.textInverse,
+    borderRadius: aesRadii.modal,
   },
   wordmark: {
-    ...aesTypography.display1,
     color: aesColors.textInverse,
     textAlign: 'center',
     letterSpacing: 0.5,
   },
-  subtitle: {
-    ...aesTypography.bodySmall,
+  tagline: {
     color: '#E8F5E9',
     textAlign: 'center',
     opacity: 0.9,
     paddingHorizontal: aesSpacing.xl,
+  },
+  description: {
+    color: '#E8F5E9',
+    maxWidth: 420,
+    textAlign: 'center',
+    opacity: 0.88,
+    paddingHorizontal: aesSpacing.md,
+  },
+  databaseStatus: {
+    alignItems: 'center',
+    marginTop: aesSpacing.md,
+    gap: aesSpacing.xs,
+  },
+  databaseStatusText: {
+    color: aesColors.textInverse,
+    textAlign: 'center',
   },
   bottomBar: {
     alignItems: 'center',
     paddingBottom: aesSpacing.xl,
   },
   enterPill: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: aesSpacing.sm,
     backgroundColor: aesColors.textInverse,
-    paddingVertical: aesSpacing.sm,
+    minHeight: 52,
+    justifyContent: 'center',
     paddingHorizontal: aesSpacing.xl,
     borderRadius: aesRadii.pill,
+    alignSelf: 'center',
   },
   enterPillText: {
-    ...aesTypography.buttonSmall,
     color: aesColors.accentGreen,
     fontWeight: '700',
   },

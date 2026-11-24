@@ -19,7 +19,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -51,6 +50,8 @@ import {
 } from '../../../core';
 import { t } from '../../../localization';
 
+import AppText from '../../../components/AppText';
+import { AppIconLabel } from '../../../components/AppIcon';
 export type OhQueueTab = 'pending_acknowledgement' | 'acknowledged' | 'completed';
 
 export const OhCoordinationQueueScreen: React.FC = () => {
@@ -136,10 +137,10 @@ export const OhCoordinationQueueScreen: React.FC = () => {
         <AesScreenHeader title={t('oh.queue.title')} />
         <View style={styles.centerContainer}>
           <View style={styles.unauthorizedCard} testID="oh-unauthorized-card">
-            <Text style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</Text>
-            <Text style={styles.unauthorizedText}>
+            <AppText style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</AppText>
+            <AppText style={styles.unauthorizedText}>
               {t('oh.detail.unauthorizedMessage')}
-            </Text>
+            </AppText>
           </View>
         </View>
       </AesScreenContainer>
@@ -161,9 +162,9 @@ export const OhCoordinationQueueScreen: React.FC = () => {
         testID={`oh-coordination-card-${item.id}`}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.refNumber} numberOfLines={1}>
+          <AppText style={styles.refNumber} numberOfLines={1}>
             {declRef}
-          </Text>
+          </AppText>
           <AesStatusBadge
             status={item.status}
             domain="ohCoordination"
@@ -173,33 +174,33 @@ export const OhCoordinationQueueScreen: React.FC = () => {
 
         <View style={styles.cardBody}>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>{t('oh.queue.reason')}</Text>
-            <Text style={styles.metaValue}>
+            <AppText style={styles.metaLabel}>{t('oh.queue.reason')}</AppText>
+            <AppText style={styles.metaValue}>
               {t(`oh.reason.${item.coordination_reason}` as any)}
-            </Text>
+            </AppText>
           </View>
 
           {item.creator_name && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>{t('oh.detail.coordinator')}</Text>
-              <Text style={styles.metaValue}>{item.creator_name}</Text>
+              <AppText style={styles.metaLabel}>{t('oh.detail.coordinator')}</AppText>
+              <AppText style={styles.metaValue}>{item.creator_name}</AppText>
             </View>
           )}
 
           {item.created_at && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>{t('oh.detail.createdAt')}</Text>
-              <Text style={styles.metaValue}>{item.created_at.slice(0, 10)}</Text>
+              <AppText style={styles.metaLabel}>{t('oh.detail.createdAt')}</AppText>
+              <AppText style={styles.metaValue}>{item.created_at.slice(0, 10)}</AppText>
             </View>
           )}
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.openDetailText}>
+          <AppIconLabel name="forward" size="sm" textStyle={styles.openDetailText}>
             {item.status === 'pending_acknowledgement'
-              ? `${t('oh.detail.acknowledge')} →`
-              : `${t('oh.queue.openDetail')} →`}
-          </Text>
+              ? t('oh.detail.acknowledge')
+              : t('oh.queue.openDetail')}
+          </AppIconLabel>
         </View>
       </TouchableOpacity>
     );
@@ -233,10 +234,10 @@ export const OhCoordinationQueueScreen: React.FC = () => {
       <View style={styles.sessionBanner} testID="oh-session-banner">
         <View style={styles.sessionDot} />
         <View style={styles.sessionTextContainer}>
-          <Text style={styles.sessionTitle}>{t('oh.queue.reviewerBadge')}</Text>
-          <Text style={styles.sessionSubtitle}>
+          <AppText style={styles.sessionTitle}>{t('oh.queue.reviewerBadge')}</AppText>
+          <AppText style={styles.sessionSubtitle}>
             {authContext.displayName} ({t(`role.${authContext.role}` as any)})
-          </Text>
+          </AppText>
         </View>
       </View>
 
@@ -277,7 +278,7 @@ export const OhCoordinationQueueScreen: React.FC = () => {
                 testID={`oh-tab-${tab}`}
                 activeOpacity={0.8}
               >
-                <Text
+                <AppText
                   style={[
                     styles.tabPillText,
                     isSelected
@@ -286,7 +287,7 @@ export const OhCoordinationQueueScreen: React.FC = () => {
                   ]}
                 >
                   {t(tabLabelKey as any)} ({count})
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -301,8 +302,8 @@ export const OhCoordinationQueueScreen: React.FC = () => {
       ) : error ? (
         <View style={styles.centerContainer} testID="oh-queue-error">
           <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>{t('error.generic')}</Text>
-            <Text style={styles.errorText}>{error}</Text>
+            <AppText style={styles.errorTitle}>{t('error.generic')}</AppText>
+            <AppText style={styles.errorText}>{error}</AppText>
             <AesButton
               title={t('oh.queue.refresh')}
               onPress={loadQueue}
@@ -331,8 +332,8 @@ export const OhCoordinationQueueScreen: React.FC = () => {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer} testID="oh-queue-empty">
-              <Text style={styles.emptyTitle}>{getEmptyMessage().title}</Text>
-              <Text style={styles.emptySubtitle}>{getEmptyMessage().subtitle}</Text>
+              <AppText style={styles.emptyTitle}>{getEmptyMessage().title}</AppText>
+              <AppText style={styles.emptySubtitle}>{getEmptyMessage().subtitle}</AppText>
             </View>
           }
           testID="oh-coordination-flatlist"

@@ -11,7 +11,7 @@ export const createButtonStyles = (colors: ReturnType<typeof useTheme>['colors']
   },
   text: {
     color: colors.primaryForeground,
-    fontFamily: typography.fontFamily.openSans,
+    fontFamily: typography.fontFamily.body,
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
   },
@@ -34,7 +34,7 @@ export const createFieldStyles = (colors: ReturnType<typeof useTheme>['colors'])
     borderRadius: shapes.sm,
     padding: spacing[4],
     color: colors.foreground,
-    fontFamily: typography.fontFamily.openSans,
+    fontFamily: typography.fontFamily.body,
     fontSize: typography.fontSize.md,
   },
 });

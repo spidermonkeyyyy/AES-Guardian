@@ -17,6 +17,7 @@ import {
 import { aesSpacing, aesRadii } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 import { AppText } from '../../../components/AppText';
+import { useLayoutDirection } from '../../../localization';
 
 export type AesButtonVariant =
   | 'primary'
@@ -55,6 +56,7 @@ export const AesButton: React.FC<AesButtonProps> = ({
   accessibilityLabel,
 }) => {
   const { colors } = useTheme();
+  const layoutDirection = useLayoutDirection();
   const isInteractive = !disabled && !loading;
   const palette =
     disabled
@@ -99,15 +101,24 @@ export const AesButton: React.FC<AesButtonProps> = ({
           }
         />
       ) : (
-        <View style={styles.contentRow}>
+        <View
+          style={[
+            styles.contentRow,
+            { flexDirection: layoutDirection === 'rtl' ? 'row-reverse' : 'row' },
+          ]}
+        >
           {icon && iconPosition === 'left' ? (
-            <View style={styles.iconLeft}>{icon}</View>
+            <View style={styles.iconLeft} testID={testID ? `${testID}-icon-left` : undefined}>
+              {icon}
+            </View>
           ) : null}
           <AppText variant="label" style={[styles.baseText, { color: palette.color }, textStyle]}>
             {title}
           </AppText>
           {icon && iconPosition === 'right' ? (
-            <View style={styles.iconRight}>{icon}</View>
+            <View style={styles.iconRight} testID={testID ? `${testID}-icon-right` : undefined}>
+              {icon}
+            </View>
           ) : null}
         </View>
       )}

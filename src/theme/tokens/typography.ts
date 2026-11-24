@@ -2,8 +2,6 @@ import { appFontFamilies } from './fontFamilies';
 
 export const typography = {
   fontFamily: {
-    urbanist: appFontFamilies.display,
-    openSans: appFontFamilies.body,
     display: appFontFamilies.display,
     body: appFontFamilies.body,
     heading: appFontFamilies.readex,

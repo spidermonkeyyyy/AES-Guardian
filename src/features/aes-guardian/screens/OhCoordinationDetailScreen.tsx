@@ -21,7 +21,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
@@ -57,6 +56,7 @@ import {
 } from '../../../core';
 import { t } from '../../../localization';
 
+import AppText from '../../../components/AppText';
 type ParamList = {
   ohCoordinationDetail: { coordinationId: number };
 };
@@ -174,10 +174,10 @@ export const OhCoordinationDetailScreen: React.FC = () => {
         />
         <View style={styles.centerContainer}>
           <View style={styles.unauthorizedCard} testID="oh-detail-unauthorized-card">
-            <Text style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</Text>
-            <Text style={styles.unauthorizedText}>
+            <AppText style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</AppText>
+            <AppText style={styles.unauthorizedText}>
               {t('oh.detail.unauthorizedMessage')}
-            </Text>
+            </AppText>
           </View>
         </View>
       </AesScreenContainer>
@@ -207,8 +207,8 @@ export const OhCoordinationDetailScreen: React.FC = () => {
         />
         <View style={styles.centerContainer}>
           <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>{t('error.generic')}</Text>
-            <Text style={styles.errorText}>{error || t('error.loadFailed')}</Text>
+            <AppText style={styles.errorTitle}>{t('error.generic')}</AppText>
+            <AppText style={styles.errorText}>{error || t('error.loadFailed')}</AppText>
             <AesButton
               title={t('oh.queue.refresh')}
               onPress={loadData}
@@ -242,26 +242,26 @@ export const OhCoordinationDetailScreen: React.FC = () => {
         {/* Role-specific Notice Banner */}
         {isExposedProfessional && (
           <View style={styles.infoBanner} testID="oh-exposed-notice">
-            <Text style={styles.infoBannerText}>
+            <AppText style={styles.infoBannerText}>
               {t('oh.detail.exposedNotice')}
-            </Text>
+            </AppText>
           </View>
         )}
 
         {isAdminReviewer && !isOhProfessional && (
           <View style={styles.infoBanner} testID="oh-admin-notice">
-            <Text style={styles.infoBannerText}>
+            <AppText style={styles.infoBannerText}>
               {t('oh.detail.adminNotice')}
-            </Text>
+            </AppText>
           </View>
         )}
 
         {/* Primary Coordination Card */}
         <View style={styles.card} testID="oh-detail-card">
           <View style={styles.cardHeader}>
-            <Text style={styles.refNumber} numberOfLines={1}>
+            <AppText style={styles.refNumber} numberOfLines={1}>
               {declRef}
-            </Text>
+            </AppText>
             <AesStatusBadge
               status={coordination.status}
               domain="ohCoordination"
@@ -275,20 +275,20 @@ export const OhCoordinationDetailScreen: React.FC = () => {
               'coordination_reason' in coordination &&
               coordination.coordination_reason && (
                 <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>{t('oh.detail.reason')}</Text>
-                  <Text style={styles.metaValue}>
+                  <AppText style={styles.metaLabel}>{t('oh.detail.reason')}</AppText>
+                  <AppText style={styles.metaValue}>
                     {t(`oh.reason.${coordination.coordination_reason}` as any)}
-                  </Text>
+                  </AppText>
                 </View>
               )}
 
             {/* Created date */}
             {coordination.created_at && (
               <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>{t('oh.detail.createdAt')}</Text>
-                <Text style={styles.metaValue}>
+                <AppText style={styles.metaLabel}>{t('oh.detail.createdAt')}</AppText>
+                <AppText style={styles.metaValue}>
                   {coordination.created_at.slice(0, 10)}
-                </Text>
+                </AppText>
               </View>
             )}
 
@@ -297,34 +297,34 @@ export const OhCoordinationDetailScreen: React.FC = () => {
               <>
                 {(coordination as OhCoordination).creator_name && (
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>{t('oh.detail.coordinator')}</Text>
-                    <Text style={styles.metaValue}>
+                    <AppText style={styles.metaLabel}>{t('oh.detail.coordinator')}</AppText>
+                    <AppText style={styles.metaValue}>
                       {(coordination as OhCoordination).creator_name}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
 
                 {/* Acknowledged by: uses display name if available, neutral wording if absent. Never User #${id} */}
                 {(coordination as OhCoordination).acknowledged_by_user_id ? (
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>
+                    <AppText style={styles.metaLabel}>
                       {t('oh.detail.acknowledgedBy')}
-                    </Text>
-                    <Text style={styles.metaValue}>
+                    </AppText>
+                    <AppText style={styles.metaValue}>
                       {(coordination as OhCoordination).acknowledger_name ||
                         t('oh.detail.acknowledgedStatus')}
-                    </Text>
+                    </AppText>
                   </View>
                 ) : null}
 
                 {/* Completed by: uses display name if available, neutral wording if absent. Never User #${id} */}
                 {(coordination as OhCoordination).completed_by_user_id ? (
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>{t('oh.detail.completedBy')}</Text>
-                    <Text style={styles.metaValue}>
+                    <AppText style={styles.metaLabel}>{t('oh.detail.completedBy')}</AppText>
+                    <AppText style={styles.metaValue}>
                       {(coordination as OhCoordination).completer_name ||
                         t('oh.detail.completedStatus')}
-                    </Text>
+                    </AppText>
                   </View>
                 ) : null}
               </>
@@ -373,11 +373,11 @@ export const OhCoordinationDetailScreen: React.FC = () => {
         {/* Follow-Up Event Timeline — strictly for oh_professional only */}
         {isOhProfessional && (
           <View style={styles.eventsSection} testID="oh-events-section">
-            <Text style={styles.sectionHeader}>{t('oh.detail.events')}</Text>
+            <AppText style={styles.sectionHeader}>{t('oh.detail.events')}</AppText>
 
             {events.length === 0 ? (
               <View style={styles.noEventsBox} testID="oh-no-events">
-                <Text style={styles.noEventsText}>{t('oh.detail.noEvents')}</Text>
+                <AppText style={styles.noEventsText}>{t('oh.detail.noEvents')}</AppText>
               </View>
             ) : (
               events.map((evt) => (
@@ -387,25 +387,25 @@ export const OhCoordinationDetailScreen: React.FC = () => {
                   testID={`oh-event-item-${evt.id}`}
                 >
                   <View style={styles.eventHeader}>
-                    <Text style={styles.eventCategory}>
+                    <AppText style={styles.eventCategory}>
                       {t(`oh.event.${evt.event_category}` as any)}
-                    </Text>
-                    <Text style={styles.eventDate}>
+                    </AppText>
+                    <AppText style={styles.eventDate}>
                       {evt.event_date.slice(0, 10)}
-                    </Text>
+                    </AppText>
                   </View>
 
                   {evt.recorder_name && (
-                    <Text style={styles.eventRecorder}>
+                    <AppText style={styles.eventRecorder}>
                       {evt.recorder_name}
-                    </Text>
+                    </AppText>
                   )}
 
                   {evt.administrative_note && (
                     <View style={styles.eventNoteBox}>
-                      <Text style={styles.eventNoteText}>
+                      <AppText style={styles.eventNoteText}>
                         {evt.administrative_note}
-                      </Text>
+                      </AppText>
                     </View>
                   )}
                 </View>
@@ -416,7 +416,7 @@ export const OhCoordinationDetailScreen: React.FC = () => {
 
         {/* Prototype Disclaimer Notice */}
         <View style={styles.disclaimerBox} testID="oh-detail-disclaimer">
-          <Text style={styles.disclaimerText}>{t('oh.detail.disclaimer')}</Text>
+          <AppText style={styles.disclaimerText}>{t('oh.detail.disclaimer')}</AppText>
         </View>
       </View>
     </AesScreenContainer>

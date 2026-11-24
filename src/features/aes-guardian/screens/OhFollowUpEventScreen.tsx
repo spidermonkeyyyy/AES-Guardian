@@ -22,8 +22,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -53,6 +51,8 @@ import {
 } from '../../../core';
 import { t } from '../../../localization';
 
+import AppText from '../../../components/AppText';
+import AppTextInput from '../../../components/AppTextInput';
 type ParamList = {
   recordFollowUpEvent: { coordinationId: number };
 };
@@ -146,10 +146,10 @@ export const OhFollowUpEventScreen: React.FC = () => {
         />
         <View style={styles.centerContainer}>
           <View style={styles.unauthorizedCard} testID="oh-event-unauthorized-card">
-            <Text style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</Text>
-            <Text style={styles.unauthorizedText}>
+            <AppText style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</AppText>
+            <AppText style={styles.unauthorizedText}>
               {t('oh.detail.unauthorizedMessage')}
-            </Text>
+            </AppText>
           </View>
         </View>
       </AesScreenContainer>
@@ -165,7 +165,7 @@ export const OhFollowUpEventScreen: React.FC = () => {
 
       <View style={styles.formContainer}>
         {/* Category Selection */}
-        <Text style={styles.sectionLabel}>{t('oh.event.category')}</Text>
+        <AppText style={styles.sectionLabel}>{t('oh.event.category')}</AppText>
         <View style={styles.optionsGroup} testID="oh-event-category-options">
           {OH_FOLLOW_UP_EVENT_CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat;
@@ -185,8 +185,8 @@ export const OhFollowUpEventScreen: React.FC = () => {
 
         {/* Date Input Section */}
         <View style={styles.fieldSection}>
-          <Text style={styles.sectionLabel}>{t('oh.event.date')}</Text>
-          <TextInput
+          <AppText style={styles.sectionLabel}>{t('oh.event.date')}</AppText>
+          <AppTextInput
             style={[
               styles.textInput,
               dateError ? styles.textInputError : null,
@@ -200,17 +200,17 @@ export const OhFollowUpEventScreen: React.FC = () => {
             testID="oh-event-date-input"
           />
           {dateError ? (
-            <Text style={styles.errorCaption} testID="oh-event-date-error">
+            <AppText style={styles.errorCaption} testID="oh-event-date-error">
               {dateError}
-            </Text>
+            </AppText>
           ) : null}
         </View>
 
         {/* Administrative Note Section */}
         <View style={styles.fieldSection}>
           <View style={styles.noteHeaderRow}>
-            <Text style={styles.sectionLabel}>{t('oh.event.note')}</Text>
-            <Text
+            <AppText style={styles.sectionLabel}>{t('oh.event.note')}</AppText>
+            <AppText
               style={[
                 styles.charCounter,
                 adminNote.length >= 280 ? styles.charCounterWarning : null,
@@ -218,10 +218,10 @@ export const OhFollowUpEventScreen: React.FC = () => {
               testID="oh-event-char-counter"
             >
               {adminNote.length} / 300 {t('oh.event.charCount')}
-            </Text>
+            </AppText>
           </View>
-          <Text style={styles.noteCaption}>{t('oh.event.noteDescription')}</Text>
-          <TextInput
+          <AppText style={styles.noteCaption}>{t('oh.event.noteDescription')}</AppText>
+          <AppTextInput
             style={[styles.textInput, styles.textArea]}
             value={adminNote}
             onChangeText={setAdminNote}
@@ -237,9 +237,9 @@ export const OhFollowUpEventScreen: React.FC = () => {
 
         {/* Clinical Safety Disclaimer */}
         <View style={styles.clinicalNoticeCard} testID="oh-event-clinical-notice">
-          <Text style={styles.clinicalNoticeText}>
+          <AppText style={styles.clinicalNoticeText}>
             {t('oh.disclaimer.clinical')}
-          </Text>
+          </AppText>
         </View>
 
         {/* Primary Action Button */}

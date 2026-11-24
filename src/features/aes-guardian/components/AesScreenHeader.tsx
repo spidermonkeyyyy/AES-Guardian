@@ -48,7 +48,10 @@ export const AesScreenHeader: React.FC<AesScreenHeaderProps> = ({
 
   return (
     <View style={[styles.headerContainer, style]} testID={testID}>
-      <View style={styles.topRow}>
+      <View
+        style={[styles.topRow, { flexDirection: rtl ? 'row-reverse' : 'row' }]}
+        testID={testID ? `${testID}-top-row` : undefined}
+      >
         {onBack ? (
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.muted }]}
@@ -57,11 +60,7 @@ export const AesScreenHeader: React.FC<AesScreenHeaderProps> = ({
             accessibilityLabel={t('app.back', locale)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <AppIcon
-              name={rtl ? 'chevron-right' : 'chevron-left'}
-              size={22}
-              color={colors.foreground}
-            />
+            <AppIcon name="back-chevron" size={22} color={colors.foreground} />
           </TouchableOpacity>
         ) : (
           <View style={styles.spacer} />
@@ -85,7 +84,13 @@ export const AesScreenHeader: React.FC<AesScreenHeaderProps> = ({
           </AppText>
         ) : null}
 
-        <View style={styles.titleRow}>
+        <View
+          style={[
+            styles.titleRow,
+            { flexDirection: rtl ? 'row-reverse' : 'row' },
+          ]}
+          testID={testID ? `${testID}-title-row` : undefined}
+        >
           <AppText
             variant="title"
             style={[

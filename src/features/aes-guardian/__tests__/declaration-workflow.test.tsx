@@ -72,7 +72,7 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
 
       expect(component.getByText('Mes déclarations')).toBeTruthy();
       expect(component.getByText('Aucune déclaration')).toBeTruthy();
-      expect(component.getByText('+ Nouvelle déclaration')).toBeTruthy();
+      expect(component.getByTestId('new-declaration-button')).toBeTruthy();
     });
   });
 

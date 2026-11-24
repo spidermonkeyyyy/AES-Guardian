@@ -2,7 +2,7 @@
  * AES Guardian — Reusable Round Arrow Button
  *
  * Implements circular 48x48px navigation arrow button per UI Blueprint
- * Section 5.1 & Section 5.2 (used prominently in WelcomeCarouselScreen).
+ * Shared directional action button for guided workflows.
  */
 
 import React from 'react';

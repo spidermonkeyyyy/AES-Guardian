@@ -5,6 +5,7 @@ import { useTheme } from '../theme/ThemeContext';
 import {
   AdminReviewActionScreen,
   AdminReviewQueueScreen,
+  AccessScreen,
   AesGuardianProfileScreen,
   AesGuardianWorkspaceScreen,
   CorrectionResponseScreen,
@@ -28,7 +29,6 @@ import {
   SplashScreen as AesSplashScreen,
   SubmissionConfirmationScreen,
   SurveillanceDashboardScreen,
-  WelcomeCarouselScreen,
 } from '../features/aes-guardian';
 import {
   DirectionalStackBackButton,
@@ -41,7 +41,15 @@ import { useLocale } from '../localization';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export default function AppNavigator() {
+interface AppNavigatorProps {
+  databaseReady?: boolean;
+  databaseError?: string | null;
+}
+
+export default function AppNavigator({
+  databaseReady = true,
+  databaseError = null,
+}: AppNavigatorProps) {
   const { colors, isDark } = useTheme();
   const locale = useLocale();
   const baseTheme = isDark ? DarkTheme : DefaultTheme;
@@ -73,19 +81,29 @@ export default function AppNavigator() {
               {getLocalizedStackTitle(route.name, children ?? route.name, locale)}
             </DirectionalStackHeaderTitle>
           ),
-          headerLeft: () => (
-            <DirectionalStackBackButton side={getDirectionalStackBackSide(locale)} />
-          ),
-          headerRight: () => (
-            <DirectionalStackBackButton side={getDirectionalStackBackSide(locale) === 'left' ? 'right' : 'left'} />
-          ),
+          headerLeft: () => getDirectionalStackBackSide(locale) === 'left'
+            ? <DirectionalStackBackButton side="left" />
+            : null,
+          headerRight: () => getDirectionalStackBackSide(locale) === 'right'
+            ? <DirectionalStackBackButton side="right" />
+            : null,
           headerTitleStyle: { color: colors.foreground },
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: {
+            backgroundColor: colors.background,
+            direction: locale === 'ar' ? 'rtl' : 'ltr',
+          },
         })}
       >
-        <Stack.Screen name="aesSplash" component={AesSplashScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="aesSplash" options={{ headerShown: false }}>
+          {() => (
+            <AesSplashScreen
+              databaseReady={databaseReady}
+              databaseError={databaseError}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="aesAccess" component={AccessScreen} options={{ headerShown: false }} />
         <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="aesWelcomeCarousel" component={WelcomeCarouselScreen} options={{ headerShown: false }} />
         <Stack.Screen name="aesDisclaimer" component={PrototypeDisclaimerScreen} options={{ headerShown: false }} />
         <Stack.Screen name="aesDemoPicker" component={DemoAccountPickerScreen} options={{ headerShown: false }} />
         <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} />

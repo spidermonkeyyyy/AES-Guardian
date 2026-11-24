@@ -12,11 +12,9 @@
 import React, { useState, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,6 +23,9 @@ import { spacing, typography, shapes } from '../../../theme/tokens';
 import { t, useLocale, TranslationKey } from '../../../localization';
 import { RootStackParamList } from '../../../navigation/routes';
 
+import AppText from '../../../components/AppText';
+import AppTextInput from '../../../components/AppTextInput';
+import { AppIcon, AppIconLabel } from '../../../components/AppIcon';
 type HelpGlossaryRouteProp = RouteProp<RootStackParamList, 'helpGlossary'>;
 
 interface HelpSectionItem {
@@ -129,17 +130,17 @@ export const HelpGlossaryScreen: React.FC = () => {
     <ScrollView style={styles.root} contentContainerStyle={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('helpGlossary.title', locale)}</Text>
-        <Text style={styles.subtitle}>{t('helpGlossary.subtitle', locale)}</Text>
+        <AppText style={styles.title}>{t('helpGlossary.title', locale)}</AppText>
+        <AppText style={styles.subtitle}>{t('helpGlossary.subtitle', locale)}</AppText>
       </View>
 
       {/* Academic Disclaimer Banner */}
       <View style={styles.disclaimerBanner}>
         <View style={styles.disclaimerRow}>
-          <Text style={styles.disclaimerIcon}>⚠️</Text>
-          <Text style={styles.disclaimerText}>
+          <AppIcon name="alert-triangle" size={20} color={colors.warning} />
+          <AppText style={styles.disclaimerText}>
             {t('helpGlossary.disclaimer', locale)}
-          </Text>
+          </AppText>
         </View>
       </View>
 
@@ -153,11 +154,9 @@ export const HelpGlossaryScreen: React.FC = () => {
           accessibilityLabel={t('helpGlossary.tabHelp', locale)}
           accessibilityState={{ selected: activeTab === 'help' }}
         >
-          <Text
-            style={[styles.tabText, activeTab === 'help' && styles.tabTextActive]}
-          >
-            📖 {t('helpGlossary.tabHelp', locale)}
-          </Text>
+          <AppIconLabel name="book-open" size="sm" textStyle={[styles.tabText, activeTab === 'help' && styles.tabTextActive]} style={styles.tabLabel}>
+            {t('helpGlossary.tabHelp', locale)}
+          </AppIconLabel>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -168,11 +167,9 @@ export const HelpGlossaryScreen: React.FC = () => {
           accessibilityLabel={t('helpGlossary.tabGlossary', locale)}
           accessibilityState={{ selected: activeTab === 'glossary' }}
         >
-          <Text
-            style={[styles.tabText, activeTab === 'glossary' && styles.tabTextActive]}
-          >
-            📚 {t('helpGlossary.tabGlossary', locale)}
-          </Text>
+          <AppIconLabel name="book" size="sm" textStyle={[styles.tabText, activeTab === 'glossary' && styles.tabTextActive]} style={styles.tabLabel}>
+            {t('helpGlossary.tabGlossary', locale)}
+          </AppIconLabel>
         </TouchableOpacity>
       </View>
 
@@ -195,18 +192,18 @@ export const HelpGlossaryScreen: React.FC = () => {
                 >
                   <View style={styles.cardHeaderLeft}>
                     <View style={styles.numberBadge}>
-                      <Text style={styles.numberBadgeText}>{sec.number}</Text>
+                      <AppText style={styles.numberBadgeText}>{sec.number}</AppText>
                     </View>
-                    <Text style={styles.cardTitle}>{t(sec.titleKey, locale)}</Text>
+                    <AppText style={styles.cardTitle}>{t(sec.titleKey, locale)}</AppText>
                   </View>
-                  <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
+                  <AppIcon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.mutedForeground} />
                 </TouchableOpacity>
 
                 {isExpanded && (
                   <View style={styles.cardBody}>
-                    <Text style={styles.cardContent}>
+                    <AppText style={styles.cardContent}>
                       {t(sec.contentKey, locale)}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
               </View>
@@ -222,8 +219,9 @@ export const HelpGlossaryScreen: React.FC = () => {
         <View style={styles.glossaryContainer}>
           {/* Search Input Box */}
           <View style={styles.searchBox}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
+            <AppIcon name="search" size={18} color={colors.mutedForeground} />
+            <AppTextInput
+              bare
               style={styles.searchInput}
               placeholder={t('helpGlossary.searchPlaceholder', locale)}
               placeholderTextColor={colors.mutedForeground}
@@ -238,7 +236,7 @@ export const HelpGlossaryScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={t('helpGlossary.clearSearch', locale)}
               >
-                <Text style={styles.clearIcon}>✕</Text>
+                <AppIcon name="cancel" size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
             )}
           </View>
@@ -262,9 +260,9 @@ export const HelpGlossaryScreen: React.FC = () => {
                   accessibilityLabel={t(chip.labelKey, locale)}
                   accessibilityState={{ selected: isSelected }}
                 >
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                  <AppText style={[styles.chipText, isSelected && styles.chipTextActive]}>
                     {t(chip.labelKey, locale)}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               );
             })}
@@ -273,10 +271,10 @@ export const HelpGlossaryScreen: React.FC = () => {
           {/* Filtered Glossary Term Cards */}
           {filteredGlossary.length === 0 ? (
             <View style={styles.emptyStateBox}>
-              <Text style={styles.emptyStateIcon}>🔎</Text>
-              <Text style={styles.emptyStateText}>
+              <AppIcon name="search" size={32} color={colors.mutedForeground} />
+              <AppText style={styles.emptyStateText}>
                 {t('helpGlossary.emptySearch', locale)}
-              </Text>
+              </AppText>
             </View>
           ) : (
             filteredGlossary.map((item) => {
@@ -295,23 +293,23 @@ export const HelpGlossaryScreen: React.FC = () => {
                   <View style={styles.glossaryHeaderRow}>
                     <View style={styles.glossaryTermInfo}>
                       <View style={styles.termTitleRow}>
-                        <Text style={styles.glossaryTermTitle}>
+                        <AppText style={styles.glossaryTermTitle}>
                           {t(item.termKey, locale)}
-                        </Text>
+                        </AppText>
                         <View style={styles.categoryBadge}>
-                          <Text style={styles.categoryBadgeText}>
+                          <AppText style={styles.categoryBadgeText}>
                             {t(item.categoryKey, locale)}
-                          </Text>
+                          </AppText>
                         </View>
                       </View>
                     </View>
-                    <Text style={styles.chevronSmall}>{isExpanded ? '▲' : '▼'}</Text>
+                    <AppIcon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
                   </View>
 
                   {isExpanded && (
-                    <Text style={styles.glossaryDefinition}>
+                    <AppText style={styles.glossaryDefinition}>
                       {t(item.definitionKey, locale)}
-                    </Text>
+                    </AppText>
                   )}
                 </TouchableOpacity>
               );
@@ -325,10 +323,11 @@ export const HelpGlossaryScreen: React.FC = () => {
         style={styles.backButton}
         onPress={() => navigation.goBack()}
         accessibilityRole="button"
+        accessibilityLabel={t('helpGlossary.backToWorkspace', locale)}
       >
-        <Text style={styles.backButtonText}>
-          ← {t('helpGlossary.backToWorkspace', locale)}
-        </Text>
+        <AppIconLabel name="back" size="sm" textStyle={styles.backButtonText} style={styles.backButtonLabel}>
+          {t('helpGlossary.backToWorkspace', locale)}
+        </AppIconLabel>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -351,13 +350,11 @@ function createStyles(colors: any) {
       fontSize: typography.fontSize.xl,
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
-      fontFamily: typography.fontFamily.urbanist,
       marginBottom: 2,
     },
     subtitle: {
       fontSize: typography.fontSize.xs,
       color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
     },
     disclaimerBanner: {
       backgroundColor: colors.warningBackground,
@@ -380,7 +377,6 @@ function createStyles(colors: any) {
       fontSize: typography.fontSize.xs - 1,
       color: colors.warning,
       lineHeight: 16,
-      fontFamily: typography.fontFamily.openSans,
     },
     tabContainer: {
       flexDirection: 'row',
@@ -409,6 +405,12 @@ function createStyles(colors: any) {
     tabTextActive: {
       color: colors.primaryForeground ?? '#ffffff',
       fontWeight: typography.fontWeight.bold,
+    },
+    tabLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
     },
     sectionList: {
       gap: spacing.sm,
@@ -467,7 +469,6 @@ function createStyles(colors: any) {
       fontSize: typography.fontSize.xs,
       color: colors.foreground,
       lineHeight: 18,
-      fontFamily: typography.fontFamily.openSans,
     },
     glossaryContainer: {
       gap: spacing.sm,
@@ -574,7 +575,6 @@ function createStyles(colors: any) {
       color: colors.foreground,
       lineHeight: 18,
       marginTop: spacing.xs,
-      fontFamily: typography.fontFamily.openSans,
     },
     emptyStateBox: {
       padding: spacing.xl,
@@ -603,6 +603,12 @@ function createStyles(colors: any) {
       fontSize: typography.fontSize.xs,
       color: colors.primary,
       fontWeight: typography.fontWeight.bold,
+    },
+    backButtonLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
     },
   });
 }

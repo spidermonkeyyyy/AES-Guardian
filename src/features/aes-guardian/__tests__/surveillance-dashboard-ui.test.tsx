@@ -825,14 +825,14 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
     });
   });
 
-  test('dateInput has height >= 48dp for touch target compliance', async () => {
+  test('dateInput keeps its 48dp minimum touch target', async () => {
     const { getByTestId } = render(<SurveillanceDashboardScreen />);
     await waitFor(() => {
       const input = getByTestId('surveillance-start-date-input');
       const style = input.props.style;
       const styles = Array.isArray(style) ? style : [style];
-      const height = styles.find(s => s && typeof s === 'object' && 'height' in s)?.height;
-      expect(height).toBeGreaterThanOrEqual(48);
+      const minHeight = styles.find(s => s && typeof s === 'object' && 'minHeight' in s)?.minHeight;
+      expect(minHeight).toBeGreaterThanOrEqual(48);
     });
   });
 

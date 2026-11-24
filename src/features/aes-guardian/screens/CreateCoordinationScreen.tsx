@@ -20,7 +20,6 @@
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -50,6 +49,7 @@ import {
 } from '../../../core';
 import { t, useLocale } from '../../../localization';
 
+import AppText from '../../../components/AppText';
 type ParamList = {
   createCoordination: { declarationId: number };
 };
@@ -135,10 +135,10 @@ export const CreateCoordinationScreen: React.FC = () => {
         />
         <View style={styles.centerContainer}>
           <View style={styles.unauthorizedCard} testID="create-oh-unauthorized-card">
-            <Text style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</Text>
-            <Text style={styles.unauthorizedText}>
+            <AppText style={styles.unauthorizedTitle}>{t('oh.error.unauthorized')}</AppText>
+            <AppText style={styles.unauthorizedText}>
               {t('oh.detail.unauthorizedMessage')}
-            </Text>
+            </AppText>
           </View>
         </View>
       </AesScreenContainer>
@@ -155,12 +155,12 @@ export const CreateCoordinationScreen: React.FC = () => {
       <View style={styles.formContainer}>
         {/* Prototype Disclaimer Banner */}
         <View style={styles.disclaimerCard} testID="create-oh-disclaimer">
-          <Text style={styles.disclaimerTitle}>{t('oh.create.disclaimer')}</Text>
-          <Text style={styles.disclaimerBody}>{t('oh.create.disclaimerDetail')}</Text>
+          <AppText style={styles.disclaimerTitle}>{t('oh.create.disclaimer')}</AppText>
+          <AppText style={styles.disclaimerBody}>{t('oh.create.disclaimerDetail')}</AppText>
         </View>
 
         {/* Reason Picker Section */}
-        <Text style={styles.sectionLabel}>{t('oh.create.reasonHelp')}</Text>
+        <AppText style={styles.sectionLabel}>{t('oh.create.reasonHelp')}</AppText>
         <View style={styles.optionsGroup} testID="create-oh-reason-options">
           {OH_COORDINATION_REASONS.map((reason) => {
             const isSelected = selectedReason === reason;
@@ -180,9 +180,9 @@ export const CreateCoordinationScreen: React.FC = () => {
 
         {/* Clinical Safety Disclaimer */}
         <View style={styles.clinicalNoticeCard} testID="create-oh-clinical-notice">
-          <Text style={styles.clinicalNoticeText}>
+          <AppText style={styles.clinicalNoticeText}>
             {t('oh.disclaimer.clinical')}
-          </Text>
+          </AppText>
         </View>
 
         {/* Primary Action Button */}

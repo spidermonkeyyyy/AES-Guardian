@@ -438,8 +438,9 @@ export const PreventionActionCreateScreen: React.FC = () => {
 
           <AesCard style={styles.sectionCard}>
             <AppText style={[styles.label, rtl && styles.rtlText]}>{t('prevention.create.factor.label', locale)}</AppText>
-            <View style={styles.factorDisclaimer}>
-              <AppText style={[styles.factorDisclaimerText, rtl && styles.rtlText]}>
+            <View style={[styles.factorDisclaimer, { flexDirection: rowDirection, alignItems: 'flex-start', gap: aesSpacing.xs }]}>
+              <AppIcon name="warning" size={18} color={aesColors.banners.warning.text} />
+              <AppText style={[styles.factorDisclaimerText, rtl && styles.rtlText, { flex: 1 }]}>
                 {t('prevention.create.factor.disclaimer', locale)}
               </AppText>
             </View>

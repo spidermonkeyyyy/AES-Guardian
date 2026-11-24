@@ -90,7 +90,7 @@ export function getTypographyRoleTokens(role: TypographyRole, locale: SupportedL
     case 'cardHeading':
       return { fontFamily: appFontFamilies.readex, fontSize: 18, lineHeight: 26, fontWeight: '600' };
     case 'subheading':
-      return { fontFamily: appFontFamilies.readex, fontSize: 16, lineHeight: 24, fontWeight: '500' };
+      return { fontFamily: appFontFamilies.readex, fontSize: 16, lineHeight: 24, fontWeight: '600' };
     case 'importantBody':
       return { fontFamily: interfaceFont('medium'), fontSize: 15, lineHeight: 24, fontWeight: '500' };
     case 'button':

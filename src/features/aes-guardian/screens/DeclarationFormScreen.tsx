@@ -21,7 +21,6 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -56,6 +55,8 @@ import {
 } from '../components';
 import { RootStackParamList } from '../../../navigation/routes';
 
+import AppText from '../../../components/AppText';
+import AppTextInput from '../../../components/AppTextInput';
 type ParamList = {
   newDeclaration: { declarationId?: number };
 };
@@ -409,7 +410,7 @@ export const DeclarationFormScreen: React.FC = () => {
     return (
       <AesScreenContainer testID="declaration-form-unauthorized">
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{t('form.unauthorized', locale)}</Text>
+          <AppText style={styles.errorText}>{t('form.unauthorized', locale)}</AppText>
           <AesButton
             title={t('app.back', locale)}
             onPress={() => navigation.goBack()}
@@ -481,24 +482,24 @@ export const DeclarationFormScreen: React.FC = () => {
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
-              <Text style={styles.stepIndicatorText}>{stepCounterText}</Text>
-              <Text style={styles.headerTitleText}>
+              <AppText style={styles.stepIndicatorText}>{stepCounterText}</AppText>
+              <AppText style={styles.headerTitleText}>
                 {editId ? t('form.title.edit', locale) : t('form.title.new', locale)}
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.headerRight}>
               {isAutoSaving ? (
-                <Text style={styles.syncText}>{t('form.saving', locale)}</Text>
+                <AppText style={styles.syncText}>{t('form.saving', locale)}</AppText>
               ) : autoSaveError ? (
                 <View style={styles.syncErrorBadge} testID="declaration-sync-error">
                   <AppIcon name="alert-circle" size={12} color={aesColors.banners.error.text} />
-                  <Text style={styles.syncErrorText}>{t('form.autoSaveFailed', locale)}</Text>
+                  <AppText style={styles.syncErrorText}>{t('form.autoSaveFailed', locale)}</AppText>
                 </View>
               ) : lastSaved ? (
                 <View style={styles.syncedBadge} testID="declaration-sync-success">
                   <AppIcon name="check" size={12} color={aesColors.accentGreen} />
-                  <Text style={styles.syncText}>{t('form.autoSaved', locale)}</Text>
+                  <AppText style={styles.syncText}>{t('form.autoSaved', locale)}</AppText>
                 </View>
               ) : null}
             </View>
@@ -530,22 +531,22 @@ export const DeclarationFormScreen: React.FC = () => {
         >
           {/* Step Section Title & Subtitle */}
           <View style={styles.sectionHeader}>
-            <Text
+            <AppText
               style={[
                 styles.sectionTitle,
                 { textAlign: rtl ? 'right' : 'left' },
               ]}
             >
               {getStepTitle()}
-            </Text>
-            <Text
+            </AppText>
+            <AppText
               style={[
                 styles.sectionSubtitle,
                 { textAlign: rtl ? 'right' : 'left' },
               ]}
             >
               {getStepSubtitle()}
-            </Text>
+            </AppText>
           </View>
 
           {/* ──────────────────────────────────────────────────────────── */}
@@ -556,10 +557,10 @@ export const DeclarationFormScreen: React.FC = () => {
               {/* Incident Date */}
               <View style={styles.fieldGroup}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>{t('form.incidentDate', locale)}</Text>
-                  <Text style={styles.requiredMark}>* {t('form.required', locale)}</Text>
+                  <AppText style={styles.fieldLabel}>{t('form.incidentDate', locale)}</AppText>
+                  <AppText style={styles.requiredMark}>* {t('form.required', locale)}</AppText>
                 </View>
-                <TextInput
+                <AppTextInput
                   style={[
                     styles.textInput,
                     errors.incidentDate && styles.inputErrorBorder,
@@ -578,17 +579,17 @@ export const DeclarationFormScreen: React.FC = () => {
                   accessibilityLabel={t('form.incidentDate', locale)}
                 />
                 {errors.incidentDate ? (
-                  <Text style={styles.errorText}>{errors.incidentDate}</Text>
+                  <AppText style={styles.errorText}>{errors.incidentDate}</AppText>
                 ) : null}
               </View>
 
               {/* Department Code */}
               <View style={styles.fieldGroup}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>{t('form.departmentCode', locale)}</Text>
-                  <Text style={styles.optionalMark}>({t('form.optional', locale)})</Text>
+                  <AppText style={styles.fieldLabel}>{t('form.departmentCode', locale)}</AppText>
+                  <AppText style={styles.optionalMark}>({t('form.optional', locale)})</AppText>
                 </View>
-                <TextInput
+                <AppTextInput
                   style={[
                     styles.textInput,
                     { textAlign: rtl ? 'right' : 'left' },
@@ -605,10 +606,10 @@ export const DeclarationFormScreen: React.FC = () => {
               {/* Incident Notes / Specific Location */}
               <View style={styles.fieldGroup}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>{t('form.notes', locale)}</Text>
-                  <Text style={styles.optionalMark}>({t('form.optional', locale)})</Text>
+                  <AppText style={styles.fieldLabel}>{t('form.notes', locale)}</AppText>
+                  <AppText style={styles.optionalMark}>({t('form.optional', locale)})</AppText>
                 </View>
-                <TextInput
+                <AppTextInput
                   style={[
                     styles.textArea,
                     { textAlign: rtl ? 'right' : 'left' },
@@ -679,7 +680,7 @@ export const DeclarationFormScreen: React.FC = () => {
                 )}
               </View>
               {errors.incidentType ? (
-                <Text style={styles.errorText}>{errors.incidentType}</Text>
+                <AppText style={styles.errorText}>{errors.incidentType}</AppText>
               ) : null}
             </View>
           )}
@@ -692,10 +693,10 @@ export const DeclarationFormScreen: React.FC = () => {
               {/* Circumstances */}
               <View style={styles.fieldGroup}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>{t('form.circumstances', locale)}</Text>
-                  <Text style={styles.optionalMark}>({t('form.optional', locale)})</Text>
+                  <AppText style={styles.fieldLabel}>{t('form.circumstances', locale)}</AppText>
+                  <AppText style={styles.optionalMark}>({t('form.optional', locale)})</AppText>
                 </View>
-                <TextInput
+                <AppTextInput
                   style={[
                     styles.textArea,
                     { textAlign: rtl ? 'right' : 'left' },
@@ -714,10 +715,10 @@ export const DeclarationFormScreen: React.FC = () => {
               {/* Exposure Nature */}
               <View style={styles.fieldGroup}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>{t('form.exposureDescription', locale)}</Text>
-                  <Text style={styles.optionalMark}>({t('form.optional', locale)})</Text>
+                  <AppText style={styles.fieldLabel}>{t('form.exposureDescription', locale)}</AppText>
+                  <AppText style={styles.optionalMark}>({t('form.optional', locale)})</AppText>
                 </View>
-                <TextInput
+                <AppTextInput
                   style={[
                     styles.textArea,
                     { textAlign: rtl ? 'right' : 'left' },
@@ -742,17 +743,17 @@ export const DeclarationFormScreen: React.FC = () => {
             <View style={styles.stepContainer} testID="declaration-step-4">
               <View style={styles.freeTextNotice}>
                 <AppIcon name="info" size={16} color="#0D47A1" style={styles.noticeIcon} />
-                <Text style={styles.noticeText}>
+                <AppText style={styles.noticeText}>
                   {t('form.step4.advisory', locale)}
-                </Text>
+                </AppText>
               </View>
 
               <View style={styles.fieldGroup}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>{t('form.protectiveMeasures', locale)}</Text>
-                  <Text style={styles.optionalMark}>({t('form.optional', locale)})</Text>
+                  <AppText style={styles.fieldLabel}>{t('form.protectiveMeasures', locale)}</AppText>
+                  <AppText style={styles.optionalMark}>({t('form.optional', locale)})</AppText>
                 </View>
-                <TextInput
+                <AppTextInput
                   style={[
                     styles.textAreaLarge,
                     { textAlign: rtl ? 'right' : 'left' },
@@ -777,50 +778,50 @@ export const DeclarationFormScreen: React.FC = () => {
             <View style={styles.stepContainer} testID="declaration-step-5">
               {/* Summary Card */}
               <AesCard style={styles.summaryCard}>
-                <Text style={styles.summaryCardHeader}>{t('form.summary.title', locale)}</Text>
+                <AppText style={styles.summaryCardHeader}>{t('form.summary.title', locale)}</AppText>
 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>{t('form.incidentDate', locale)} :</Text>
-                  <Text style={styles.summaryValue}>{incidentDate || '—'}</Text>
+                  <AppText style={styles.summaryLabel}>{t('form.incidentDate', locale)} :</AppText>
+                  <AppText style={styles.summaryValue}>{incidentDate || '—'}</AppText>
                 </View>
 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>{t('form.incidentType', locale)} :</Text>
-                  <Text style={styles.summaryValue}>
+                  <AppText style={styles.summaryLabel}>{t('form.incidentType', locale)} :</AppText>
+                  <AppText style={styles.summaryValue}>
                     {t(`form.incidentType.${incidentType === 'percutaneous_exposure' ? 'percutaneous' : incidentType === 'mucocutaneous_exposure' ? 'mucocutaneous' : incidentType === 'sexual_assault' ? 'sexual_assault' : 'other'}` as any, locale)}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>{t('form.departmentCode', locale)} :</Text>
-                  <Text style={styles.summaryValue}>{departmentCode || t('form.departmentCode.notSpecified', locale)}</Text>
+                  <AppText style={styles.summaryLabel}>{t('form.departmentCode', locale)} :</AppText>
+                  <AppText style={styles.summaryValue}>{departmentCode || t('form.departmentCode.notSpecified', locale)}</AppText>
                 </View>
 
                 {circumstances ? (
                   <View style={styles.summaryBlock}>
-                    <Text style={styles.summaryLabel}>{t('form.circumstances', locale)} :</Text>
-                    <Text style={styles.summaryBlockText}>{circumstances}</Text>
+                    <AppText style={styles.summaryLabel}>{t('form.circumstances', locale)} :</AppText>
+                    <AppText style={styles.summaryBlockText}>{circumstances}</AppText>
                   </View>
                 ) : null}
 
                 {exposureDescription ? (
                   <View style={styles.summaryBlock}>
-                    <Text style={styles.summaryLabel}>{t('form.exposureDescription', locale)} :</Text>
-                    <Text style={styles.summaryBlockText}>{exposureDescription}</Text>
+                    <AppText style={styles.summaryLabel}>{t('form.exposureDescription', locale)} :</AppText>
+                    <AppText style={styles.summaryBlockText}>{exposureDescription}</AppText>
                   </View>
                 ) : null}
 
                 {protectiveMeasures ? (
                   <View style={styles.summaryBlock}>
-                    <Text style={styles.summaryLabel}>{t('form.protectiveMeasures', locale)} :</Text>
-                    <Text style={styles.summaryBlockText}>{protectiveMeasures}</Text>
+                    <AppText style={styles.summaryLabel}>{t('form.protectiveMeasures', locale)} :</AppText>
+                    <AppText style={styles.summaryBlockText}>{protectiveMeasures}</AppText>
                   </View>
                 ) : null}
 
                 {notes ? (
                   <View style={styles.summaryBlock}>
-                    <Text style={styles.summaryLabel}>{t('form.notes', locale)} :</Text>
-                    <Text style={styles.summaryBlockText}>{notes}</Text>
+                    <AppText style={styles.summaryLabel}>{t('form.notes', locale)} :</AppText>
+                    <AppText style={styles.summaryBlockText}>{notes}</AppText>
                   </View>
                 ) : null}
               </AesCard>
@@ -841,14 +842,14 @@ export const DeclarationFormScreen: React.FC = () => {
                   testID="declaration-attestation-checkbox"
                 />
                 {errors.attestation ? (
-                  <Text style={styles.errorText}>{errors.attestation}</Text>
+                  <AppText style={styles.errorText}>{errors.attestation}</AppText>
                 ) : null}
               </View>
 
               {/* Institutional Disclaimer */}
-              <Text style={styles.disclaimerText}>
+              <AppText style={styles.disclaimerText}>
                 {t('form.disclaimer', locale)}
-              </Text>
+              </AppText>
             </View>
           )}
         </ScrollView>

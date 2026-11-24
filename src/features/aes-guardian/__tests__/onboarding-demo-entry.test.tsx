@@ -7,22 +7,20 @@
  *    storage failure fallback, duplicate-tap protection, unmount safety
  * 2. LanguageSelectionScreen (Screen 1.2) trilingual selection, real-time locale change, continuation
  *    Locale-driven RTL layout and text alignment for Arabic
- * 3. WelcomeCarouselScreen (Screen 1.3) 3-slide value-prop hierarchy, pagination, skip/start
- *    RTL bullet-row direction for Arabic
- * 4. PrototypeDisclaimerScreen (Screen 1.4) clauses, checkbox gate, duplicate-press protection
- * 5. DemoAccountPickerScreen (Screen 2.1) 5 canonical roles, role store, duplicate-enter protection
+ * 3. PrototypeDisclaimerScreen clauses, checkbox gate, duplicate-press protection
+ * 4. DemoAccountPickerScreen 5 canonical roles, role store, duplicate-enter protection
  * 6. Presentation Components
  * 7. FR/EN/AR wording consistency for corrected strings
  * 8. First-launch routing and storage failure semantics
  */
 
 import React from 'react';
-import { Text } from 'react-native';
+import { Image, Text } from 'react-native';
 import { AppIcon } from '../../../components/AppIcon';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { AccessScreen } from '../screens/AccessScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { LanguageSelectionScreen } from '../screens/LanguageSelectionScreen';
-import { WelcomeCarouselScreen } from '../screens/WelcomeCarouselScreen';
 import { PrototypeDisclaimerScreen } from '../screens/PrototypeDisclaimerScreen';
 import { DemoAccountPickerScreen, DEMO_ACCOUNTS } from '../screens/DemoAccountPickerScreen';
 import {
@@ -45,6 +43,9 @@ import {
 } from '../../../core';
 import {
   setLocale,
+  initializeLocale,
+  persistLocale,
+  LOCALE_STORAGE_KEY,
   getLocale,
   t,
   translations,
@@ -102,64 +103,113 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       const ltr = render(<SplashScreen />);
       expect(ltr.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
       expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
-      expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-subtitle').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-tagline').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-enter-button').props.style).flexDirection).toBe('row');
 
       setLocale('ar');
       const rtl = render(<SplashScreen />);
       expect(rtl.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
       expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
-      expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-subtitle').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-tagline').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-enter-button').props.style).flexDirection).toBe('row-reverse');
       setLocale('fr');
     });
 
-    it('renders clinical green canvas, shield mark, wordmark, and institutional subtitle', () => {
+    it('renders the SANAD logo, wordmark, and exact French product tagline', () => {
       _setInMemoryFirstLaunchState(false);
-      const { getByTestId, getByText } = render(<SplashScreen />);
+      const { getByTestId, getByText, getByRole, getAllByRole, queryByText } = render(<SplashScreen />);
 
       expect(getByTestId('aes-splash-screen')).toBeTruthy();
-      expect(getByTestId('aes-splash-shield')).toBeTruthy();
+      expect(getByTestId('sanad-splash-logo')).toBeTruthy();
+      expect(
+        require('react-native').StyleSheet.flatten(
+          getByTestId('sanad-splash-logo').props.style,
+        ).backgroundColor,
+      ).toBe(aesColors.textInverse);
       expect(getByTestId('aes-splash-wordmark')).toBeTruthy();
-      expect(getByText(t('splash.wordmark', 'fr'))).toBeTruthy();
-      expect(getByText(t('splash.subtitle', 'fr'))).toBeTruthy();
+      expect(getByText('SANAD')).toBeTruthy();
+      expect(getByText('Déclarer. Suivre. Prévenir.')).toBeTruthy();
+      expect(getByText(t('splash.description', 'fr'))).toBeTruthy();
+      expect(
+        getByTestId('sanad-splash-logo').findByType(Image).props.source,
+      ).toBe(require('../../../assets/images/logo/sanad_icon.png'));
+      expect(getByTestId('welcome-language-fr')).toBeTruthy();
+      expect(getByTestId('welcome-language-ar')).toBeTruthy();
+      expect(getByTestId('welcome-language-en')).toBeTruthy();
+      expect(getByText(t('splash.tagline', 'fr'))).toBeTruthy();
+      expect(getByRole('button').props.accessibilityLabel).toBe('Commencer');
+      expect(getAllByRole('button')).toHaveLength(1);
+      expect(queryByText('Mode démonstration')).toBeNull();
+      expect(queryByText('Se connecter')).toBeNull();
+      expect(queryByText(/RespiraCare|respiratory|AES Guardian/i)).toBeNull();
     });
 
-    it('navigates to aesLanguageSelect on first launch when pressed', async () => {
+    it('renders complete welcome copy in English and Arabic with Arabic RTL controls', () => {
+      const { StyleSheet } = require('react-native');
+      const { getByText, getByTestId, rerender } = render(<SplashScreen />);
+      setLocale('en');
+      rerender(<SplashScreen />);
+      expect(getByText('SANAD')).toBeTruthy();
+      expect(getByText('Report. Track. Prevent.')).toBeTruthy();
+
+      setLocale('ar');
+      rerender(<SplashScreen />);
+      expect(getByText('أبلِغ. تابِع. امنع.')).toBeTruthy();
+      expect(StyleSheet.flatten(getByTestId('aes-splash-enter-button').props.style).flexDirection).toBe('row-reverse');
+      setLocale('fr');
+    });
+
+    it('uses the approved display and section typography roles for the wordmark and tagline', () => {
+      const { getByTestId } = render(<SplashScreen />);
+      const { appFontFamilies } = require('../../../theme/tokens/fontFamilies');
+      const { StyleSheet } = require('react-native');
+
+      expect(
+        StyleSheet.flatten(getByTestId('aes-splash-wordmark').props.style).fontFamily,
+      ).toBe(appFontFamilies.latinBold);
+      expect(
+        StyleSheet.flatten(getByTestId('aes-splash-tagline').props.style).fontFamily,
+      ).toBe(appFontFamilies.readex);
+
+      setLocale('ar');
+      expect(
+        StyleSheet.flatten(getByTestId('aes-splash-wordmark').props.style).fontFamily,
+      ).toBe(appFontFamilies.arabicBold);
+      setLocale('fr');
+    });
+
+    it('keeps the canonical welcome visible and prevents continuing until SQLite is ready', () => {
+      const { getByRole, getByText, getByTestId } = render(
+        <SplashScreen databaseReady={false} />,
+      );
+
+      expect(getByText('SANAD')).toBeTruthy();
+      expect(getByText('Déclarer. Suivre. Prévenir.')).toBeTruthy();
+      expect(getByTestId('welcome-db-loading')).toBeTruthy();
+      expect(getByRole('button').props.accessibilityState.disabled).toBe(true);
+
+      fireEvent.press(getByRole('button'));
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('opens the separate access screen on first launch', async () => {
       _setInMemoryFirstLaunchState(false);
       const { getByRole } = render(<SplashScreen />);
 
       await act(async () => {
         fireEvent.press(getByRole('button'));
       });
-      expect(mockReplace).toHaveBeenCalledWith('aesLanguageSelect');
+      expect(mockNavigate).toHaveBeenCalledWith('aesAccess');
     });
 
-    it('navigates to aesGuardianWorkspace on returning launch when pressed', async () => {
+    it('opens the separate access screen on returning launch', async () => {
       _setInMemoryFirstLaunchState(true);
       const { getByRole } = render(<SplashScreen />);
 
       await act(async () => {
         fireEvent.press(getByRole('button'));
       });
-      expect(mockReplace).toHaveBeenCalledWith('aesGuardianWorkspace');
-    });
-
-    it('navigates to aesLanguageSelect on storage failure (fail-safe)', async () => {
-      // Force storage to look unavailable by clearing in-memory state
-      // and ensuring AsyncStorage mock rejects
-      _setInMemoryFirstLaunchState(null);
-      const asyncStorage = require('@react-native-async-storage/async-storage');
-      const originalGetItem = asyncStorage.getItem;
-      asyncStorage.getItem = jest.fn().mockRejectedValueOnce(new Error('Storage unavailable'));
-
-      const { getByRole } = render(<SplashScreen />);
-      await act(async () => {
-        fireEvent.press(getByRole('button'));
-      });
-
-      // Fail-safe: routes to onboarding, never blocks user
-      expect(mockReplace).toHaveBeenCalledWith('aesLanguageSelect');
-
-      asyncStorage.getItem = originalGetItem;
+      expect(mockNavigate).toHaveBeenCalledWith('aesAccess');
     });
 
     it('navigates to aesLanguageSelect on replay route param regardless of first-launch state', async () => {
@@ -174,6 +224,33 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
 
       // Replay overrides returning-launch routing — always goes to onboarding
       expect(mockReplace).toHaveBeenCalledWith('aesLanguageSelect');
+    });
+
+    describe('Screen 1.1b: separate access screen', () => {
+      it('exposes sign-in and demonstration actions without exposing role shortcuts', () => {
+        const { getByText, queryByText } = render(<AccessScreen />);
+        expect(getByText('Se connecter')).toBeTruthy();
+        expect(getByText('Mode démonstration')).toBeTruthy();
+        expect(queryByText('Professionnel exposé')).toBeNull();
+      });
+
+      it('routes first-time demonstration access through the disclaimer', async () => {
+        _setInMemoryFirstLaunchState(false);
+        const { getByTestId } = render(<AccessScreen />);
+        await act(async () => {
+          fireEvent.press(getByTestId('sanad-access-demo'));
+        });
+        expect(mockNavigate).toHaveBeenCalledWith('aesDisclaimer');
+      });
+
+      it('routes returning demonstration access to the existing role picker', async () => {
+        _setInMemoryFirstLaunchState(true);
+        const { getByTestId } = render(<AccessScreen />);
+        await act(async () => {
+          fireEvent.press(getByTestId('sanad-access-demo'));
+        });
+        expect(mockNavigate).toHaveBeenCalledWith('aesDemoPicker');
+      });
     });
 
     // NOTE: Duplicate-tap protection via isProceeding guard exists in source but cannot be
@@ -196,9 +273,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       setLocale('fr');
       const fr = render(<LanguageSelectionScreen />);
       expect(StyleSheet.flatten(fr.getByTestId('lang-select-fr').props.style).flexDirection).toBe('row');
-      expect(fr.getByText('Français').props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining({ textAlign: 'left' })])
-      );
+      expect(StyleSheet.flatten(fr.getByText('Français').props.style).textAlign).toBe('left');
 
       fireEvent.press(fr.getByTestId('lang-select-en'));
       expect(getLocale()).toBe('en');
@@ -212,11 +287,9 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       setLocale('ar');
       const ar = render(<LanguageSelectionScreen />);
       expect(StyleSheet.flatten(ar.getByTestId('lang-select-ar').props.style).flexDirection).toBe('row-reverse');
-      expect(ar.getByText('العربية').props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })])
-      );
+      expect(StyleSheet.flatten(ar.getByText('العربية').props.style).textAlign).toBe('right');
       const radioStyle = StyleSheet.flatten(ar.getByTestId('lang-radio-ar').props.style);
-      expect(radioStyle.marginEnd).toBeDefined();
+      expect(radioStyle.marginStart).toBeDefined();
       expect(radioStyle.marginLeft).toBeUndefined();
 
       fireEvent.press(ar.getByTestId('lang-select-ar'));
@@ -262,99 +335,17 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(getByText('متابعة')).toBeTruthy();
     });
 
-    it('navigates to aesWelcomeCarousel when pressing Continue', () => {
+    it('continues directly to the synthetic-demo disclaimer after language selection', () => {
       const { getByTestId } = render(<LanguageSelectionScreen />);
 
       fireEvent.press(getByTestId('lang-continue-button'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('aesWelcomeCarousel');
-    });
-  });
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 3. Screen 1.3: WelcomeCarouselScreen
-  // ─────────────────────────────────────────────────────────────────────────────
-  describe('Screen 1.3: WelcomeCarouselScreen (aesWelcomeCarousel)', () => {
-    it('preserves slide order and forward/back-direction semantics in LTR and RTL', () => {
-      const { StyleSheet } = require('react-native');
-      setLocale('fr');
-      const ltr = render(<WelcomeCarouselScreen />);
-      expect(ltr.getByText('Déclaration Rapide & Protégée')).toBeTruthy();
-      const ltrTitle = ltr.getByText('Déclaration Rapide & Protégée');
-      expect(StyleSheet.flatten(ltrTitle.props.style).textAlign).toBe('left');
-      expect(ltr.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
-
-      fireEvent.press(ltr.getByTestId('carousel-next-button'));
-      expect(ltr.getByText('Suivi de Coordination SST Confidentiel')).toBeTruthy();
-      expect(ltr.getByTestId('carousel-next-button')).toBeTruthy();
-
-      setLocale('ar');
-      const rtl = render(<WelcomeCarouselScreen />);
-      expect(rtl.getByText('إبلاغ سريع ومحمي عن الحوادث')).toBeTruthy();
-      const rtlTitle = rtl.getByText('إبلاغ سريع ومحمي عن الحوادث');
-      expect(StyleSheet.flatten(rtlTitle.props.style).textAlign).toBe('right');
-      expect(rtl.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
-
-      fireEvent.press(rtl.getByTestId('carousel-next-button'));
-      expect(rtl.getByTestId('carousel-next-button')).toBeTruthy();
-      setLocale('fr');
-    });
-
-    it('renders initial slide (Fast & Protected Declaration) with bullets and skip action', () => {
-      const { getByText, getByTestId } = render(<WelcomeCarouselScreen />);
-
-      expect(getByText('Déclaration Rapide & Protégée')).toBeTruthy();
-      expect(getByText('Enregistrement local des brouillons')).toBeTruthy();
-      expect(getByTestId('carousel-skip-button')).toBeTruthy();
-      expect(getByText('Passer')).toBeTruthy();
-      expect(getByTestId('carousel-next-button')).toBeTruthy();
-    });
-
-    it('pages through all 3 slides upon pressing next arrow', () => {
-      const { getByText, getByTestId } = render(<WelcomeCarouselScreen />);
-
-      // Slide 1
-      expect(getByText('Déclaration Rapide & Protégée')).toBeTruthy();
-
-      // Next to Slide 2
-      fireEvent.press(getByTestId('carousel-next-button'));
-      expect(getByText('Suivi de Coordination SST Confidentiel')).toBeTruthy();
-      expect(getByText('Notes de suivi réservées à la médecine du travail')).toBeTruthy();
-
-      // Next to Slide 3
-      fireEvent.press(getByTestId('carousel-next-button'));
-      expect(getByText('Surveillance & Prévention')).toBeTruthy();
-      expect(getByText('Indicateurs statistiques sans données personnelles')).toBeTruthy();
-
-      // On Slide 3, button transforms into start button
-      expect(getByTestId('carousel-start-button')).toBeTruthy();
-      expect(getByText('Commencer')).toBeTruthy();
-    });
-
-    it('navigates directly to aesDisclaimer when pressing Skip button', () => {
-      const { getByTestId } = render(<WelcomeCarouselScreen />);
-
-      fireEvent.press(getByTestId('carousel-skip-button'));
-
-      expect(mockNavigate).toHaveBeenCalledWith('aesDisclaimer');
-    });
-
-    it('navigates to aesDisclaimer when pressing Start on the final slide', () => {
-      const { getByTestId } = render(<WelcomeCarouselScreen />);
-
-      // Advance to slide 3
-      fireEvent.press(getByTestId('carousel-next-button'));
-      fireEvent.press(getByTestId('carousel-next-button'));
-
-      // Press Commencer
-      fireEvent.press(getByTestId('carousel-start-button'));
-
       expect(mockNavigate).toHaveBeenCalledWith('aesDisclaimer');
     });
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 4. Screen 1.4: PrototypeDisclaimerScreen
+  // 3. PrototypeDisclaimerScreen
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 1.4: PrototypeDisclaimerScreen (aesDisclaimer)', () => {
     it('renders disclaimer text and checkbox order correctly in LTR and RTL', () => {
@@ -423,7 +414,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 5. Screen 2.1: DemoAccountPickerScreen
+  // 4. DemoAccountPickerScreen
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 2.1: DemoAccountPickerScreen (aesDemoPicker)', () => {
     it('renders header, banner and role cards correctly in LTR for French and English', () => {
@@ -501,8 +492,8 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       expect(getByTestId('demo-account-card-oh_professional')).toBeTruthy();
       expect(getByTestId('demo-account-card-quality_staff')).toBeTruthy();
       expect(getByTestId('demo-account-card-tech_admin')).toBeTruthy();
-      expect(getByText('Parcours principaux')).toBeTruthy();
-      expect(getByText('Accès technique')).toBeTruthy();
+      expect(getByText('Comptes de Démonstration')).toBeTruthy();
+      expect(getByText(/Comptes synthétiques locaux sans mot de passe/)).toBeTruthy();
 
       // Evaluator demonstration labels
       expect(getByText('NURSE-001')).toBeTruthy();
@@ -780,30 +771,12 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
   describe('Trilingual Localization Coverage (FR, EN, AR)', () => {
     const BATCH_2_KEYS: TranslationKey[] = [
       'splash.wordmark',
-      'splash.subtitle',
+      'splash.tagline',
       'splash.enter',
       'onboarding.lang.overline',
       'onboarding.lang.title',
       'onboarding.lang.subtitle',
       'onboarding.continue',
-      'onboarding.carousel.skip',
-      'onboarding.carousel.start',
-      'onboarding.carousel.next',
-      'onboarding.carousel.slide1.title',
-      'onboarding.carousel.slide1.desc',
-      'onboarding.carousel.slide1.bullet1',
-      'onboarding.carousel.slide1.bullet2',
-      'onboarding.carousel.slide1.bullet3',
-      'onboarding.carousel.slide2.title',
-      'onboarding.carousel.slide2.desc',
-      'onboarding.carousel.slide2.bullet1',
-      'onboarding.carousel.slide2.bullet2',
-      'onboarding.carousel.slide2.bullet3',
-      'onboarding.carousel.slide3.title',
-      'onboarding.carousel.slide3.desc',
-      'onboarding.carousel.slide3.bullet1',
-      'onboarding.carousel.slide3.bullet2',
-      'onboarding.carousel.slide3.bullet3',
       'onboarding.disclaimer.title',
       'onboarding.disclaimer.badge',
       'onboarding.disclaimer.p1',
@@ -869,6 +842,19 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       await resetFirstLaunchState();
       const status = await isFirstLaunchCompleted();
       expect(status).toBe(false);
+    });
+
+    describe('Locale persistence', () => {
+      it('saves the selected supported locale for the next application launch', async () => {
+        const asyncStorage = require('@react-native-async-storage/async-storage');
+
+        await persistLocale('ar');
+
+        await expect(asyncStorage.getItem(LOCALE_STORAGE_KEY)).resolves.toBe('ar');
+        await initializeLocale();
+        expect(getLocale()).toBe('ar');
+        setLocale('fr');
+      });
     });
 
     it('updates state to completed and retains it across calls', async () => {
@@ -970,6 +956,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
     });
 
     it('AesScreenHeader renders correct back chevrons and text alignment in both directions', () => {
+      const { StyleSheet } = require('react-native');
       setLocale('fr');
       const ltr = render(
         <AesScreenHeader
@@ -980,9 +967,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
         />
       );
       expect(ltr.getByTestId('ltr-header-top-row').props.style[1].flexDirection).toBe('row');
-      expect(ltr.getByText('LTR Screen').props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining({ textAlign: 'left' })])
-      );
+      expect(StyleSheet.flatten(ltr.getByText('LTR Screen').props.style).textAlign).toBe('left');
       expect(ltr.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('back-chevron');
 
       setLocale('ar');
@@ -996,9 +981,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       );
       expect(rtl.getByTestId('rtl-header-top-row').props.style[1].flexDirection).toBe('row-reverse');
       expect(rtl.getByTestId('rtl-header-title-row').props.style[1].flexDirection).toBe('row-reverse');
-      expect(rtl.getByText('الشاشة').props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })])
-      );
+      expect(StyleSheet.flatten(rtl.getByText('الشاشة').props.style).textAlign).toBe('right');
       expect(rtl.UNSAFE_getAllByType(AppIcon)[0].props.name).toBe('back-chevron');
       setLocale('fr');
     });
@@ -1022,9 +1005,7 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       );
       const optionCard = optionScreen.getByRole('radio');
       expect(StyleSheet.flatten(optionCard.props.style).flexDirection).toBe('row');
-      expect(optionScreen.getByText('Option').props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining({ textAlign: 'left' })])
-      );
+      expect(StyleSheet.flatten(optionScreen.getByText('Option').props.style).textAlign).toBe('left');
       fireEvent.press(optionCard);
       expect(optionScreen.getByRole('radio')).toBeTruthy();
 
@@ -1041,31 +1022,27 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       ).toBe('row-reverse');
       expect(StyleSheet.flatten(optionScreen.getByRole('radio').props.style).flexDirection)
         .toBe('row-reverse');
-      expect(optionScreen.getByText('الخيار').props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining({ textAlign: 'right' })])
-      );
+      expect(StyleSheet.flatten(optionScreen.getByText('الخيار').props.style).textAlign).toBe('right');
       setLocale('fr');
     });
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 10. Audit B — Corrected wording consistency across FR / EN / AR
+  // 10. Canonical welcome copy and disclaimer wording
   // ─────────────────────────────────────────────────────────────────────────────
-  describe('Audit B — Clinical/privacy wording consistency (corrected strings)', () => {
-    it('slide2 bullet2 does not contain "serological" or "sérologique" in EN', () => {
-      const val = translations.en['onboarding.carousel.slide2.bullet2'];
-      expect(val.toLowerCase()).not.toContain('serology');
-    });
+  describe('Canonical welcome copy and disclaimer wording', () => {
+    it('uses the exact French identity and complete English and Arabic translations', () => {
+      expect(translations.fr['splash.wordmark']).toBe('SANAD');
+      expect(translations.fr['splash.tagline']).toBe('Déclarer. Suivre. Prévenir.');
+      expect(translations.en['splash.wordmark']).toBe('SANAD');
+      expect(translations.en['splash.tagline']).toBe('Report. Track. Prevent.');
+      expect(translations.ar['splash.wordmark']).toBe('SANAD');
+      expect(translations.ar['splash.tagline']).toBe('أبلِغ. تابِع. امنع.');
 
-    it('slide3 bullet1 does not assert "100% de-identified" in EN (overbroad claim corrected)', () => {
-      // After correction: EN bullet1 must not use "100%"
-      const val = translations.en['onboarding.carousel.slide3.bullet1'];
-      expect(val).not.toMatch(/100%/);
-    });
-
-    it('slide3 bullet1 does not assert "100 %" in FR (overbroad claim corrected)', () => {
-      const val = translations.fr['onboarding.carousel.slide3.bullet1'];
-      expect(val).not.toMatch(/100 %/);
+      (['fr', 'en', 'ar'] as SupportedLocale[]).forEach((locale) => {
+        expect(translations[locale]['splash.wordmark']).not.toMatch(/RespiraCare|respiratory|AES Guardian/i);
+        expect(translations[locale]['splash.tagline']).not.toMatch(/RespiraCare|respiratory|AES Guardian/i);
+      });
     });
 
     it('disclaimer p4 does not name a specific hospital procedure in any locale', () => {

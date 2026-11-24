@@ -25,7 +25,7 @@ describe('bilingual typography foundation', () => {
     expect(getAppFontFamily('sectionHeading', 'ar')).toBe(appFontFamilies.readex);
     expect(getAppFontFamily('cardHeading', 'fr')).toBe(appFontFamilies.readex);
     expect(getAppFontWeight('body', 'fr')).toBe('400');
-    expect(getAppFontWeight('subheading', 'en')).toBe('500');
+    expect(getAppFontWeight('subheading', 'en')).toBe('600');
     expect(getAppFontWeight('sectionHeading', 'ar')).toBe('600');
     expect(getAppFontFamily('body', 'unknown' as any)).toBe(appFontFamilies.latinRegular);
   });
@@ -65,6 +65,9 @@ describe('bilingual typography foundation', () => {
         <AppText variant="section" testID="fr-section">
           Vue d'ensemble
         </AppText>
+        <AppText style={{ fontSize: 16, fontWeight: '500' }} testID="fr-subheading">
+          Sous-section
+        </AppText>
         <AppText variant="display" testID="fr-hero">
           Bienvenue sur SANAD
         </AppText>
@@ -77,6 +80,10 @@ describe('bilingual typography foundation', () => {
       fontSize: 20,
       fontWeight: '600',
       lineHeight: 28,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('fr-subheading').props.style)).toMatchObject({
+      fontFamily: appFontFamilies.readex,
+      fontWeight: '600',
     });
     expect(StyleSheet.flatten(screen.getByTestId('fr-hero').props.style)).toMatchObject({
       fontFamily: appFontFamilies.latinBold,

@@ -25,6 +25,7 @@ import {
   useDemoRoleStore,
 } from '../../../core';
 import { ThemeProvider } from '../../../theme/ThemeContext';
+import { AppIcon } from '../../../components/AppIcon';
 
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
@@ -311,7 +312,10 @@ describe('Phase 2C.3.1: Correction Response Workflow', () => {
       });
 
       expect(component.getAllByText(/Réponses reçues — Dernière réponse du déclarant/).length).toBeGreaterThan(0);
-      expect(component.getAllByText('Enregistrer le réexamen →').length).toBeGreaterThan(0);
+      expect(component.getAllByText('Enregistrer le réexamen').length).toBeGreaterThan(0);
+      expect(
+        component.UNSAFE_getAllByType(AppIcon).some((icon) => icon.props.name === 'forward'),
+      ).toBe(true);
     });
   });
 

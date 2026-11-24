@@ -38,4 +38,6 @@ dependencies {
 
 react {
   autolinkLibrariesWithApp()
+  // Generate JS from the root entry point for both variants; never rely on source-set bundles.
+  debuggableVariants = []
 }

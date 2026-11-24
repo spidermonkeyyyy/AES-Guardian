@@ -16,7 +16,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -39,6 +38,7 @@ import {
 import { t, useLocale, type SupportedLocale } from '../../../localization';
 import { AesScreenContainer, AesScreenHeader, AesStatusBadge } from '../components';
 
+import AppText from '../../../components/AppText';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ParamList = {
@@ -79,8 +79,8 @@ function formatAppDate(value: string, locale: SupportedLocale): string {
 
 const LabelValue: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <View style={styles.labelValueRow}>
-    <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>{label}</Text>
-    <Text style={[styles.fieldValue, { color: aesColors.textPrimary }]}>{value}</Text>
+    <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>{label}</AppText>
+    <AppText style={[styles.fieldValue, { color: aesColors.textPrimary }]}>{value}</AppText>
   </View>
 );
 
@@ -176,9 +176,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
           onBack={() => navigation.goBack()}
         />
         <View style={styles.centeredState}>
-          <Text style={[styles.stateText, { color: aesColors.textSecondary }]}>
+          <AppText style={[styles.stateText, { color: aesColors.textSecondary }]}>
             {t('details.restrictedAccess')}
-          </Text>
+          </AppText>
         </View>
       </AesScreenContainer>
     );
@@ -207,9 +207,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
           onBack={() => navigation.goBack()}
         />
         <View style={styles.centeredState}>
-          <Text style={[styles.stateText, { color: aesColors.textSecondary }]}>
+          <AppText style={[styles.stateText, { color: aesColors.textSecondary }]}>
             {t('details.notFound')}
-          </Text>
+          </AppText>
         </View>
       </AesScreenContainer>
     );
@@ -239,9 +239,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
       {/* Header card */}
       <View style={[styles.sectionCard]}>
         <View style={styles.cardTopRow}>
-          <Text style={[styles.referenceText, { color: aesColors.textPrimary }]}>
+          <AppText style={[styles.referenceText, { color: aesColors.textPrimary }]}>
             {declaration.reference_number || t('list.refUnavailable')}
-          </Text>
+          </AppText>
           <AesStatusBadge status={declaration.status} domain="declaration" />
         </View>
         {declaration.created_at ? (
@@ -266,17 +266,17 @@ export const DeclarationDetailsScreen: React.FC = () => {
             { backgroundColor: aesBannerColors.warning.bg, borderColor: aesBannerColors.warning.border },
           ]}
         >
-          <Text style={[styles.sectionLabel, { color: aesBannerColors.warning.text }]}>
+          <AppText style={[styles.sectionLabel, { color: aesBannerColors.warning.text }]}>
             {t('details.pendingCorrectionTitle')}
-          </Text>
+          </AppText>
           {pendingCorrectionReview.correction_reason ? (
-            <Text style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
+            <AppText style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
               {pendingCorrectionReview.correction_reason}
-            </Text>
+            </AppText>
           ) : (
-            <Text style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
+            <AppText style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
               {t('details.correctionPending')}
-            </Text>
+            </AppText>
           )}
           <TouchableOpacity
             disabled={submitting}
@@ -290,7 +290,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
             accessibilityRole="button"
             testID="respond-correction-button"
           >
-            <Text style={styles.actionButtonText}>{t('details.respondToCorrection')}</Text>
+            <AppText style={styles.actionButtonText}>{t('details.respondToCorrection')}</AppText>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -305,7 +305,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
             accessibilityRole="button"
             testID="edit-draft-button"
           >
-            <Text style={styles.actionButtonText}>{t('details.editDraft')}</Text>
+            <AppText style={styles.actionButtonText}>{t('details.editDraft')}</AppText>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -367,9 +367,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
             <LabelValue label={t('details.notes')} value={declaration.notes} />
           ) : null}
           {!hasData ? (
-            <Text style={[styles.emptyTabText, { color: aesColors.textSecondary }]}>
+            <AppText style={[styles.emptyTabText, { color: aesColors.textSecondary }]}>
               {t('details.notSet')}
-            </Text>
+            </AppText>
           ) : null}
         </View>
       </ScrollView>
@@ -381,37 +381,37 @@ export const DeclarationDetailsScreen: React.FC = () => {
       <View style={styles.sectionCard}>
         {/* Current status badge */}
         <View style={styles.badgeRow}>
-          <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
+          <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
             {t('details.status')}
-          </Text>
+          </AppText>
           <AesStatusBadge status={declaration.status} domain="declaration" />
         </View>
 
         {/* Review history */}
         {reviewHistory.length > 0 ? (
           <>
-            <Text style={[styles.sectionLabel, { color: aesColors.textPrimary }]}>
+            <AppText style={[styles.sectionLabel, { color: aesColors.textPrimary }]}>
               {t('details.reviewHistory')}
-            </Text>
+            </AppText>
             {reviewHistory.map((review, idx) => (
               <View key={review.id ?? idx} style={styles.reviewRow}>
                 <View style={styles.reviewRowHeader}>
-                  <Text style={[styles.reviewDate, { color: aesColors.textSecondary }]}>
+                  <AppText style={[styles.reviewDate, { color: aesColors.textSecondary }]}>
                     {review.reviewed_at
                       ? formatAppDate(review.reviewed_at, locale)
                       : review.created_at
                       ? formatAppDate(review.created_at, locale)
                       : ''}
-                  </Text>
+                  </AppText>
                   <AesStatusBadge
                     status={review.outcome ?? 'acknowledged'}
                     domain="declaration"
                   />
                 </View>
                 {review.comments ? (
-                  <Text style={[styles.reviewComment, { color: aesColors.textSecondary }]}>
+                  <AppText style={[styles.reviewComment, { color: aesColors.textSecondary }]}>
                     {review.comments}
-                  </Text>
+                  </AppText>
                 ) : null}
               </View>
             ))}
@@ -430,7 +430,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
               accessibilityRole="button"
               testID="admin-review-action-button"
             >
-              <Text style={styles.actionButtonText}>{t('details.reviewAction')}</Text>
+              <AppText style={styles.actionButtonText}>{t('details.reviewAction')}</AppText>
             </TouchableOpacity>
             <TouchableOpacity
               disabled={submitting}
@@ -441,9 +441,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
               accessibilityRole="button"
               testID="create-coordination-button"
             >
-              <Text style={[styles.actionButtonText, { color: aesColors.textPrimary }]}>
+              <AppText style={[styles.actionButtonText, { color: aesColors.textPrimary }]}>
                 {t('details.createCoordination')}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -463,7 +463,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
               accessibilityRole="button"
               testID="correction-response-button-status"
             >
-              <Text style={styles.actionButtonText}>{t('details.respondToCorrection')}</Text>
+              <AppText style={styles.actionButtonText}>{t('details.respondToCorrection')}</AppText>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -475,9 +475,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
     if (!ohCoordination) {
       return (
         <View style={styles.centeredState}>
-          <Text style={[styles.emptyTabText, { color: aesColors.textSecondary }]}>
+          <AppText style={[styles.emptyTabText, { color: aesColors.textSecondary }]}>
             {t('details.followup.noCoordination')}
-          </Text>
+          </AppText>
         </View>
       );
     }
@@ -490,9 +490,9 @@ export const DeclarationDetailsScreen: React.FC = () => {
         <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
           <View style={styles.sectionCard}>
             <View style={styles.badgeRow}>
-              <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
+              <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
                 {t('details.followup.coordinationStatus')}
-              </Text>
+              </AppText>
               <AesStatusBadge
                 status={c.status}
                 domain="ohCoordination"
@@ -523,13 +523,13 @@ export const DeclarationDetailsScreen: React.FC = () => {
     return (
       <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
         <View style={styles.sectionCard}>
-          <Text style={[styles.sectionLabel, { color: aesColors.textPrimary }]}>
+          <AppText style={[styles.sectionLabel, { color: aesColors.textPrimary }]}>
             {t('details.followup.adminSummary')}
-          </Text>
+          </AppText>
           <View style={styles.badgeRow}>
-            <Text style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
+            <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
               {t('details.followup.coordinationStatus')}
-            </Text>
+            </AppText>
             <AesStatusBadge
               status={admin.status}
               domain="ohCoordination"
@@ -619,7 +619,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
               accessibilityState={{ selected: isActive }}
               testID={`tab-${tabKey}`}
             >
-              <Text
+              <AppText
                 style={[
                   styles.tabLabel,
                   {
@@ -629,7 +629,7 @@ export const DeclarationDetailsScreen: React.FC = () => {
                 ]}
               >
                 {t(TAB_LABEL_KEYS[tabKey] as any)}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           );
         })}

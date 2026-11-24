@@ -19,6 +19,7 @@ import {
 } from '../../../core';
 import { ThemeProvider } from '../../../theme/ThemeContext';
 import { setLocale, t, translations } from '../../../localization';
+import { aesTypography } from '../../../theme/tokens';
 import { AesStatusBadge } from '../components/AesStatusBadge';
 import { DeclarationListScreen } from '../screens/DeclarationListScreen';
 import { DeclarationDetailsScreen } from '../screens/DeclarationDetailsScreen';
@@ -235,7 +236,7 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
 
         expect(ratio).toBeGreaterThanOrEqual(4.5);
         // Verify normal-text typography: fontSize 11, fontWeight 600
-        expect(textStyle.fontSize).toBe(11);
+        expect(textStyle.fontSize).toBe(aesTypography.labelSmall?.fontSize ?? 11);
         expect(textStyle.fontWeight).toBe('600');
         // Verify accessibility
         expect(badgeContainer.props.accessibilityRole).toBe('text');
@@ -270,7 +271,7 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
         const ratio = getContrastRatio(fg, bg);
 
         expect(ratio).toBeGreaterThanOrEqual(4.5);
-        expect(textStyle.fontSize).toBe(11);
+        expect(textStyle.fontSize).toBe(aesTypography.labelSmall?.fontSize ?? 11);
         expect(textStyle.fontWeight).toBe('600');
         expect(badgeContainer.props.accessibilityRole).toBe('text');
         expect(badgeContainer.props.accessibilityLabel).toBeTruthy();
@@ -304,7 +305,7 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
         const ratio = getContrastRatio(fg, bg);
 
         expect(ratio).toBeGreaterThanOrEqual(4.5);
-        expect(textStyle.fontSize).toBe(11);
+        expect(textStyle.fontSize).toBe(aesTypography.labelSmall?.fontSize ?? 11);
         expect(textStyle.fontWeight).toBe('600');
         expect(badgeContainer.props.accessibilityRole).toBe('text');
         expect(badgeContainer.props.accessibilityLabel).toBeTruthy();
@@ -339,7 +340,7 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
         expect(ratio).toBeGreaterThanOrEqual(4.5);
         expect(bg.toUpperCase()).toBe('#EEEEEE');
         expect(fg.toUpperCase()).toBe('#616161');
-        expect(textStyle.fontSize).toBe(11);
+        expect(textStyle.fontSize).toBe(aesTypography.labelSmall?.fontSize ?? 11);
         expect(textStyle.fontWeight).toBe('600');
       }
     });
@@ -440,7 +441,7 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
     it('exposed_professional lists strictly own declarations and never foreign declarants', async () => {
       useDemoRoleStore.getState().setRole('exposed_professional');
 
-      const { findByText, queryByText } = render(
+      const { findByText, queryByText, getByTestId } = render(
         <ThemeProvider>
           <DeclarationListScreen />
         </ThemeProvider>
@@ -457,14 +458,14 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
       // Header is "Mes déclarations"
       expect(await findByText('Mes déclarations')).toBeTruthy();
 
-      // "+ Nouvelle déclaration" button is present
-      expect(await findByText('+ Nouvelle déclaration')).toBeTruthy();
+      // The create action is represented by its button, with a Hugeicons plus glyph.
+      expect(getByTestId('new-declaration-button')).toBeTruthy();
     });
 
     it('admin_reviewer sees facility-wide declarations and has review queue shortcut', async () => {
       useDemoRoleStore.getState().setRole('admin_reviewer');
 
-      const { findByText, getByTestId, queryByText } = render(
+      const { findByText, getByTestId, queryByTestId } = render(
         <ThemeProvider>
           <DeclarationListScreen />
         </ThemeProvider>
@@ -483,8 +484,8 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
       fireEvent.press(queueBtn);
       expect(mockNavigate).toHaveBeenCalledWith('adminReviewQueue');
 
-      // Admin does NOT see "+ Nouvelle déclaration" button
-      expect(queryByText('+ Nouvelle déclaration')).toBeNull();
+      // Admin does not see the create-declaration action.
+      expect(queryByTestId('new-declaration-button')).toBeNull();
     });
 
     it('blocks oh_professional, quality_staff, and tech_admin from declaration list without DB query', async () => {

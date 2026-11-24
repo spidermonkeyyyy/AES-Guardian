@@ -1,73 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { StatusBar, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { StatusBar, View } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { initializeDatabase, logAuditEvent, SYNTHETIC_DEMO_CONTEXT } from './src/core';
-import { t, useLocale } from './src/localization';
-import { getAppFontFamily } from './src/theme/tokens/fontFamilies';
+import { initializeLocale, useLayoutDirection } from './src/localization';
 import { SanadUiKittenProvider } from './src/theme/SanadUiKittenProvider';
 
 function MainApp() {
   const { isDark, colors } = useTheme();
-  const locale = useLocale();
+  const layoutDirection = useLayoutDirection();
   const [dbReady, setDbReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
+    void initializeLocale();
     (async () => {
       try {
         await initializeDatabase();
         await logAuditEvent({
           eventType: 'APP_STARTED',
           userId: SYNTHETIC_DEMO_CONTEXT.userId,
-          description: 'AES Guardian application initialized with local SQLite',
+          description: 'SANAD application initialized with local SQLite',
         });
         setDbReady(true);
       } catch (err: any) {
         console.error('Failed to initialize database:', err);
-        setInitError(err?.message || 'Database initialization error');
+        setInitError(err instanceof Error ? err.message : 'Database initialization error');
       }
     })();
   }, []);
-
-  if (!dbReady && !initError) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text
-          style={[
-            styles.loadingText,
-            { color: colors.mutedForeground, fontFamily: getAppFontFamily('body', locale) },
-          ]}
-        >
-          {t('db.initializing')}
-        </Text>
-      </View>
-    );
-  }
-
-  if (initError) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <Text
-          style={[
-            styles.errorTitle,
-            { color: colors.destructive, fontFamily: getAppFontFamily('pageTitle', locale) },
-          ]}
-        >
-          {t('db.error')}
-        </Text>
-        <Text
-          style={[
-            styles.loadingText,
-            { color: colors.mutedForeground, fontFamily: getAppFontFamily('body', locale) },
-          ]}
-        >
-          {initError}
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <>
@@ -75,30 +36,12 @@ function MainApp() {
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
-      <AppNavigator />
+      <View style={{ flex: 1, direction: layoutDirection }}>
+        <AppNavigator databaseReady={dbReady} databaseError={initError} />
+      </View>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-});
 
 export default function App() {
   return (

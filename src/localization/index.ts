@@ -1,5 +1,5 @@
 ﻿/**
- * AES Guardian Localization
+ * SANAD application localization
  *
  * Full localization for Phase 2C.2 declaration workflow.
  * Languages: French (fr — default), English (en), Arabic (ar — RTL).
@@ -747,30 +747,20 @@ export type TranslationKey =
 
   // ─── Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry ───
   | 'splash.wordmark'
-  | 'splash.subtitle'
+  | 'splash.tagline'
+  | 'splash.description'
   | 'splash.enter'
+  | 'splash.languageSelector'
+  | 'access.title'
+  | 'access.subtitle'
+  | 'access.signIn'
+  | 'access.demo'
+  | 'access.signInNoticeTitle'
+  | 'access.signInNoticeBody'
   | 'onboarding.lang.overline'
   | 'onboarding.lang.title'
   | 'onboarding.lang.subtitle'
   | 'onboarding.continue'
-  | 'onboarding.carousel.skip'
-  | 'onboarding.carousel.start'
-  | 'onboarding.carousel.next'
-  | 'onboarding.carousel.slide1.title'
-  | 'onboarding.carousel.slide1.desc'
-  | 'onboarding.carousel.slide1.bullet1'
-  | 'onboarding.carousel.slide1.bullet2'
-  | 'onboarding.carousel.slide1.bullet3'
-  | 'onboarding.carousel.slide2.title'
-  | 'onboarding.carousel.slide2.desc'
-  | 'onboarding.carousel.slide2.bullet1'
-  | 'onboarding.carousel.slide2.bullet2'
-  | 'onboarding.carousel.slide2.bullet3'
-  | 'onboarding.carousel.slide3.title'
-  | 'onboarding.carousel.slide3.desc'
-  | 'onboarding.carousel.slide3.bullet1'
-  | 'onboarding.carousel.slide3.bullet2'
-  | 'onboarding.carousel.slide3.bullet3'
   | 'onboarding.disclaimer.title'
   | 'onboarding.disclaimer.badge'
   | 'onboarding.disclaimer.p1'
@@ -838,7 +828,7 @@ type TranslationMap = Record<TranslationKey, string>;
 const fr: TranslationMap = {
   // Extra keys
   'navigation.back': 'Retour',
-  'workspace.nav.title': 'Espace AES Guardian',
+  'workspace.nav.title': 'Espace SANAD',
   'prevention.create.acknowledgement.confirm': 'Confirmer la présentation',
   'prevention.create.acknowledgement.inProgress': 'Confirmation en cours...',
   'prevention.create.acknowledgement.error': 'Erreur lors de la confirmation',
@@ -850,7 +840,7 @@ const fr: TranslationMap = {
   'prevention.create.reconcile': 'Réconcilier',
   'surveillance.filters.declarationCountLabel': 'Nombre de déclarations',
   'surveillance.status.empty': 'Aucune donnée de surveillance disponible',
-  'app.name': 'AES Guardian',
+  'app.name': 'SANAD',
   'app.loading': 'Chargement…',
   'app.back': 'Retour',
   'app.ok': 'OK',
@@ -1173,7 +1163,7 @@ const fr: TranslationMap = {
   'prevention.nav.title': "Prévention & CAPA",
   'prevention.title': "Prévention & Actions Correctives/Préventives",
   'prevention.disclaimer': "Prototype de démonstration — Données synthétiques uniquement. Ne représente pas de statistiques institutionnelles validées.",
-  'prevention.provisional.disclaimer': "⚠ Catégories provisoires — validation institutionnelle requise avant tout usage officiel.",
+  'prevention.provisional.disclaimer': "Catégories provisoires — validation institutionnelle requise avant tout usage officiel.",
   'prevention.unauthorized': "Accès réservé aux personnels autorisés (Qualité, Admin RH, Santé au Travail).",
   'prevention.overview.title': "Vue d'ensemble des Actions",
   'prevention.overview.total': "Total Actions",
@@ -1201,7 +1191,7 @@ const fr: TranslationMap = {
   'prevention.create.preventive': "Préventive",
   'prevention.create.factor.label': "Facteur Contributif (Provisoire)",
   'prevention.create.factor.none': "— Aucun facteur —",
-  'prevention.create.factor.disclaimer': "⚠ Catégories provisoires — validation institutionnelle requise.",
+  'prevention.create.factor.disclaimer': "Catégories provisoires — validation institutionnelle requise.",
   'prevention.create.rationale': "Justification *",
   'prevention.create.target_date': "Date Cible (optionnelle, YYYY-MM-DD)",
   'prevention.create.surveillance_reference': "Référence Surveillance (optionnelle)",
@@ -1347,8 +1337,8 @@ const fr: TranslationMap = {
   'helpGlossary.backToWorkspace': "Retour à l'espace",
 
   // Help Sections (1 to 8)
-  'help.section1.title': "1. Présentation d'AES Guardian",
-  'help.section1.content': "AES Guardian est une application mobile de démonstration dédiée à la déclaration, au suivi administratif, à la coordination de Santé au Travail et à la surveillance épidémiologique des Accidents avec Exposition au Sang (AES). Conçue dans le cadre d'un Projet de Fin d'Études (PFE), elle démontre un flux de travail continu et sécurisé opérant intégralement en mode hors-ligne avec SQLite natif.",
+  'help.section1.title': "1. Présentation de SANAD",
+  'help.section1.content': "SANAD est une application mobile de démonstration dédiée à la déclaration, au suivi administratif, à la coordination de Santé au Travail et à la surveillance épidémiologique des Accidents d'Exposition au Sang (AES). Conçue dans le cadre d'un Projet de Fin d'Études (PFE), elle démontre un flux de travail continu et sécurisé opérant intégralement en mode hors-ligne avec SQLite natif.",
   'help.section2.title': "2. Comprendre le parcours de déclaration",
   'help.section2.content': "Le soignant victime d'une exposition (piqûre, coupure, projection de liquide biologique) initie immédiatement la déclaration. Le formulaire permet de consigner la date, le service et les circonstances sans divulguer d'informations nominatives de patients. Une fois transmise, la déclaration devient non modifiable et entre dans le circuit de validation.",
   'help.section3.title': "3. Comprendre la revue administrative",
@@ -1427,7 +1417,7 @@ const fr: TranslationMap = {
   'profile.privacySection': "Confidentialité & Frontières Éthiques",
   'profile.privacyContent': "Ce prototype traite exclusivement des données synthétiques locales. Aucune donnée personnelle, médicale ou nominative réelle n'est enregistrée. Les données de surveillance présentées à la Qualité sont dé-identifiées dès leur conception.",
   'profile.aboutSection': "À Propos du Prototype",
-  'profile.appNameLabel': "Application : AES Guardian (Module Sanad)",
+  'profile.appNameLabel': "Application : SANAD",
   'profile.dbEngineLabel': "Base de données : SQLite (@op-engineering/op-sqlite)",
   'profile.maintenanceSection': "Maintenance Technique (tech_admin)",
   'profile.error.techAdminOnly': "Seul l'administrateur technique peut effectuer cette opération.",
@@ -1517,31 +1507,21 @@ const fr: TranslationMap = {
   'notificationCentre.a11y.markAllRead': "Marquer toutes les notifications comme lues",
 
   // ─── Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry (FR) ───
-  'splash.wordmark': 'AES Guardian',
-  'splash.subtitle': 'Gouvernance hospitalière des AES',
-  'splash.enter': 'Entrer dans l\'espace',
+  'splash.wordmark': 'SANAD',
+  'splash.tagline': 'Déclarer. Suivre. Prévenir.',
+  'splash.description': "L’application dédiée à la déclaration, au suivi et à la prévention des accidents d’exposition au sang chez les professionnels de santé.",
+  'splash.enter': 'Commencer',
+  'splash.languageSelector': 'Choisir la langue',
+  'access.title': 'Accéder à SANAD',
+  'access.subtitle': 'Choisissez votre mode d’accès.',
+  'access.signIn': 'Se connecter',
+  'access.demo': 'Mode démonstration',
+  'access.signInNoticeTitle': 'Connexion indisponible',
+  'access.signInNoticeBody': 'La connexion en ligne n’est pas activée dans ce prototype hors ligne. Aucune authentification réelle n’est disponible. Choisissez « Mode démonstration » pour continuer avec des rôles et des données synthétiques.',
   'onboarding.lang.overline': 'LANGUE DU SYSTÈME',
   'onboarding.lang.title': 'Choisissez votre langue',
   'onboarding.lang.subtitle': 'Sélectionnez la langue d\'affichage du prototype hospitalier.',
   'onboarding.continue': 'Continuer',
-  'onboarding.carousel.skip': 'Passer',
-  'onboarding.carousel.start': 'Commencer',
-  'onboarding.carousel.next': 'Suivant',
-  'onboarding.carousel.slide1.title': 'Déclaration Rapide & Protégée',
-  'onboarding.carousel.slide1.desc': 'Signalement structuré en 5 étapes dès la survenue d\'un accident d\'exposition au sang (AES), avec enregistrement local du brouillon.',
-  'onboarding.carousel.slide1.bullet1': 'Enregistrement local des brouillons',
-  'onboarding.carousel.slide1.bullet2': 'Formulaire structuré en 5 étapes guidées',
-  'onboarding.carousel.slide1.bullet3': 'Reprise facilitée du brouillon en cours',
-  'onboarding.carousel.slide2.title': 'Suivi de Coordination SST Confidentiel',
-  'onboarding.carousel.slide2.desc': 'Prise en charge par la médecine du travail et suivi de coordination avec minimisation des données pour les autres rôles.',
-  'onboarding.carousel.slide2.bullet1': 'Notes de suivi réservées à la médecine du travail',
-  'onboarding.carousel.slide2.bullet2': 'Traçabilité des jalons de coordination post-exposition',
-  'onboarding.carousel.slide2.bullet3': 'Projection restreinte de l\'état pour l\'agent exposé',
-  'onboarding.carousel.slide3.title': 'Surveillance & Prévention',
-  'onboarding.carousel.slide3.desc': 'Indicateurs statistiques agrégés sans données nominatives et registre local d\'actions correctives et préventives (CAPA).',
-  'onboarding.carousel.slide3.bullet1': 'Indicateurs statistiques sans données personnelles',
-  'onboarding.carousel.slide3.bullet2': 'Registre structuré des actions de prévention (CAPA)',
-  'onboarding.carousel.slide3.bullet3': 'Cloisonnement strict des accès selon le rôle actif',
   'onboarding.disclaimer.title': 'Avertissement — Prototype de Démonstration',
   'onboarding.disclaimer.badge': 'PROTOCOLE ACADÉMIQUE PFE',
   'onboarding.disclaimer.p1': '1. Ce logiciel est un prototype de recherche académique (PFE). Toutes les données, incidents, personnels et matricules sont 100 % synthétiques.',
@@ -1606,7 +1586,7 @@ const fr: TranslationMap = {
 const en: TranslationMap = {
   // Extra keys
   'navigation.back': 'Back',
-  'workspace.nav.title': 'AES Guardian Workspace',
+  'workspace.nav.title': 'SANAD Workspace',
   'prevention.create.acknowledgement.confirm': 'Confirm presentation',
   'prevention.create.acknowledgement.inProgress': 'Confirming presentation...',
   'prevention.create.acknowledgement.error': 'Error confirming presentation',
@@ -1618,7 +1598,7 @@ const en: TranslationMap = {
   'prevention.create.reconcile': 'Reconcile',
   'surveillance.filters.declarationCountLabel': 'Declaration count',
   'surveillance.status.empty': 'No surveillance data available',
-  'app.name': 'AES Guardian',
+  'app.name': 'SANAD',
   'app.loading': 'Loading…',
   'app.back': 'Back',
   'app.ok': 'OK',
@@ -1941,7 +1921,7 @@ const en: TranslationMap = {
   'prevention.nav.title': "Prevention & CAPA",
   'prevention.title': "Prevention & Corrective/Preventive Actions",
   'prevention.disclaimer': "Demonstration prototype — Synthetic data only. Does not represent validated institutional statistics.",
-  'prevention.provisional.disclaimer': "⚠ Provisional categories — institutional validation required before any official use.",
+  'prevention.provisional.disclaimer': "Provisional categories — institutional validation required before any official use.",
   'prevention.unauthorized': "Access restricted to authorised staff (Quality, Admin Reviewer, Occupational Health).",
   'prevention.overview.title': "Action Overview",
   'prevention.overview.total': "Total Actions",
@@ -1969,7 +1949,7 @@ const en: TranslationMap = {
   'prevention.create.preventive': "Preventive",
   'prevention.create.factor.label': "Contributing Factor (Provisional)",
   'prevention.create.factor.none': "— No Factor —",
-  'prevention.create.factor.disclaimer': "⚠ Provisional categories — institutional validation required.",
+  'prevention.create.factor.disclaimer': "Provisional categories — institutional validation required.",
   'prevention.create.rationale': "Rationale *",
   'prevention.create.target_date': "Target Date (optional, YYYY-MM-DD)",
   'prevention.create.surveillance_reference': "Surveillance Reference (optional)",
@@ -2115,8 +2095,8 @@ const en: TranslationMap = {
   'helpGlossary.backToWorkspace': "Back to Workspace",
 
   // Help Sections (1 to 8)
-  'help.section1.title': "1. Introduction to AES Guardian",
-  'help.section1.content': "AES Guardian is an integrated demonstration prototype for reporting, administrative review, occupational-health coordination, and epidemiological surveillance of blood and body fluid exposures. Designed for an academic graduation project (PFE), it demonstrates a complete, secure workflow operating fully offline via native SQLite.",
+  'help.section1.title': "1. About SANAD",
+  'help.section1.content': "SANAD is a mobile demonstration application for reporting and administratively monitoring occupational Accidents d'Exposition au Sang (AES), coordinating occupational health, and supporting epidemiological surveillance. Designed for an academic graduation project (PFE), it demonstrates a complete, secure workflow operating fully offline via native SQLite.",
   'help.section2.title': "2. Understanding the Declaration Workflow",
   'help.section2.content': "When a healthcare worker suffers an occupational exposure (needlestick, cut, splash), they immediately submit a digital declaration. The form records the timestamp, department, and factual circumstances without containing patient identifiers. Once submitted, the declaration can no longer be edited and enters the administrative verification queue.",
   'help.section3.title': "3. Understanding Administrative Review",
@@ -2195,7 +2175,7 @@ const en: TranslationMap = {
   'profile.privacySection': "Privacy & Ethical Boundaries",
   'profile.privacyContent': "This prototype operates strictly with local synthetic data. No real personal or clinical information is stored. Surveillance data presented to Quality staff is de-identified by design.",
   'profile.aboutSection': "About the Prototype",
-  'profile.appNameLabel': "Application: AES Guardian (Sanad Module)",
+  'profile.appNameLabel': "Application: SANAD",
   'profile.dbEngineLabel': "Database: SQLite (@op-engineering/op-sqlite)",
   'profile.maintenanceSection': "Technical Maintenance (tech_admin)",
   'profile.error.techAdminOnly': "Only the technical administrator can perform this operation.",
@@ -2285,31 +2265,21 @@ const en: TranslationMap = {
   'notificationCentre.a11y.markAllRead': "Mark all notifications as read",
 
   // ─── Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry (EN) ───
-  'splash.wordmark': 'AES Guardian',
-  'splash.subtitle': 'Hospital Blood Exposure Governance',
-  'splash.enter': 'Enter Workspace',
+  'splash.wordmark': 'SANAD',
+  'splash.tagline': 'Report. Track. Prevent.',
+  'splash.description': 'An application for healthcare professionals to report, follow up and prevent occupational blood exposure incidents.',
+  'splash.enter': 'Get started',
+  'splash.languageSelector': 'Choose language',
+  'access.title': 'Access SANAD',
+  'access.subtitle': 'Choose how you would like to continue.',
+  'access.signIn': 'Sign in',
+  'access.demo': 'Demonstration mode',
+  'access.signInNoticeTitle': 'Sign-in unavailable',
+  'access.signInNoticeBody': 'Online sign-in is not enabled in this offline prototype. No real authentication is available. Choose “Demonstration mode” to continue with synthetic roles and data.',
   'onboarding.lang.overline': 'SYSTEM LANGUAGE',
   'onboarding.lang.title': 'Choose your language',
   'onboarding.lang.subtitle': 'Select the display language for the hospital demonstration prototype.',
   'onboarding.continue': 'Continue',
-  'onboarding.carousel.skip': 'Skip',
-  'onboarding.carousel.start': 'Get Started',
-  'onboarding.carousel.next': 'Next',
-  'onboarding.carousel.slide1.title': 'Fast & Protected Declaration',
-  'onboarding.carousel.slide1.desc': 'Structured 5-step incident declaration workflow immediately upon exposure, with local draft saving.',
-  'onboarding.carousel.slide1.bullet1': 'Local draft preservation',
-  'onboarding.carousel.slide1.bullet2': 'Structured 5-step guided form',
-  'onboarding.carousel.slide1.bullet3': 'Guided resumption of in-progress drafts',
-  'onboarding.carousel.slide2.title': 'Confidential OH Coordination',
-  'onboarding.carousel.slide2.desc': 'Occupational health coordination tracking with role-based data minimization and protected medical notes.',
-  'onboarding.carousel.slide2.bullet1': 'Follow-up notes reserved for occupational health',
-  'onboarding.carousel.slide2.bullet2': 'Tracking of post-exposure coordination milestones',
-  'onboarding.carousel.slide2.bullet3': 'Restricted status projection for the exposed professional',
-  'onboarding.carousel.slide3.title': 'Surveillance & Prevention',
-  'onboarding.carousel.slide3.desc': 'Aggregated statistical metrics without personal identifiers and local register of corrective and preventive actions (CAPA).',
-  'onboarding.carousel.slide3.bullet1': 'Aggregated metrics without personal identifiers',
-  'onboarding.carousel.slide3.bullet2': 'Structured register of preventive actions (CAPA)',
-  'onboarding.carousel.slide3.bullet3': 'Strict role-based access partitioning',
   'onboarding.disclaimer.title': 'Warning — Demonstration Prototype',
   'onboarding.disclaimer.badge': 'ACADEMIC PFE PROTOCOL',
   'onboarding.disclaimer.p1': '1. This software is an academic graduation project (PFE) prototype. All data, incidents, personnel, and IDs are 100% synthetic.',
@@ -2374,7 +2344,7 @@ const en: TranslationMap = {
 const ar: TranslationMap = {
   // Extra keys
   'navigation.back': 'رجوع',
-  'workspace.nav.title': 'مساحة AES Guardian',
+  'workspace.nav.title': 'مساحة SANAD',
   'prevention.create.acknowledgement.confirm': 'تأكيد العرض',
   'prevention.create.acknowledgement.inProgress': 'جاري تأكيد العرض...',
   'prevention.create.acknowledgement.error': 'خطأ أثناء تأكيد العرض',
@@ -2387,7 +2357,7 @@ const ar: TranslationMap = {
   'surveillance.filters.declarationCountLabel': 'عدد التصريحات',
   'surveillance.status.empty': 'لا توجد بيانات مراقبة متاحة',
   // REQUIRES_VALIDATION: Arabic translations should be reviewed by a qualified professional.
-  'app.name': 'حارس AES',
+  'app.name': 'SANAD',
   'app.loading': '…جارٍ التحميل',
   'app.back': 'رجوع',
   'app.ok': 'حسنًا',
@@ -2710,7 +2680,7 @@ const ar: TranslationMap = {
   'prevention.nav.title': "الوقاية والإجراءات التصحيحية",
   'prevention.title': "الوقاية والإجراءات التصحيحية / الوقائية",
   'prevention.disclaimer': "نموذج أولي للعرض — بيانات اصطناعية فقط. لا تمثل إحصائيات مؤسسية معتمدة.",
-  'prevention.provisional.disclaimer': "⚠ فئات مؤقتة — يلزم التحقق المؤسسي قبل أي استخدام رسمي.",
+  'prevention.provisional.disclaimer': "فئات مؤقتة — يلزم التحقق المؤسسي قبل أي استخدام رسمي.",
   'prevention.unauthorized': "الوصول مقتصر على الموظفين المصرح لهم (الجودة، المراجع الإداري، طب العمل).",
   'prevention.overview.title': "نظرة عامة على الإجراءات",
   'prevention.overview.total': "إجمالي الإجراءات",
@@ -2738,7 +2708,7 @@ const ar: TranslationMap = {
   'prevention.create.preventive': "وقائي",
   'prevention.create.factor.label': "العامل المساهم (مؤقت)",
   'prevention.create.factor.none': "— بدون عامل —",
-  'prevention.create.factor.disclaimer': "⚠ فئات مؤقتة — يلزم التحقق المؤسسي.",
+  'prevention.create.factor.disclaimer': "فئات مؤقتة — يلزم التحقق المؤسسي.",
   'prevention.create.rationale': "المبرر *",
   'prevention.create.target_date': "التاريخ المستهدف (اختياري، YYYY-MM-DD)",
   'prevention.create.surveillance_reference': "مرجع المراقبة (اختياري)",
@@ -2885,8 +2855,8 @@ const ar: TranslationMap = {
   'helpGlossary.backToWorkspace': "العودة للمساحة",
 
   // Help Sections (1 to 8)
-  'help.section1.title': "1. مقدمة حول نظام AES Guardian",
-  'help.section1.content': "نظام AES Guardian نموذج تجريبي متكامل للإبلاغ والمراجعة الإدارية والتنسيق مع طب العمل والترصد الوبائي لحوادث التعرض للدم في المستشفيات. صُمم ضمن مشروع تخرج أكاديمي (PFE)، ويعرض مسار عمل مستمر وآمن يعمل محلياً بالكامل دون اتصال بالإنترنت عبر SQLite.",
+  'help.section1.title': "1. حول SANAD",
+  'help.section1.content': "SANAD تطبيق تجريبي للهواتف المحمولة للإبلاغ عن حوادث التعرض المهني للدم ومتابعتها إدارياً، وتنسيق متابعة طب العمل، ودعم الترصد الوبائي. صُمم ضمن مشروع تخرج أكاديمي (PFE)، ويعرض مسار عمل مستمر وآمن يعمل محلياً بالكامل دون اتصال بالإنترنت عبر SQLite.",
   'help.section2.title': "2. فهم مسار الإبلاغ عن الحادث",
   'help.section2.content': "عند تعرض الممارس الصحي لحادث (وخز إبرة، جرح، تناثر سوائل بيولوجية)، يقوم فوراً بتسجيل بلاغ رقمي يوثق التوقيت والقسم والظروف الموضوعية دون إدراج بيانات تعريفية للمرضى. وبعد الإرسال يصبح البلاغ غير قابل للتعديل ويدخل قائمة الفحص.",
   'help.section3.title': "3. فهم المراجعة الإدارية",
@@ -2965,7 +2935,7 @@ const ar: TranslationMap = {
   'profile.privacySection': "الخصوصية والحدود الأخلاقية",
   'profile.privacyContent': "يتعامل هذا النموذج حصرياً مع بيانات تركيبية محلية. لا تُحفظ أي بيانات حقيقية للمرضى أو الكوادر. مؤشرات الترصد مجردة من الهوية افتراضياً.",
   'profile.aboutSection': "عن النموذج التجريبي",
-  'profile.appNameLabel': "التطبيق: AES Guardian (وحدة مساند)",
+  'profile.appNameLabel': "التطبيق: SANAD",
   'profile.dbEngineLabel': "قاعدة البيانات: SQLite (@op-engineering/op-sqlite)",
   'profile.maintenanceSection': "الصيانة التقنية (tech_admin)",
   'profile.error.techAdminOnly': "هذا الإجراء متاح للمسؤول التقني فقط.",
@@ -3055,31 +3025,21 @@ const ar: TranslationMap = {
   'notificationCentre.a11y.markAllRead': "تحديد جميع الإشعارات كمقروءة",
 
   // ─── Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry (AR) ───
-  'splash.wordmark': 'حارس AES',
-  'splash.subtitle': 'حوكمة حوادث التعرض للدم في المستشفيات',
-  'splash.enter': 'الدخول إلى النظام',
+  'splash.wordmark': 'SANAD',
+  'splash.tagline': 'أبلِغ. تابِع. امنع.',
+  'splash.description': 'تطبيق مخصص لمهنيي الصحة للإبلاغ عن حوادث التعرض المهني للدم ومتابعتها والوقاية منها.',
+  'splash.enter': 'ابدأ',
+  'splash.languageSelector': 'اختر اللغة',
+  'access.title': 'الدخول إلى SANAD',
+  'access.subtitle': 'اختر طريقة المتابعة.',
+  'access.signIn': 'تسجيل الدخول',
+  'access.demo': 'وضع العرض التوضيحي',
+  'access.signInNoticeTitle': 'تسجيل الدخول غير متاح',
+  'access.signInNoticeBody': 'تسجيل الدخول عبر الإنترنت غير مفعّل في هذا النموذج الأولي غير المتصل. لا تتوفر مصادقة حقيقية. اختر «وضع العرض التوضيحي» للمتابعة باستخدام أدوار وبيانات اصطناعية.',
   'onboarding.lang.overline': 'لغة النظام',
   'onboarding.lang.title': 'اختر لغة النظام',
   'onboarding.lang.subtitle': 'حدد لغة العرض للنموذج الأولي للمستشفى.',
   'onboarding.continue': 'متابعة',
-  'onboarding.carousel.skip': 'تخطي',
-  'onboarding.carousel.start': 'البدء',
-  'onboarding.carousel.next': 'التالي',
-  'onboarding.carousel.slide1.title': 'إبلاغ سريع ومحمي عن الحوادث',
-  'onboarding.carousel.slide1.desc': 'إبلاغ منظم في 5 خطوات إرشادية فور وقوع حادث تعرض للدم، مع حفظ محلي للمسودة.',
-  'onboarding.carousel.slide1.bullet1': 'حفظ محلي للمسودات',
-  'onboarding.carousel.slide1.bullet2': 'نموذج منظم في 5 خطوات إرشادية',
-  'onboarding.carousel.slide1.bullet3': 'استئناف ميسر للمسودة قيد الإنجاز',
-  'onboarding.carousel.slide2.title': 'متابعة تنسيق سرية مع طب العمل',
-  'onboarding.carousel.slide2.desc': 'متابعة التنسيق مع طب العمل مع تقليل البيانات المعروضة للأدوار الأخرى وحماية الملاحظات الطبية.',
-  'onboarding.carousel.slide2.bullet1': 'ملاحظات المتابعة مخصصة لطب العمل',
-  'onboarding.carousel.slide2.bullet2': 'تتبع مراحل وإجراءات التنسيق بعد التعرض',
-  'onboarding.carousel.slide2.bullet3': 'إسقاط مقيد لحالة الملف للمهني المعرَّض',
-  'onboarding.carousel.slide3.title': 'المراقبة والوقاية المستمرة',
-  'onboarding.carousel.slide3.desc': 'مؤشرات إحصائية تجميعية بدون بيانات تعريفية وسجل محلي لإجراءات الوقاية والتصحيح (CAPA).',
-  'onboarding.carousel.slide3.bullet1': 'مؤشرات مجمعة بدون بيانات تعريف شخصية',
-  'onboarding.carousel.slide3.bullet2': 'سجل منظم لإجراءات الوقاية والتصحيح (CAPA)',
-  'onboarding.carousel.slide3.bullet3': 'فصل صارم للصلاحيات وفقاً للدور النشط',
   'onboarding.disclaimer.title': 'تحذير — نموذج أولي للعرض التوضيحي',
   'onboarding.disclaimer.badge': 'بروتوكول أكاديمي لمشروع التخرج',
   'onboarding.disclaimer.p1': '1. هذا البرنامج نموذج أولي للبحث الأكاديمي (مشروع تخرج). جميع البيانات والحوادث والموظفين والأرقام اصطناعية 100%.',
@@ -3192,13 +3152,25 @@ export function useLayoutDirection(): LayoutDirection {
 
 export async function initializeLocale(): Promise<void> {
   try {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    const savedLocale = await AsyncStorage.getItem(LOCALE_STORAGE_KEY);
+    const module = require('@react-native-async-storage/async-storage');
+    const storage = module?.default ?? module;
+    const savedLocale = await storage.getItem(LOCALE_STORAGE_KEY);
     if (SUPPORTED_LOCALES.includes(savedLocale as SupportedLocale)) {
       setLocale(savedLocale as SupportedLocale);
     }
   } catch (err) {
     console.error('[Localization] Failed to load saved locale:', err);
+  }
+}
+
+export async function persistLocale(locale: SupportedLocale): Promise<void> {
+  if (!SUPPORTED_LOCALES.includes(locale)) return;
+  try {
+    const module = require('@react-native-async-storage/async-storage');
+    const storage = module?.default ?? module;
+    await storage.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch (err) {
+    console.error('[Localization] Failed to save selected locale:', err);
   }
 }
 

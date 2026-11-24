@@ -18,7 +18,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -41,6 +40,8 @@ import { formatNotification, useLocale, t } from '../../../localization';
 import { resolveNotificationNavigation } from '../navigation/notification-navigation-resolver';
 import type { RootStackParamList } from '../../../navigation/routes';
 
+import AppText from '../../../components/AppText';
+import { AppIcon } from '../../../components/AppIcon';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -87,7 +88,7 @@ interface NotificationItemProps {
 }
 
 function NotificationItem({ item, locale, onPress, processing, colors }: NotificationItemProps) {
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, locale === 'ar');
   const isUnread = item.is_read === 0;
   const formatted = formatNotification(item, { locale: locale as any });
   const dateLabel = formatNotificationDate(item.created_at, locale);
@@ -115,34 +116,34 @@ function NotificationItem({ item, locale, onPress, processing, colors }: Notific
         {/* Content */}
         <View style={styles.notifContent}>
           <View style={styles.notifTitleRow}>
-            <Text
+            <AppText
               style={[
                 styles.notifTitle,
                 { color: isUnread ? colors.foreground : colors.mutedForeground },
               ]}
             >
               {formatted.title}
-            </Text>
-            <Text style={styles.notifDate}>{dateLabel}</Text>
+            </AppText>
+            <AppText style={styles.notifDate}>{dateLabel}</AppText>
           </View>
-          <Text
+          <AppText
             style={[styles.notifMessage, { color: colors.mutedForeground }]}
           >
             {formatted.message}
-          </Text>
+          </AppText>
           {isUnread && (
             <View style={styles.unreadBadgeRow}>
               <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.unreadBadgeText}>
+                <AppText style={styles.unreadBadgeText}>
                   {t('notificationCentre.unread', locale as any)}
-                </Text>
+                </AppText>
               </View>
             </View>
           )}
         </View>
 
         {/* Chevron */}
-        <Text style={[styles.chevron, { color: colors.mutedForeground }]}>›</Text>
+        <AppIcon name="forward-chevron" size={18} color={colors.mutedForeground} />
       </View>
     </TouchableOpacity>
   );
@@ -155,7 +156,7 @@ export const NotificationCentreScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
   const isFocused = useIsFocused();
   const locale = useLocale();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, locale === 'ar');
 
   const { activeRole, activeContext } = useDemoRoleStore();
 
@@ -371,10 +372,10 @@ export const NotificationCentreScreen: React.FC = () => {
   if (activeRole === 'tech_admin') {
     return (
       <View style={[styles.root, styles.centeredContainer]}>
-        <Text style={styles.restrictedIcon}>🔒</Text>
-        <Text style={[styles.restrictedText, { color: colors.mutedForeground }]}>
+        <AppIcon name="lock" size={32} color={colors.mutedForeground} style={{ marginBottom: spacing.md }} />
+        <AppText style={[styles.restrictedText, { color: colors.mutedForeground }]}>
           {t('notificationCentre.techAdminRestricted', locale)}
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -392,15 +393,15 @@ export const NotificationCentreScreen: React.FC = () => {
   if (error && notifications.length === 0) {
     return (
       <View style={[styles.root, styles.centeredContainer]}>
-        <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+        <AppIcon name="alert-triangle" size={32} color={colors.destructive} style={{ marginBottom: spacing.sm }} />
+        <AppText style={[styles.errorText, { color: colors.destructive }]}>{error}</AppText>
         <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           onPress={() => { setLoading(true); loadData(); }}
         >
-          <Text style={[styles.retryButtonText, { color: colors.primaryForeground }]}>
+          <AppText style={[styles.retryButtonText, { color: colors.primaryForeground }]}>
             {t('notificationCentre.retry', locale)}
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </View>
     );
@@ -414,11 +415,11 @@ export const NotificationCentreScreen: React.FC = () => {
         <View style={[styles.summaryBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <View style={styles.summaryLeft}>
             <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.countBadgeText}>{unreadCount}</Text>
+              <AppText style={styles.countBadgeText}>{unreadCount}</AppText>
             </View>
-            <Text style={[styles.summaryText, { color: colors.foreground }]}>
+            <AppText style={[styles.summaryText, { color: colors.foreground }]}>
               {t('notificationCentre.unread', locale)}
-            </Text>
+            </AppText>
           </View>
           <TouchableOpacity
             onPress={handleMarkAllRead}
@@ -426,9 +427,9 @@ export const NotificationCentreScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel={t('notificationCentre.a11y.markAllRead', locale)}
           >
-            <Text style={[styles.markAllText, { color: colors.primary }]}>
+            <AppText style={[styles.markAllText, { color: colors.primary }]}>
               {t('notificationCentre.markAllRead', locale)}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </View>
       )}
@@ -446,13 +447,13 @@ export const NotificationCentreScreen: React.FC = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🔔</Text>
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            <AppIcon name="bell" size={40} color={colors.mutedForeground} style={{ marginBottom: spacing.md }} />
+            <AppText style={[styles.emptyTitle, { color: colors.foreground }]}>
               {t('notificationCentre.empty', locale)}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+            </AppText>
+            <AppText style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
               {t('notificationCentre.emptySubtitle', locale)}
-            </Text>
+            </AppText>
           </View>
         }
         ItemSeparatorComponent={() => (
@@ -473,7 +474,7 @@ export const NotificationCentreScreen: React.FC = () => {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-function createStyles(colors: ColorToken) {
+function createStyles(colors: ColorToken, isRtl: boolean) {
   return StyleSheet.create({
     root: {
       flex: 1,
@@ -493,7 +494,7 @@ function createStyles(colors: ColorToken) {
       borderBottomWidth: StyleSheet.hairlineWidth,
     },
     summaryLeft: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'center',
       gap: spacing.xs,
     },
@@ -513,12 +514,10 @@ function createStyles(colors: ColorToken) {
     summaryText: {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.medium,
-      fontFamily: typography.fontFamily.openSans,
     },
     markAllText: {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.semibold,
-      fontFamily: typography.fontFamily.openSans,
     },
     notificationItem: {
       backgroundColor: colors.background,
@@ -529,7 +528,7 @@ function createStyles(colors: ColorToken) {
       backgroundColor: colors.card,
     },
     notifRow: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'flex-start',
       gap: spacing.sm,
     },
@@ -554,7 +553,7 @@ function createStyles(colors: ColorToken) {
       gap: 2,
     },
     notifTitleRow: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.xs,
@@ -563,17 +562,14 @@ function createStyles(colors: ColorToken) {
       flex: 1,
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.semibold,
-      fontFamily: typography.fontFamily.openSans,
     },
     notifDate: {
       fontSize: typography.fontSize.xs,
       color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
       flexShrink: 0,
     },
     notifMessage: {
       fontSize: typography.fontSize.xs,
-      fontFamily: typography.fontFamily.openSans,
       lineHeight: 18,
       marginTop: 2,
     },
@@ -591,13 +587,9 @@ function createStyles(colors: ColorToken) {
       fontWeight: typography.fontWeight.bold,
       color: colors.primaryForeground,
     },
-    chevron: {
-      fontSize: 20,
-      marginTop: 2,
-    },
     separator: {
       height: StyleSheet.hairlineWidth,
-      marginLeft: spacing.md + 10 + spacing.sm, // align with content start
+      [isRtl ? 'marginRight' : 'marginLeft']: spacing.md + 10 + spacing.sm,
     },
     emptyContentContainer: {
       flex: 1,
@@ -609,40 +601,24 @@ function createStyles(colors: ColorToken) {
       padding: spacing.xl,
       marginTop: spacing.xxl,
     },
-    emptyIcon: {
-      fontSize: 40,
-      marginBottom: spacing.md,
-    },
     emptyTitle: {
       fontSize: typography.fontSize.lg,
       fontWeight: typography.fontWeight.bold,
-      fontFamily: typography.fontFamily.urbanist,
       marginBottom: spacing.xs,
       textAlign: 'center',
     },
     emptySubtitle: {
       fontSize: typography.fontSize.sm,
-      fontFamily: typography.fontFamily.openSans,
       textAlign: 'center',
       lineHeight: 20,
-    },
-    restrictedIcon: {
-      fontSize: 32,
-      marginBottom: spacing.md,
     },
     restrictedText: {
       fontSize: typography.fontSize.sm,
-      fontFamily: typography.fontFamily.openSans,
       textAlign: 'center',
       lineHeight: 20,
     },
-    errorIcon: {
-      fontSize: 32,
-      marginBottom: spacing.md,
-    },
     errorText: {
       fontSize: typography.fontSize.sm,
-      fontFamily: typography.fontFamily.openSans,
       textAlign: 'center',
       marginBottom: spacing.md,
     },

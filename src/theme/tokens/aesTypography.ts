@@ -10,18 +10,14 @@ import { typography } from './typography';
 
 export const aesFontFamilies = {
   heading: typography.fontFamily.display,
-  body: typography.fontFamily.openSans,
+  body: typography.fontFamily.body,
   readex: typography.fontFamily.heading,
   monospace: Platform.select({
     ios: 'Menlo',
     android: 'monospace',
     default: 'monospace',
   }),
-  arabic: Platform.select({
-    ios: 'Geeza Pro',
-    android: 'sans-serif',
-    default: 'sans-serif',
-  }),
+  arabic: typography.fontFamily.arabic,
 } as const;
 
 export const aesFontSizes = {
@@ -73,10 +69,10 @@ export const aesTypography = {
     fontWeight: aesFontWeights.bold,
   } satisfies TextStyle,
   heading1: {
-    fontFamily: aesFontFamilies.heading,
+    fontFamily: aesFontFamilies.readex,
     fontSize: 24,
     lineHeight: 32,
-    fontWeight: aesFontWeights.bold,
+    fontWeight: aesFontWeights.semibold,
   } satisfies TextStyle,
   heading2: {
     fontFamily: aesFontFamilies.readex,
@@ -88,7 +84,7 @@ export const aesTypography = {
     fontFamily: aesFontFamilies.readex,
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: aesFontWeights.medium,
+    fontWeight: aesFontWeights.semibold,
   } satisfies TextStyle,
   body: {
     fontFamily: aesFontFamilies.body,

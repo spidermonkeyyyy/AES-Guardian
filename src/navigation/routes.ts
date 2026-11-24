@@ -1,7 +1,7 @@
 export type RootStackParamList = {
   aesSplash: { replay?: boolean } | undefined;
+  aesAccess: undefined;
   aesLanguageSelect: undefined;
-  aesWelcomeCarousel: undefined;
   aesDisclaimer: undefined;
   aesDemoPicker: undefined;
   aesGuardianWorkspace: undefined;

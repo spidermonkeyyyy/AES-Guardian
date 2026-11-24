@@ -35,7 +35,7 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { OhCoordinationQueueScreen } from '../screens/OhCoordinationQueueScreen';
 import { OhCoordinationDetailScreen } from '../screens/OhCoordinationDetailScreen';
@@ -800,13 +800,7 @@ describe('Phase 2E.1.6.1: Batch 6 OH Coordination Acceptance Tests', () => {
           ])
         );
 
-        expect(badgeText.props.style).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              color: item.expectedFg,
-            }),
-          ])
-        );
+        expect(StyleSheet.flatten(badgeText.props.style).color).toBe(item.expectedFg);
 
         expect(badgeText.props.children).toBe(item.expectedLabel);
       }

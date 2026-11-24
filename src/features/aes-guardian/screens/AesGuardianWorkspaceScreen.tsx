@@ -12,7 +12,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -34,8 +33,10 @@ import {
 } from '../../../core';
 import { t, useLocale } from '../../../localization';
 
+import AppText from '../../../components/AppText';
+import { AppIcon, AppIconLabel, type AppIconName } from '../../../components/AppIcon';
 interface ModuleCardProps {
-  iconText: string;
+  iconName: AppIconName;
   title: string;
   description: string;
   badge?: string;
@@ -208,7 +209,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
     DEMO_ROLE_DEFINITIONS.find((d) => d.role === activeRole) ?? DEMO_ROLE_DEFINITIONS[0];
 
   const ModuleCard: React.FC<ModuleCardProps> = ({
-    iconText,
+    iconName,
     title,
     description,
     badge,
@@ -226,22 +227,22 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
     >
       <View style={styles.moduleHeaderRow}>
         <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>{iconText}</Text>
+          <AppIcon name={iconName} size={22} color={colors.primary} />
         </View>
         <View style={styles.moduleTitleBox}>
           <View style={styles.moduleTitleRow}>
-            <Text style={styles.moduleTitle}>{title}</Text>
+            <AppText style={styles.moduleTitle}>{title}</AppText>
             {badge ? (
               <View style={[styles.badge, { backgroundColor: badgeColor ?? colors.primary }]}>
-                <Text style={[styles.badgeText, badgeTextColor ? { color: badgeTextColor } : null]}>
+                <AppText style={[styles.badgeText, badgeTextColor ? { color: badgeTextColor } : null]}>
                   {badge}
-                </Text>
+                </AppText>
               </View>
             ) : null}
           </View>
-          <Text style={styles.moduleDescription}>{description}</Text>
+          <AppText style={styles.moduleDescription}>{description}</AppText>
         </View>
-        <Text style={styles.chevron}>›</Text>
+        <AppIcon name="forward-chevron" size={20} color={colors.mutedForeground} />
       </View>
     </TouchableOpacity>
   );
@@ -258,11 +259,11 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
       <View style={styles.header}>
         <View style={styles.brandRow}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>🛡️</Text>
+            <AppIcon name="shield-check" size={24} color={colors.primary} />
           </View>
           <View style={styles.brandTextContainer}>
-            <Text style={styles.appName}>AES GUARDIAN</Text>
-            <Text style={styles.appTagline}>{t('workspace.tagline', locale)}</Text>
+            <AppText style={styles.appName}>SANAD</AppText>
+            <AppText style={styles.appTagline}>{t('workspace.tagline', locale)}</AppText>
           </View>
           <View style={styles.headerActionsRow}>
             {activeRole !== 'tech_admin' && (
@@ -272,12 +273,12 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={t('notificationCentre.a11y.unreadBadge', locale)}
               >
-                <Text style={styles.headerActionIcon}>🔔</Text>
+                <AppIcon name="bell" size={20} color={colors.foreground} />
                 {unreadNotificationCount > 0 && (
                   <View style={styles.notifBadge} testID="workspace-unread-badge">
-                    <Text style={styles.notifBadgeText}>
+                    <AppText style={styles.notifBadgeText}>
                       {unreadNotificationCount > 99 ? '99+' : String(unreadNotificationCount)}
-                    </Text>
+                    </AppText>
                   </View>
                 )}
               </TouchableOpacity>
@@ -288,7 +289,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel={t('helpGlossary.tabHelp', locale)}
             >
-              <Text style={styles.headerActionIcon}>❓</Text>
+              <AppIcon name="help-circle" size={20} color={colors.foreground} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.headerActionButton}
@@ -296,7 +297,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel={t('profile.title', locale)}
             >
-              <Text style={styles.headerActionIcon}>👤</Text>
+              <AppIcon name="user" size={20} color={colors.foreground} />
             </TouchableOpacity>
           </View>
         </View>
@@ -305,17 +306,17 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
       {/* Persistent Prototype Banner */}
       <View style={styles.disclaimerBanner}>
         <View style={styles.bannerRow}>
-          <Text style={styles.bannerIcon}>⚠️</Text>
+          <AppIcon name="alert-triangle" size={22} color={colors.warning} />
           <View style={styles.bannerTextBox}>
-            <Text style={styles.bannerTitle}>{t('workspace.disclaimerTitle')}</Text>
-            <Text style={styles.bannerSubtitle}>{t('workspace.disclaimerText')}</Text>
+            <AppText style={styles.bannerTitle}>{t('workspace.disclaimerTitle')}</AppText>
+            <AppText style={styles.bannerSubtitle}>{t('workspace.disclaimerText')}</AppText>
           </View>
         </View>
       </View>
 
       {/* Unified Demonstration Role Selector */}
       <View style={styles.roleSelectorSection}>
-        <Text style={styles.sectionHeaderTitle}>{t('workspace.roleSelectorTitle')}</Text>
+        <AppText style={styles.sectionHeaderTitle}>{t('workspace.roleSelectorTitle')}</AppText>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roleScrollView}>
           {DEMO_ROLE_DEFINITIONS.map((def) => {
             const isSelected = def.role === activeRole;
@@ -331,14 +332,14 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={roleLabel}
               >
-                <Text
+                <AppText
                   style={[
                     styles.rolePillText,
                     isSelected && styles.rolePillTextActive,
                   ]}
                 >
                   {roleLabel}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -348,20 +349,20 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         <View style={styles.activeRoleCard}>
           <View style={styles.activeRoleRow}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>
+              <AppText style={styles.avatarText}>
                 {activeDef.defaultLabel.charAt(0).toUpperCase()}
-              </Text>
+              </AppText>
             </View>
             <View style={styles.activeRoleInfo}>
               <View style={styles.roleBadgeRow}>
-                <Text style={styles.activeRoleName}>{activeContext.displayName}</Text>
+                <AppText style={styles.activeRoleName}>{activeContext.displayName}</AppText>
                 <View style={styles.roleChipSmall}>
-                  <Text style={styles.roleChipSmallText}>ID #{activeContext.userId}</Text>
+                  <AppText style={styles.roleChipSmallText}>ID #{activeContext.userId}</AppText>
                 </View>
               </View>
-              <Text style={styles.activeRoleDescription}>
+              <AppText style={styles.activeRoleDescription}>
                 {t(activeDef.descriptionKey as any) || activeDef.defaultDescription}
-              </Text>
+              </AppText>
             </View>
           </View>
         </View>
@@ -373,40 +374,40 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
           style={styles.actionableCallout}
           onPress={() => navigation.navigate('declarations')}
         >
-          <Text style={styles.calloutIcon}>🔔</Text>
+          <AppIcon name="bell" size={20} color={colors.destructive} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.calloutTitle}>{t('workspace.correctionActionRequired')}</Text>
-            <Text style={styles.calloutText}>{t('workspace.correctionActionDesc')}</Text>
+            <AppText style={styles.calloutTitle}>{t('workspace.correctionActionRequired')}</AppText>
+            <AppText style={styles.calloutText}>{t('workspace.correctionActionDesc')}</AppText>
           </View>
-          <Text style={styles.calloutArrow}>→</Text>
+          <AppIcon name="forward" size={20} color={colors.destructive} />
         </TouchableOpacity>
       )}
 
       {/* Role-Permitted Modules Grid */}
       <View style={styles.modulesSection}>
-        <Text style={styles.sectionHeaderTitle}>{t('workspace.permittedModulesTitle')}</Text>
+        <AppText style={styles.sectionHeaderTitle}>{t('workspace.permittedModulesTitle')}</AppText>
 
         {/* 1. EXPOSED PROFESSIONAL MODULES */}
         {activeRole === 'exposed_professional' && (
           <>
             <ModuleCard
-              iconText="📝"
+              iconName="document-add"
               title={t('workspace.module.newDeclaration')}
               description={t('workspace.module.newDeclarationDesc')}
               accentColor={colors.success}
               onPress={() => navigation.navigate('newDeclaration')}
             />
             <ModuleCard
-              iconText="📋"
+              iconName="clipboard-list"
               title={t('workspace.module.myDeclarations')}
               description={t('workspace.module.myDeclarationsDesc')}
               badge={stats.myDeclarationsCount !== undefined ? `${stats.myDeclarationsCount}` : undefined}
               onPress={() => navigation.navigate('declarations')}
             />
             <View style={styles.privacyNoticeBox}>
-              <Text style={styles.privacyNoticeText}>
-                🔒 {t('workspace.notice.exposedRestrictions')}
-              </Text>
+              <AppIconLabel name="lock" size="sm" textStyle={styles.privacyNoticeText} style={styles.privacyNoticeRow}>
+                {t('workspace.notice.exposedRestrictions')}
+              </AppIconLabel>
             </View>
           </>
         )}
@@ -415,7 +416,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         {activeRole === 'admin_reviewer' && (
           <>
             <ModuleCard
-              iconText="⚖️"
+              iconName="scale"
               title={t('workspace.module.adminQueue')}
               description={t('workspace.module.adminQueueDesc')}
               badge={stats.adminQueueCount !== undefined ? `${stats.adminQueueCount} ${t('workspace.badgePending')}` : undefined}
@@ -425,20 +426,20 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               onPress={() => navigation.navigate('adminReviewQueue')}
             />
             <ModuleCard
-              iconText="📑"
+              iconName="document"
               title={t('workspace.module.allDeclarations')}
               description={t('workspace.module.allDeclarationsDesc')}
               onPress={() => navigation.navigate('declarations')}
             />
             <ModuleCard
-              iconText="📊"
+              iconName="chart"
               title={t('workspace.module.surveillanceDashboard')}
               description={t('workspace.module.surveillanceDashboardDesc')}
               accentColor={colors.info}
               onPress={() => navigation.navigate('surveillanceDashboard')}
             />
             <ModuleCard
-              iconText="🛡️"
+              iconName="shield-check"
               title={t('workspace.module.preventionRegisterReadOnly')}
               description={t('workspace.module.preventionRegisterReadOnlyDesc')}
               onPress={() => navigation.navigate('preventionRegister')}
@@ -450,7 +451,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         {activeRole === 'oh_professional' && (
           <>
             <ModuleCard
-              iconText="🩺"
+              iconName="medical"
               title={t('workspace.module.ohQueue')}
               description={t('workspace.module.ohQueueDesc')}
               badge={stats.ohQueueCount !== undefined ? `${stats.ohQueueCount} ${t('workspace.badgeActive')}` : undefined}
@@ -459,20 +460,20 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               onPress={() => navigation.navigate('ohCoordinationQueue')}
             />
             <ModuleCard
-              iconText="📑"
+              iconName="document"
               title={t('workspace.module.allDeclarations')}
               description={t('workspace.module.allDeclarationsDesc')}
               onPress={() => navigation.navigate('declarations')}
             />
             <ModuleCard
-              iconText="📊"
+              iconName="chart"
               title={t('workspace.module.surveillanceDashboard')}
               description={t('workspace.module.surveillanceDashboardDesc')}
               accentColor={colors.info}
               onPress={() => navigation.navigate('surveillanceDashboard')}
             />
             <ModuleCard
-              iconText="🛡️"
+              iconName="shield-check"
               title={t('workspace.module.preventionRegisterReadOnly')}
               description={t('workspace.module.preventionRegisterReadOnlyDesc')}
               onPress={() => navigation.navigate('preventionRegister')}
@@ -484,7 +485,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         {activeRole === 'quality_staff' && (
           <>
             <ModuleCard
-              iconText="📊"
+              iconName="chart"
               title={t('workspace.module.surveillanceDashboard')}
               description={t('workspace.module.surveillanceDashboardDesc')}
               badge={stats.surveillanceCount !== undefined ? `${stats.surveillanceCount} ${t('workspace.badgeIncidents')}` : undefined}
@@ -493,7 +494,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               onPress={() => navigation.navigate('surveillanceDashboard')}
             />
             <ModuleCard
-              iconText="🎯"
+              iconName="target"
               title={t('workspace.module.preventionOverview')}
               description={t('workspace.module.preventionOverviewDesc')}
               badge={stats.capaCount !== undefined ? `${stats.capaCount} ${t('workspace.badgeActions')}` : undefined}
@@ -502,21 +503,21 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               onPress={() => navigation.navigate('preventionOverview')}
             />
             <ModuleCard
-              iconText="📋"
+              iconName="clipboard-list"
               title={t('workspace.module.preventionRegister')}
               description={t('workspace.module.preventionRegisterDesc')}
               onPress={() => navigation.navigate('preventionRegister')}
             />
             <ModuleCard
-              iconText="➕"
+              iconName="add"
               title={t('workspace.module.preventionCreate')}
               description={t('workspace.module.preventionCreateDesc')}
               onPress={() => navigation.navigate('preventionCreate')}
             />
             <View style={styles.privacyNoticeBox}>
-              <Text style={styles.privacyNoticeText}>
-                🔒 {t('workspace.notice.qualityRestrictions')}
-              </Text>
+              <AppIconLabel name="lock" size="sm" textStyle={styles.privacyNoticeText} style={styles.privacyNoticeRow}>
+                {t('workspace.notice.qualityRestrictions')}
+              </AppIconLabel>
             </View>
           </>
         )}
@@ -525,33 +526,40 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         {activeRole === 'tech_admin' && (
           <>
             <View style={styles.techStatusCard}>
-              <Text style={styles.techCardTitle}>🔧 {t('workspace.tech.sqliteIntegrity')}</Text>
+              <AppIconLabel
+                name="settings"
+                size="sm"
+                textStyle={styles.techCardTitle}
+                style={styles.techTitleRow}
+              >
+                {t('workspace.tech.sqliteIntegrity')}
+              </AppIconLabel>
               <View style={styles.techRow}>
-                <Text style={styles.techLabel}>{t('workspace.tech.engine')} :</Text>
-                <Text style={styles.techValue}>op-sqlite</Text>
+                <AppText style={styles.techLabel}>{t('workspace.tech.engine')} :</AppText>
+                <AppText style={styles.techValue}>op-sqlite</AppText>
               </View>
               <View style={styles.techRow}>
-                <Text style={styles.techLabel}>{t('workspace.tech.schemaVersion')} :</Text>
-                <Text style={styles.techValue}>
+                <AppText style={styles.techLabel}>{t('workspace.tech.schemaVersion')} :</AppText>
+                <AppText style={styles.techValue}>
                   {stats.schemaVersion != null ? `v${stats.schemaVersion}` : '—'}
-                </Text>
+                </AppText>
               </View>
               <View style={styles.techRow}>
-                <Text style={styles.techLabel}>{t('workspace.tech.fkCheck')} :</Text>
-                <Text style={[styles.techValue, { color: colors.success, fontWeight: 'bold' }]}>
+                <AppText style={styles.techLabel}>{t('workspace.tech.fkCheck')} :</AppText>
+                <AppText style={[styles.techValue, { color: colors.success, fontWeight: 'bold' }]}>
                   {t('workspace.tech.fkOk')}
-                </Text>
+                </AppText>
               </View>
             </View>
 
             {/* Technical Maintenance Reset Card */}
             <View style={styles.techResetCard}>
-              <Text style={styles.techResetTitle}>
-                ⚙️ {t('reset.sectionTitle', locale)}
-              </Text>
-              <Text style={styles.techResetDesc}>
+              <AppIconLabel name="settings" textStyle={styles.techResetTitle}>
+                {t('reset.sectionTitle', locale)}
+              </AppIconLabel>
+              <AppText style={styles.techResetDesc}>
                 {t('reset.sectionDesc', locale)}
-              </Text>
+              </AppText>
 
               <TouchableOpacity
                 style={[styles.techResetBtn, resetting && styles.techResetBtnDisabled]}
@@ -563,17 +571,17 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
                 {resetting ? (
                   <ActivityIndicator color="#ffffff" size="small" />
                 ) : (
-                  <Text style={styles.techResetBtnText}>
-                    ⚠️ {t('reset.buttonLabel', locale)}
-                  </Text>
+                  <AppIconLabel name="alert-triangle" size="sm" color="#ffffff" textStyle={styles.techResetBtnText}>
+                    {t('reset.buttonLabel', locale)}
+                  </AppIconLabel>
                 )}
               </TouchableOpacity>
             </View>
 
             <View style={styles.privacyNoticeBox}>
-              <Text style={styles.privacyNoticeText}>
-                🔒 {t('workspace.notice.techRestrictions')}
-              </Text>
+              <AppIconLabel name="lock" size="sm" textStyle={styles.privacyNoticeText} style={styles.privacyNoticeRow}>
+                {t('workspace.notice.techRestrictions')}
+              </AppIconLabel>
             </View>
           </>
         )}
@@ -581,8 +589,8 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
 
       {/* Guided Demonstration Roadmap */}
       <View style={styles.scenarioSection}>
-        <Text style={styles.sectionHeaderTitle}>{t('workspace.scenarioTitle')}</Text>
-        <Text style={styles.sectionHeaderSubtitle}>{t('workspace.scenarioSubtitle')}</Text>
+        <AppText style={styles.sectionHeaderTitle}>{t('workspace.scenarioTitle')}</AppText>
+        <AppText style={styles.sectionHeaderSubtitle}>{t('workspace.scenarioSubtitle')}</AppText>
 
         <View style={styles.scenarioStepsBox}>
           {[
@@ -595,24 +603,24 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
           ].map((item) => (
             <View key={item.step} style={styles.scenarioStepRow}>
               <View style={[styles.stepNumberBadge, activeRole === item.role ? styles.stepNumberBadgeActive : null]}>
-                <Text style={[styles.stepNumberText, activeRole === item.role ? styles.stepNumberTextActive : null]}>
+                <AppText style={[styles.stepNumberText, activeRole === item.role ? styles.stepNumberTextActive : null]}>
                   {item.step}
-                </Text>
+                </AppText>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.stepTitleText}>{item.title}</Text>
-                <Text style={styles.stepDescText}>{item.desc}</Text>
+                <AppText style={styles.stepTitleText}>{item.title}</AppText>
+                <AppText style={styles.stepDescText}>{item.desc}</AppText>
               </View>
               {activeRole !== item.role ? (
                 <TouchableOpacity
                   style={styles.stepSwitchBtn}
                   onPress={() => setRole(item.role)}
                 >
-                  <Text style={styles.stepSwitchBtnText}>{t('workspace.switchRole')}</Text>
+                  <AppText style={styles.stepSwitchBtnText}>{t('workspace.switchRole')}</AppText>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.stepActiveBadge}>
-                  <Text style={styles.stepActiveBadgeText}>{t('workspace.activeRoleIndicator')}</Text>
+                  <AppText style={styles.stepActiveBadgeText}>{t('workspace.activeRoleIndicator')}</AppText>
                 </View>
               )}
             </View>
@@ -661,13 +669,11 @@ function createStyles(colors: ColorToken) {
       fontSize: typography.fontSize.xl,
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
-      fontFamily: typography.fontFamily.urbanist,
       letterSpacing: 0.5,
     },
     appTagline: {
       fontSize: typography.fontSize.xs,
       color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
     },
     headerActionsRow: {
       flexDirection: 'row',
@@ -721,9 +727,6 @@ function createStyles(colors: ColorToken) {
       alignItems: 'flex-start',
       gap: spacing.sm,
     },
-    bannerIcon: {
-      fontSize: 16,
-    },
     bannerTextBox: {
       flex: 1,
     },
@@ -745,7 +748,6 @@ function createStyles(colors: ColorToken) {
       fontSize: typography.fontSize.md,
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
-      fontFamily: typography.fontFamily.urbanist,
       marginBottom: 2,
     },
     sectionHeaderSubtitle: {
@@ -843,9 +845,6 @@ function createStyles(colors: ColorToken) {
       borderRadius: shapes.sm,
       marginBottom: spacing.md,
     },
-    calloutIcon: {
-      fontSize: 18,
-    },
     calloutTitle: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
@@ -854,11 +853,6 @@ function createStyles(colors: ColorToken) {
     calloutText: {
       fontSize: typography.fontSize.xs - 1,
       color: colors.danger,
-    },
-    calloutArrow: {
-      fontSize: 18,
-      color: colors.danger,
-      fontWeight: 'bold',
     },
     modulesSection: {
       marginBottom: spacing.lg,
@@ -883,9 +877,6 @@ function createStyles(colors: ColorToken) {
       backgroundColor: colors.surfaceVariant,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    iconText: {
-      fontSize: 20,
     },
     moduleTitleBox: {
       flex: 1,
@@ -916,10 +907,6 @@ function createStyles(colors: ColorToken) {
       color: colors.mutedForeground,
       lineHeight: 16,
     },
-    chevron: {
-      fontSize: 22,
-      color: colors.mutedForeground,
-    },
     privacyNoticeBox: {
       backgroundColor: colors.surfaceVariant,
       padding: spacing.sm,
@@ -932,6 +919,16 @@ function createStyles(colors: ColorToken) {
       color: colors.mutedForeground,
       fontStyle: 'italic',
       lineHeight: 16,
+    },
+    privacyNoticeRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.xs,
+    },
+    techTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
     },
     techStatusCard: {
       backgroundColor: colors.card,

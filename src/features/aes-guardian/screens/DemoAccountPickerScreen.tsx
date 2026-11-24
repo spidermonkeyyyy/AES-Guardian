@@ -19,7 +19,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
 } from 'react-native';
@@ -41,6 +40,7 @@ import { setFirstLaunchCompleted } from '../utils/onboardingStorage';
 import { AesScreenContainer, AesButton, AesOptionCard } from '../components';
 import { RootStackParamList } from '../../../navigation/routes';
 
+import AppText from '../../../components/AppText';
 export interface DemoAccountItem {
   role: AesGuardianRole;
   codeKey: TranslationKey;
@@ -116,22 +116,22 @@ export const DemoAccountPickerScreen: React.FC = () => {
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <Text
+          <AppText
             style={[
               styles.title,
               { textAlign: rtl ? 'right' : 'left' },
             ]}
           >
             {t('onboarding.picker.title', locale)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Informative Synthetic Identity Banner */}
         <View style={styles.infoBanner}>
           <AppIcon name="info" size={16} color="#0D47A1" style={styles.bannerIcon} />
-          <Text style={styles.bannerText}>
+          <AppText style={styles.bannerText}>
             {t('onboarding.picker.syntheticNotice', locale)}
-          </Text>
+          </AppText>
         </View>
 
         {/* List of 5 Canonical Demo Accounts */}

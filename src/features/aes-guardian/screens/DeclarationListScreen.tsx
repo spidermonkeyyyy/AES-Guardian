@@ -20,7 +20,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -29,16 +28,18 @@ import {
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { aesColors, aesSpacing, aesTypography, aesRadii } from '../../../theme/tokens';
+import { aesSpacing, aesTypography, aesRadii } from '../../../theme/tokens';
 import {
   getDatabase,
   AesDeclaration,
   DeclarationStatus,
   useDemoRoleStore,
 } from '../../../core';
-import { t } from '../../../localization';
+import { t, useLocale } from '../../../localization';
 import { AesScreenContainer, AesScreenHeader, AesStatusBadge } from '../components';
-
+import { useTheme } from '../../../theme/ThemeContext';
+import { AppIcon } from '../../../components/AppIcon';
+import AppText from '../../../components/AppText';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type FilterKey = 'all' | 'draft' | 'submitted' | 'under_review' | 'closed';
@@ -72,6 +73,9 @@ function matchesFilter(decl: AesDeclaration, filter: FilterKey): boolean {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export const DeclarationListScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const locale = useLocale();
+  const styles = createStyles(colors);
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const isFocused = useIsFocused();
   const { activeContext } = useDemoRoleStore();
@@ -123,12 +127,12 @@ export const DeclarationListScreen: React.FC = () => {
 
   if (!isPermitted) {
     return (
-      <AesScreenContainer>
+      <AesScreenContainer testID="declaration-list-screen">
         <AesScreenHeader title={t('list.restrictedTitle')} />
         <View style={styles.centeredState}>
-          <Text style={[styles.restrictedText, { color: aesColors.textSecondary }]}>
+          <AppText style={[styles.restrictedText, { color: colors.mutedForeground }]}>
             {t('list.restrictedMessage')}
-          </Text>
+          </AppText>
         </View>
       </AesScreenContainer>
     );
@@ -148,16 +152,16 @@ export const DeclarationListScreen: React.FC = () => {
         accessibilityLabel={t('list.adminQueueShortcut')}
         testID="admin-queue-shortcut"
       >
-        <Text style={[styles.queueButtonText, { color: aesColors.accentGreen }]}>
+        <AppText style={[styles.queueButtonText, { color: colors.primary }]}>
           {t('list.adminQueueShortcut')}
-        </Text>
+        </AppText>
       </TouchableOpacity>
     ) : undefined;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <AesScreenContainer>
+    <AesScreenContainer testID="declaration-list-screen">
       <AesScreenHeader title={listTitle} rightElement={headerRightElement} />
 
       {/* Filter chip bar */}
@@ -165,7 +169,10 @@ export const DeclarationListScreen: React.FC = () => {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.chipBar}
-        contentContainerStyle={styles.chipBarContent}
+        contentContainerStyle={[
+          styles.chipBarContent,
+          { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+        ]}
         testID="filter-chip-bar"
       >
         {getFilterChips().map((chip) => {
@@ -179,17 +186,18 @@ export const DeclarationListScreen: React.FC = () => {
                 isActive ? styles.chipActive : styles.chipInactive,
               ]}
               accessibilityRole="button"
+              accessibilityLabel={t(chip.labelKey as any)}
               accessibilityState={{ selected: isActive }}
               testID={`filter-chip-${chip.key}`}
             >
-              <Text
+              <AppText
                 style={[
                   styles.chipText,
-                  { color: isActive ? aesColors.textInverse : aesColors.textPrimary },
+                  { color: isActive ? colors.primaryForeground : colors.foreground },
                 ]}
               >
                 {t(chip.labelKey as any)}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           );
         })}
@@ -198,11 +206,11 @@ export const DeclarationListScreen: React.FC = () => {
       {/* Content */}
       {loading ? (
         <View style={styles.centeredState}>
-          <ActivityIndicator color={aesColors.accentGreen} />
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : error ? (
         <View style={styles.centeredState}>
-          <Text style={[styles.errorText, { color: aesColors.textPrimary }]}>{error}</Text>
+          <AppText style={[styles.errorText, { color: colors.foreground }]}>{error}</AppText>
         </View>
       ) : (
         <FlatList
@@ -216,9 +224,9 @@ export const DeclarationListScreen: React.FC = () => {
           testID="declaration-list"
           ListEmptyComponent={
             <View style={styles.centeredState}>
-              <Text style={[styles.emptyText, { color: aesColors.textSecondary }]}>
+              <AppText style={[styles.emptyText, { color: colors.mutedForeground }]}>
                 {t('list.empty')}
-              </Text>
+              </AppText>
             </View>
           }
           ListFooterComponent={
@@ -230,13 +238,21 @@ export const DeclarationListScreen: React.FC = () => {
                 accessibilityLabel={t('list.newButton')}
                 testID="new-declaration-button"
               >
-                <Text style={styles.newButtonText}>+ {t('list.newButton')}</Text>
+                <View
+                  style={[
+                    styles.newButtonContent,
+                    { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+                  ]}
+                >
+                  <AppIcon name="add" size={20} color={colors.primaryForeground} />
+                  <AppText style={styles.newButtonText}>{t('list.newButton')}</AppText>
+                </View>
               </TouchableOpacity>
             ) : null
           }
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[styles.card, { backgroundColor: aesColors.surface }]}
+              style={[styles.card, { backgroundColor: colors.card }]}
               onPress={() =>
                 navigation.navigate('declarationDetails', { declarationId: item.id })
               }
@@ -244,28 +260,47 @@ export const DeclarationListScreen: React.FC = () => {
               accessibilityLabel={`${t('list.refNumber')} ${item.reference_number}`}
               testID={`declaration-card-${item.id}`}
             >
-              <View style={styles.cardHeader}>
-                <Text style={[styles.referenceText, { color: aesColors.textPrimary }]}>
+              <View
+                style={[
+                  styles.cardHeader,
+                  { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+                ]}
+                testID={`declaration-card-header-${item.id}`}
+              >
+                <AppText
+                  style={[styles.referenceText, { color: colors.foreground }]}
+                  testID={`declaration-reference-${item.id}`}
+                >
                   {item.reference_number || t('list.refUnavailable')}
-                </Text>
-                <AesStatusBadge status={item.status} domain="declaration" />
+                </AppText>
+                <AesStatusBadge
+                  status={item.status}
+                  domain="declaration"
+                  testID={`declaration-status-${item.id}`}
+                />
               </View>
               {item.incident_date ? (
-                <Text style={[styles.cardMeta, { color: aesColors.textSecondary }]}>
+                <AppText
+                  style={[styles.cardMeta, { color: colors.mutedForeground }]}
+                  testID={`declaration-date-${item.id}`}
+                >
                   {`${t('list.incidentDate')}: ${item.incident_date}`}
-                </Text>
+                </AppText>
               ) : null}
               {item.incident_type ? (
-                <Text style={[styles.cardMeta, { color: aesColors.textSecondary }]}>
+                <AppText
+                  style={[styles.cardMeta, { color: colors.mutedForeground }]}
+                  testID={`declaration-type-${item.id}`}
+                >
                   {`${t('list.incidentType')}: ${(t as any)(`form.incidentType.${item.incident_type.replace('_exposure', '')}`) ?? item.incident_type}`}
-                </Text>
+                </AppText>
               ) : null}
               {item.circumstances ? (
-                <Text
-                  style={[styles.cardCircumstances, { color: aesColors.textPrimary }]}
+                <AppText
+                  style={[styles.cardCircumstances, { color: colors.foreground }]}
                 >
                   {item.circumstances}
-                </Text>
+                </AppText>
               ) : null}
             </TouchableOpacity>
           )}
@@ -279,11 +314,12 @@ export default DeclarationListScreen;
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
   chipBar: {
     flexGrow: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: aesColors.borderSubdued,
+    borderBottomColor: colors.border,
   },
   chipBarContent: {
     flexDirection: 'row',
@@ -292,18 +328,20 @@ const styles = StyleSheet.create({
     gap: aesSpacing.xs,
   },
   chip: {
+    minHeight: 48,
+    justifyContent: 'center',
     borderWidth: 1,
     borderRadius: aesRadii.pill,
     paddingHorizontal: aesSpacing.md,
     paddingVertical: aesSpacing.xs,
   },
   chipActive: {
-    backgroundColor: aesColors.accentGreen,
-    borderColor: aesColors.accentGreen,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipInactive: {
-    backgroundColor: aesColors.surface,
-    borderColor: aesColors.borderMedium,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
   },
   chipText: {
     ...aesTypography.labelSmall,
@@ -323,7 +361,7 @@ const styles = StyleSheet.create({
     padding: aesSpacing.cardPadding,
     borderRadius: aesRadii.card,
     borderWidth: 1,
-    borderColor: aesColors.borderSubdued,
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -339,11 +377,15 @@ const styles = StyleSheet.create({
   referenceText: {
     ...aesTypography.heading2,
     flex: 1,
-    marginRight: aesSpacing.sm,
+    marginEnd: aesSpacing.sm,
+    textAlign: 'left',
+    writingDirection: 'ltr',
   },
   cardMeta: {
     ...aesTypography.bodySmall,
     marginTop: 2,
+    textAlign: 'left',
+    writingDirection: 'ltr',
   },
   cardCircumstances: {
     ...aesTypography.bodySmall,
@@ -372,11 +414,17 @@ const styles = StyleSheet.create({
     marginBottom: aesSpacing['2xl'],
     padding: aesSpacing.md,
     borderRadius: aesRadii.pill,
-    backgroundColor: aesColors.primaryAction,
+    backgroundColor: colors.primary,
     alignItems: 'center',
   },
+  newButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: aesSpacing.xs,
+  },
   newButtonText: {
-    color: aesColors.textInverse,
+    color: colors.primaryForeground,
     ...aesTypography.body,
     fontWeight: '600',
   },
@@ -388,4 +436,5 @@ const styles = StyleSheet.create({
     ...aesTypography.labelSmall,
     fontWeight: '600',
   },
-});
+  });
+}

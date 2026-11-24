@@ -15,7 +15,6 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -32,6 +31,7 @@ import { useLocale, t, isRTL } from '../../../localization';
 import { AesScreenContainer, AesButton, AesCard } from '../components';
 import { RootStackParamList } from '../../../navigation/routes';
 
+import AppText from '../../../components/AppText';
 type ParamList = {
   submissionConfirmation: { referenceNumber?: string };
 };
@@ -63,44 +63,46 @@ export const SubmissionConfirmationScreen: React.FC = () => {
             radius={34}
             variant="success"
             style={styles.heroCircle}
+            accessibilityLabel={t('confirm.title', locale)}
+            decorative={false}
             testID="confirmation-hero-circle"
           />
 
           {/* Title & Subtitle */}
-          <Text style={styles.titleText}>{t('confirm.title', locale)}</Text>
-          <Text style={styles.subtitleText}>{t('confirm.subtitle', locale)}</Text>
+          <AppText style={styles.titleText}>{t('confirm.title', locale)}</AppText>
+          <AppText style={styles.subtitleText}>{t('confirm.subtitle', locale)}</AppText>
 
           {/* Monospace Reference Code Box */}
           <View style={styles.referenceContainer}>
-            <Text style={styles.referenceLabel}>{t('confirm.refNumber', locale)}</Text>
-            <Text
+            <AppText style={styles.referenceLabel}>{t('confirm.refNumber', locale)}</AppText>
+            <AppText
               style={styles.referenceValue}
               testID="confirmation-reference-number"
               selectable={Boolean(referenceNumber)}
             >
               {referenceNumber || t('list.refUnavailable', locale)}
-            </Text>
+            </AppText>
           </View>
 
           {/* Formal Confirmation Notice */}
-          <Text
+          <AppText
             style={[
               styles.messageText,
               { textAlign: rtl ? 'right' : 'center' },
             ]}
           >
             {t('confirm.message', locale)}
-          </Text>
+          </AppText>
 
           {/* Localized Prototype Disclaimer */}
-          <Text
+          <AppText
             style={[
               styles.disclaimerText,
               { textAlign: rtl ? 'right' : 'center' },
             ]}
           >
             {t('confirm.disclaimer', locale)}
-          </Text>
+          </AppText>
         </AesCard>
 
         {/* Bottom Navigation Action */}

@@ -16,9 +16,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -52,6 +50,9 @@ import {
 } from '../../../core';
 import { t, useLocale, TranslationKey } from '../../../localization';
 
+import AppText from '../../../components/AppText';
+import AppTextInput from '../../../components/AppTextInput';
+import { AppIconLabel } from '../../../components/AppIcon';
 type ParamList = {
   adminReviewAction: { declarationId: number };
 };
@@ -228,9 +229,9 @@ export const AdminReviewActionScreen: React.FC = () => {
     return (
       <AesScreenContainer testID="admin-review-action-unauthorized">
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>
+          <AppText style={styles.errorText}>
             {t('review.unauthorized')}
-          </Text>
+          </AppText>
         </View>
       </AesScreenContainer>
     );
@@ -250,9 +251,9 @@ export const AdminReviewActionScreen: React.FC = () => {
     return (
       <AesScreenContainer testID="admin-review-action-error">
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>
+          <AppText style={styles.errorText}>
             {t('error.loadFailed')}
-          </Text>
+          </AppText>
         </View>
       </AesScreenContainer>
     );
@@ -295,67 +296,67 @@ export const AdminReviewActionScreen: React.FC = () => {
       <View style={styles.content}>
         {/* Read-only Notice Banner */}
         <View style={styles.noticeBanner}>
-          <Text style={styles.noticeText}>
+          <AppText style={styles.noticeText}>
             {t('review.readOnlyNotice')}
-          </Text>
+          </AppText>
         </View>
 
         {/* Declaration Summary (Read-Only) */}
         <AesCard style={styles.card}>
-          <Text style={styles.sectionHeading}>
+          <AppText style={styles.sectionHeading}>
             {t('reviewAction.declarationSummaryTitle')}
-          </Text>
+          </AppText>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
+            <AppText style={styles.detailLabel}>
               {t('details.incidentDate')} :
-            </Text>
-            <Text style={styles.detailValue}>
+            </AppText>
+            <AppText style={styles.detailValue}>
               {formatReviewDate(declaration.incident_date, locale)}
-            </Text>
+            </AppText>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
+            <AppText style={styles.detailLabel}>
               {t('details.incidentType')} :
-            </Text>
-            <Text style={styles.detailValue}>
+            </AppText>
+            <AppText style={styles.detailValue}>
               {INCIDENT_TYPE_LABELS[declaration.incident_type]
                 ? t(INCIDENT_TYPE_LABELS[declaration.incident_type], locale)
                 : '—'}
-            </Text>
+            </AppText>
           </View>
 
           {declaration.department_code && (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>
+              <AppText style={styles.detailLabel}>
                 {t('details.departmentCode')} :
-              </Text>
-              <Text style={styles.detailValue}>
+              </AppText>
+              <AppText style={styles.detailValue}>
                 {declaration.department_code}
-              </Text>
+              </AppText>
             </View>
           )}
 
           {declaration.exposure_description && (
             <View style={styles.detailBlock}>
-              <Text style={styles.detailLabel}>
+              <AppText style={styles.detailLabel}>
                 {t('details.exposureDescription')} :
-              </Text>
-              <Text style={styles.detailValue}>
+              </AppText>
+              <AppText style={styles.detailValue}>
                 {declaration.exposure_description}
-              </Text>
+              </AppText>
             </View>
           )}
 
           {declaration.circumstances && (
             <View style={styles.detailBlock}>
-              <Text style={styles.detailLabel}>
+              <AppText style={styles.detailLabel}>
                 {t('details.circumstances')} :
-              </Text>
-              <Text style={styles.detailValue}>
+              </AppText>
+              <AppText style={styles.detailValue}>
                 {declaration.circumstances}
-              </Text>
+              </AppText>
             </View>
           )}
         </AesCard>
@@ -363,53 +364,53 @@ export const AdminReviewActionScreen: React.FC = () => {
         {/* Declarant Response for Re-Review (if resubmitted / existing responses) */}
         {correctionResponses.length > 0 && (
           <View style={styles.responseHighlightCard}>
-            <Text style={styles.responseHighlightHeader}>
-              ★ {t('review.declarantResponseHeader')}
-            </Text>
-            <Text style={styles.responseHighlightText}>
+            <AppIconLabel name="sparkles" size="sm" textStyle={styles.responseHighlightHeader}>
+              {t('review.declarantResponseHeader')}
+            </AppIconLabel>
+            <AppText style={styles.responseHighlightText}>
               {correctionResponses[0].response_text}
-            </Text>
-            <Text style={styles.responseHighlightDate}>
+            </AppText>
+            <AppText style={styles.responseHighlightDate}>
               {t('reviewQueue.submittedAt')}{' '}
               {formatReviewDate(correctionResponses[0].responded_at, locale, true)}
-            </Text>
+            </AppText>
           </View>
         )}
 
         {/* Review History */}
         <AesCard style={styles.card}>
-          <Text style={styles.sectionHeading}>
+          <AppText style={styles.sectionHeading}>
             {t('review.historyTitle')} ({reviewHistory.length})
-          </Text>
+          </AppText>
 
           {reviewHistory.length === 0 ? (
-            <Text style={styles.emptyHistoryText}>
+            <AppText style={styles.emptyHistoryText}>
               {t('review.noHistory')}
-            </Text>
+            </AppText>
           ) : (
             reviewHistory.map((rev) => (
               <View key={rev.id} style={styles.historyItem}>
                 <View style={styles.historyItemHeader}>
-                  <Text style={styles.historyOutcome}>
+                  <AppText style={styles.historyOutcome}>
                     {t(`review.outcome.${rev.outcome}` as any)}
-                  </Text>
-                  <Text style={styles.historyDate}>
+                  </AppText>
+                  <AppText style={styles.historyDate}>
                     {rev.reviewed_at
                       ? formatReviewDate(rev.reviewed_at, locale)
                       : ''}
-                  </Text>
+                  </AppText>
                 </View>
 
                 {rev.correction_reason && (
-                  <Text style={styles.historyReason}>
+                  <AppText style={styles.historyReason}>
                     {t('reviewAction.correctionReasonLabel')}{rev.correction_reason}
-                  </Text>
+                  </AppText>
                 )}
 
                 {rev.comments && (
-                  <Text style={styles.historyComments}>
+                  <AppText style={styles.historyComments}>
                     {t('reviewAction.commentsLabel')}{rev.comments}
-                  </Text>
+                  </AppText>
                 )}
               </View>
             ))
@@ -418,9 +419,9 @@ export const AdminReviewActionScreen: React.FC = () => {
 
         {/* Review Decision Form */}
         <AesCard style={styles.card}>
-          <Text style={styles.sectionHeading}>
+          <AppText style={styles.sectionHeading}>
             {t('review.selectOutcome')}
-          </Text>
+          </AppText>
 
           {outcomes.map((item) => {
             const isSelected = selectedOutcome === item.key;
@@ -449,15 +450,15 @@ export const AdminReviewActionScreen: React.FC = () => {
                     {isSelected && <View style={styles.radioInner} />}
                   </View>
                   <View style={styles.outcomeTextContainer}>
-                    <Text style={styles.outcomeTitle}>
+                    <AppText style={styles.outcomeTitle}>
                       {t(item.titleKey)}
-                    </Text>
-                    <Text style={styles.outcomeDesc}>
+                    </AppText>
+                    <AppText style={styles.outcomeDesc}>
                       {t(item.descKey)}
-                    </Text>
-                    <Text style={styles.statusEffectText}>
+                    </AppText>
+                    <AppText style={styles.statusEffectText}>
                       {item.statusEffect}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -467,10 +468,10 @@ export const AdminReviewActionScreen: React.FC = () => {
           {/* Correction reason input (mandatory when correction_requested) */}
           {selectedOutcome === 'correction_requested' && (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
+              <AppText style={styles.inputLabel}>
                 {t('review.correctionReason')}
-              </Text>
-              <TextInput
+              </AppText>
+              <AppTextInput
                 style={[
                   styles.textArea,
                   validationError ? styles.textAreaError : null,
@@ -487,17 +488,17 @@ export const AdminReviewActionScreen: React.FC = () => {
                 accessibilityLabel={t('review.correctionReason')}
               />
               {validationError && (
-                <Text style={styles.errorSubtext}>{validationError}</Text>
+                <AppText style={styles.errorSubtext}>{validationError}</AppText>
               )}
             </View>
           )}
 
           {/* Optional general comments */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
+            <AppText style={styles.inputLabel}>
               {t('review.comments')}
-            </Text>
-            <TextInput
+            </AppText>
+            <AppTextInput
               style={styles.textArea}
               multiline
               numberOfLines={2}

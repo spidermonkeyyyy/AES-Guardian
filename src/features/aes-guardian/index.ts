@@ -25,8 +25,8 @@ export const AES_GUARDIAN_FEATURES = {
 
 // Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Screens
 export { SplashScreen } from './screens/SplashScreen';
+export { AccessScreen } from './screens/AccessScreen';
 export { LanguageSelectionScreen } from './screens/LanguageSelectionScreen';
-export { WelcomeCarouselScreen } from './screens/WelcomeCarouselScreen';
 export { PrototypeDisclaimerScreen } from './screens/PrototypeDisclaimerScreen';
 export { DemoAccountPickerScreen } from './screens/DemoAccountPickerScreen';
 

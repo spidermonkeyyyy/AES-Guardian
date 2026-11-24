@@ -13,7 +13,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
@@ -24,6 +23,7 @@ import { aesTypography, aesSpacing, aesRadii } from '../../../theme/tokens';
 import {
   useLocale,
   setLocale,
+  persistLocale,
   SupportedLocale,
   t,
   isRTL,
@@ -32,6 +32,7 @@ import { AesScreenContainer, AesButton } from '../components';
 import { RootStackParamList } from '../../../navigation/routes';
 import { useTheme } from '../../../theme/ThemeContext';
 
+import AppText from '../../../components/AppText';
 interface LanguageOption {
   code: SupportedLocale;
   nativeLabel: string;
@@ -54,10 +55,11 @@ export const LanguageSelectionScreen: React.FC = () => {
   const handleSelectLanguage = (code: SupportedLocale) => {
     setSelectedLanguage(code);
     setLocale(code);
+    void persistLocale(code);
   };
 
   const handleContinue = () => {
-    navigation.navigate('aesWelcomeCarousel' as any);
+    navigation.navigate('aesDisclaimer');
   };
 
   return (
@@ -65,15 +67,15 @@ export const LanguageSelectionScreen: React.FC = () => {
       <View style={styles.content}>
         {/* Header Section */}
         <View style={styles.header}>
-          <Text style={[styles.overline, { textAlign: rtl ? 'right' : 'left' }]}>
+          <AppText style={[styles.overline, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('onboarding.lang.overline', selectedLanguage)}
-          </Text>
-          <Text style={[styles.title, { textAlign: rtl ? 'right' : 'left' }]}>
+          </AppText>
+          <AppText style={[styles.title, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('onboarding.lang.title', selectedLanguage)}
-          </Text>
-          <Text style={[styles.subtitle, { textAlign: rtl ? 'right' : 'left' }]}>
+          </AppText>
+          <AppText style={[styles.subtitle, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('onboarding.lang.subtitle', selectedLanguage)}
-          </Text>
+          </AppText>
         </View>
 
         {/* Stacked Massive Words (Doji iOS pattern) */}
@@ -86,6 +88,7 @@ export const LanguageSelectionScreen: React.FC = () => {
                 style={[
                   styles.languageCard,
                   isSelected ? styles.languageCardSelected : styles.languageCardUnselected,
+                  { flexDirection: rtl ? 'row-reverse' : 'row' },
                 ]}
                 onPress={() => handleSelectLanguage(lang.code)}
                 activeOpacity={0.8}
@@ -95,7 +98,7 @@ export const LanguageSelectionScreen: React.FC = () => {
                 accessibilityState={{ selected: isSelected }}
               >
                 <View style={styles.cardTextColumn}>
-                  <Text
+                  <AppText
                     style={[
                       styles.massiveWord,
                       isSelected ? styles.massiveWordSelected : styles.massiveWordUnselected,
@@ -103,7 +106,7 @@ export const LanguageSelectionScreen: React.FC = () => {
                     ]}
                   >
                     {lang.nativeLabel}
-                  </Text>
+                  </AppText>
                 </View>
 
                 <View
@@ -111,6 +114,7 @@ export const LanguageSelectionScreen: React.FC = () => {
                     styles.radioCircle,
                     isSelected ? styles.radioCircleSelected : styles.radioCircleUnselected,
                   ]}
+                  testID={`lang-radio-${lang.code}`}
                 >
                   {isSelected ? (
                       <AppIcon name="check" size={16} color={colors.primaryForeground} />
@@ -188,7 +192,6 @@ function createStyles(colors: ReturnType<typeof import('../../../theme/tokens/co
       flex: 1,
     },
     massiveWord: {
-      fontFamily: aesTypography.displayLarge.fontFamily,
       fontSize: 22,
       lineHeight: 28,
       fontWeight: '700',

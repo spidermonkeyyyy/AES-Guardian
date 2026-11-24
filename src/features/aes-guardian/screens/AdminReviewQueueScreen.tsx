@@ -15,7 +15,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -47,6 +46,8 @@ import {
 } from '../../../core';
 import { t, useLocale } from '../../../localization';
 
+import AppText from '../../../components/AppText';
+import { AppIconLabel } from '../../../components/AppIcon';
 type FilterType = 'all' | 'submitted' | 'under_review' | 'correction_requested' | 'resubmitted';
 
 const DATE_LOCALES = {
@@ -120,12 +121,12 @@ export const AdminReviewQueueScreen: React.FC = () => {
       <AesScreenContainer testID="admin-review-queue-unauthorized">
         <View style={styles.centerContainer}>
           <View style={styles.unauthorizedCard}>
-            <Text style={styles.unauthorizedTitle}>
+            <AppText style={styles.unauthorizedTitle}>
               {t('review.unauthorized')}
-            </Text>
-            <Text style={styles.unauthorizedText}>
+            </AppText>
+            <AppText style={styles.unauthorizedText}>
               {t('reviewAction.unauthorizedNotice')}
-            </Text>
+            </AppText>
           </View>
         </View>
       </AesScreenContainer>
@@ -152,47 +153,45 @@ export const AdminReviewQueueScreen: React.FC = () => {
         activeOpacity={0.85}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.refNumber}>{item.reference_number}</Text>
+          <AppText style={styles.refNumber}>{item.reference_number}</AppText>
           <AesStatusBadge status={item.status} domain="declaration" />
         </View>
 
         <View style={styles.cardBody}>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>{t('list.incidentDate')} :</Text>
-            <Text style={styles.metaValue}>{formatQueueDate(item.incident_date, locale)}</Text>
+            <AppText style={styles.metaLabel}>{t('list.incidentDate')} :</AppText>
+            <AppText style={styles.metaValue}>{formatQueueDate(item.incident_date, locale)}</AppText>
           </View>
 
           {item.submitted_at && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>{t('reviewQueue.submittedAt')}</Text>
-              <Text style={styles.metaValue}>
+              <AppText style={styles.metaLabel}>{t('reviewQueue.submittedAt')}</AppText>
+              <AppText style={styles.metaValue}>
                 {formatQueueDate(item.submitted_at, locale, true)}
-              </Text>
+              </AppText>
             </View>
           )}
 
           {item.department_code && (
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>{t('details.departmentCode')} :</Text>
-              <Text style={styles.metaValue}>{item.department_code}</Text>
+              <AppText style={styles.metaLabel}>{t('details.departmentCode')} :</AppText>
+              <AppText style={styles.metaValue}>{item.department_code}</AppText>
             </View>
           )}
 
           {isResubmitted && (
             <View style={styles.responseIndicator}>
-              <Text style={styles.responseIndicatorText}>
-                ★ {t('reviewQueue.filterResubmitted')} — {t('review.declarantResponseHeader')}
-              </Text>
+              <AppIconLabel name="sparkles" size="sm" textStyle={styles.responseIndicatorText}>
+                {t('reviewQueue.filterResubmitted')} — {t('review.declarantResponseHeader')}
+              </AppIconLabel>
             </View>
           )}
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.openReviewText}>
-            {isResubmitted
-              ? `${t('review.rereviewButton')} →`
-              : `${t('reviewQueue.openReview')} →`}
-          </Text>
+          <AppIconLabel name="forward" size="sm" textStyle={styles.openReviewText}>
+            {isResubmitted ? t('review.rereviewButton') : t('reviewQueue.openReview')}
+          </AppIconLabel>
         </View>
       </TouchableOpacity>
     );
@@ -208,12 +207,12 @@ export const AdminReviewQueueScreen: React.FC = () => {
       <View style={styles.reviewerSessionBanner}>
         <View style={styles.sessionDot} />
         <View style={styles.sessionTextContainer}>
-          <Text style={styles.sessionTitle}>
+          <AppText style={styles.sessionTitle}>
             {t('reviewQueue.reviewerBadge')}
-          </Text>
-          <Text style={styles.sessionSubtitle}>
+          </AppText>
+          <AppText style={styles.sessionSubtitle}>
             {reviewerContext.displayName} ({t(`role.${reviewerContext.role}` as any, locale)})
-          </Text>
+          </AppText>
         </View>
       </View>
 
@@ -251,14 +250,14 @@ export const AdminReviewQueueScreen: React.FC = () => {
                 accessibilityLabel={t(labelKey as any, locale)}
                 accessibilityState={{ selected: isSelected }}
               >
-                <Text
+                <AppText
                   style={[
                     styles.filterText,
                     isSelected ? styles.filterTextActive : styles.filterTextInactive,
                   ]}
                 >
                   {t(labelKey as any, locale)}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -271,7 +270,7 @@ export const AdminReviewQueueScreen: React.FC = () => {
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <AppText style={styles.errorText}>{error}</AppText>
           <AesButton
             title={t('reviewQueue.refresh')}
             onPress={loadQueue}
@@ -295,12 +294,12 @@ export const AdminReviewQueueScreen: React.FC = () => {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>
+              <AppText style={styles.emptyTitle}>
                 {t('reviewQueue.empty')}
-              </Text>
-              <Text style={styles.emptySubtitle}>
+              </AppText>
+              <AppText style={styles.emptySubtitle}>
                 {t('reviewQueue.emptySubtitle')}
-              </Text>
+              </AppText>
             </View>
           }
         />

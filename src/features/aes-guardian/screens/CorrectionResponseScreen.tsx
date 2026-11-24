@@ -19,8 +19,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   Alert,
   ActivityIndicator,
@@ -50,6 +48,9 @@ import {
 } from '../../../core';
 import { t, useLocale } from '../../../localization';
 
+import AppText from '../../../components/AppText';
+import AppTextInput from '../../../components/AppTextInput';
+import { AppIconLabel } from '../../../components/AppIcon';
 type ParamList = {
   correctionResponse: { declarationId: number; reviewId: number };
 };
@@ -179,7 +180,7 @@ export const CorrectionResponseScreen: React.FC = () => {
     return (
       <AesScreenContainer testID="correction-response-error">
         <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
+          <AppText style={styles.errorText}>{error}</AppText>
           <AesButton
             title={t('reviewQueue.refresh')}
             onPress={loadCorrectionRequest}
@@ -201,40 +202,40 @@ export const CorrectionResponseScreen: React.FC = () => {
       <View style={styles.contentContainer}>
         {/* SYNTHETIC DEMO BANNER */}
         <View style={styles.demoBanner}>
-          <Text style={styles.demoBannerText}>
-            ⚠ {t('correction.demoContext', locale)}
-          </Text>
+          <AppIconLabel name="alert-triangle" size="sm" textStyle={styles.demoBannerText}>
+            {t('correction.demoContext', locale)}
+          </AppIconLabel>
         </View>
 
         {/* Reviewer's Request Card */}
         {correctionRequest && (
           <View style={styles.requestCard}>
-            <Text style={styles.sectionHeader}>
+            <AppText style={styles.sectionHeader}>
               {t('correction.requestHeader')}
-            </Text>
+            </AppText>
 
-            <Text style={styles.fieldLabel}>
+            <AppText style={styles.fieldLabel}>
               {t('correction.reasonLabel')}
-            </Text>
-            <Text style={styles.fieldValue}>
+            </AppText>
+            <AppText style={styles.fieldValue}>
               {correctionRequest.correction_reason || '—'}
-            </Text>
+            </AppText>
 
             {correctionRequest.comments ? (
               <>
-                <Text style={styles.fieldLabel}>
+                <AppText style={styles.fieldLabel}>
                   {t('correction.commentsLabel')}
-                </Text>
-                <Text style={styles.fieldValue}>
+                </AppText>
+                <AppText style={styles.fieldValue}>
                   {correctionRequest.comments}
-                </Text>
+                </AppText>
               </>
             ) : null}
 
             <View style={styles.separationNoticeBox}>
-              <Text style={styles.separationNoticeText}>
+              <AppText style={styles.separationNoticeText}>
                 {t('review.readOnlyNotice')}
-              </Text>
+              </AppText>
             </View>
           </View>
         )}
@@ -242,17 +243,17 @@ export const CorrectionResponseScreen: React.FC = () => {
         {/* Response Input */}
         <AesCard style={styles.inputSection}>
           <View style={styles.inputLabelRow}>
-            <Text style={styles.inputLabel}>
+            <AppText style={styles.inputLabel}>
               {t('correction.inputLabel')}
-            </Text>
-            <Text style={styles.characterCount}>
+            </AppText>
+            <AppText style={styles.characterCount}>
               {t('correction.characterCount', locale).replace(
                 '{count}',
                 String(responseText.length),
               )}
-            </Text>
+            </AppText>
           </View>
-          <TextInput
+          <AppTextInput
             style={styles.textInput}
             multiline
             numberOfLines={6}
@@ -267,7 +268,7 @@ export const CorrectionResponseScreen: React.FC = () => {
         </AesCard>
 
         {error ? (
-          <Text style={styles.inlineError}>{error}</Text>
+          <AppText style={styles.inlineError}>{error}</AppText>
         ) : null}
 
         <View style={styles.submitContainer}>

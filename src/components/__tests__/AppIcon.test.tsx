@@ -31,6 +31,24 @@ describe('shared Hugeicons and typography foundation', () => {
     expect(iconStrokeWidths).toEqual({ compact: 1.5, standard: 1.75, strong: 2 });
   });
 
+  it('covers the active screen mappings and uses the help icon for unsupported names', () => {
+    expect(appIconRegistry).toEqual(
+      expect.objectContaining({
+        'alert-triangle': expect.anything(),
+        'book-open': expect.anything(),
+        'document-add': expect.anything(),
+        lock: expect.anything(),
+        search: expect.anything(),
+        sparkles: expect.anything(),
+        'user-switch': expect.anything(),
+      }),
+    );
+    expect(resolveAppIcon('forward-chevron', 'ltr')).toBe(
+      resolveAppIcon('chevron-right', 'ltr'),
+    );
+    expect(resolveAppIcon('unknown-screen-icon', 'ltr')).toBe(appIconRegistry['help-circle']);
+  });
+
   it('renders decorative icons with themed defaults and hides them from accessibility', () => {
     render(
       <ThemeProvider>

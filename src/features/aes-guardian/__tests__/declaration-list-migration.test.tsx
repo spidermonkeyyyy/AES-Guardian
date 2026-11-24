@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
-import { Button, List, ListItem } from '@ui-kitten/components';
+import { Button } from '@ui-kitten/components';
 import {
   getDatabase,
   initializeDatabase,
@@ -130,7 +130,7 @@ describe('DeclarationListScreen controlled UI Kitten migration', () => {
     resetDatabaseForTesting();
   });
 
-  it('renders the real Kitten list and controls while preserving all five filter results and stored data', async () => {
+  it('renders the native list and controls while preserving all five filter results and stored data', async () => {
     const db = getDatabase();
     const persistedBefore = await db.getDeclarations({ requestingUserId: 1 });
     const view = render(
@@ -140,9 +140,8 @@ describe('DeclarationListScreen controlled UI Kitten migration', () => {
     );
 
     expect(await screen.findByText('Mes déclarations')).toBeTruthy();
-    expect(view.UNSAFE_getByType(List)).toBeTruthy();
-    expect(view.UNSAFE_getAllByType(Button).length).toBeGreaterThanOrEqual(6);
-    expect(view.UNSAFE_getAllByType(ListItem).length).toBeGreaterThan(0);
+    expect(view.UNSAFE_getByType(FlatList)).toBeTruthy();
+    expect(view.UNSAFE_getAllByType(TouchableOpacity).length).toBeGreaterThanOrEqual(6);
 
     const visibleIds = () =>
       new Set(
@@ -157,18 +156,11 @@ describe('DeclarationListScreen controlled UI Kitten migration', () => {
       expect(visibleIds()).toEqual(expected(Object.values(declarationIds)));
     });
 
-    const listItem = view
-      .UNSAFE_getAllByType(ListItem)
-      .find((item) => item.props.testID === `declaration-card-${declarationIds.draft}`);
-    const rowBody = screen.getByTestId(`declaration-row-body-${declarationIds.draft}`);
-    expect(listItem).toBeTruthy();
-    expect(React.Children.count(listItem?.props.children)).toBe(1);
-    expect(StyleSheet.flatten(rowBody.props.style).flexDirection).toBe('column');
-    expect(within(rowBody).getByTestId(`declaration-reference-${declarationIds.draft}`)).toBeTruthy();
-    expect(within(rowBody).getByTestId(`declaration-status-${declarationIds.draft}`)).toBeTruthy();
-    expect(within(rowBody).getByTestId(`declaration-date-${declarationIds.draft}`)).toBeTruthy();
-    expect(within(rowBody).getByTestId(`declaration-type-${declarationIds.draft}`)).toBeTruthy();
-    expect(within(rowBody).getByText('Needlestick during suturing')).toBeTruthy();
+    const listItem = screen.getByTestId(`declaration-card-${declarationIds.draft}`);
+    const draftDeclaration = persistedBefore.find((item) => item.id === declarationIds.draft);
+    expect(React.Children.count(listItem.props.children)).toBeGreaterThan(0);
+    expect(within(listItem).getByText(draftDeclaration?.reference_number ?? '')).toBeTruthy();
+    expect(within(listItem).getByText('Needlestick during suturing')).toBeTruthy();
 
     const filters = [
       { key: 'all', ids: Object.values(declarationIds) },

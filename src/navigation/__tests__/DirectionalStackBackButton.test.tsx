@@ -63,9 +63,9 @@ describe('DirectionalStackBackButton', () => {
   });
 
   it.each([
-    ['fr', 'Espace AES Guardian'],
-    ['en', 'AES Guardian Workspace'],
-    ['ar', 'مساحة AES Guardian'],
+    ['fr', 'Espace SANAD'],
+    ['en', 'SANAD Workspace'],
+    ['ar', 'مساحة SANAD'],
   ] as const)('uses the active %s workspace title', (locale, title) => {
     expect(getLocalizedStackTitle('aesGuardianWorkspace', 'stale title', locale)).toBe(title);
   });

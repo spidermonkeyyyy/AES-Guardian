@@ -13,7 +13,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -34,18 +33,20 @@ import {
   t,
   useLocale,
   setLocale,
-  SupportedLocale,
+  persistLocale,
   SUPPORTED_LOCALES,
   LOCALE_LABELS,
   TranslationKey,
 } from '../../../localization';
 import { RootStackParamList } from '../../../navigation/routes';
 
+import AppText from '../../../components/AppText';
+import { AppIcon, AppIconLabel } from '../../../components/AppIcon';
 export const AesGuardianProfileScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const locale = useLocale();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, locale === 'ar');
 
   const { activeRole, activeContext, setRole } = useDemoRoleStore();
   const [resetting, setResetting] = useState(false);
@@ -192,46 +193,46 @@ export const AesGuardianProfileScreen: React.FC = () => {
     <ScrollView style={styles.root} contentContainerStyle={styles.container}>
       {/* Screen Title */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('profile.title', locale)}</Text>
-        <Text style={styles.subtitle}>{t('profile.subtitle', locale)}</Text>
+        <AppText style={styles.title}>{t('profile.title', locale)}</AppText>
+        <AppText style={styles.subtitle}>{t('profile.subtitle', locale)}</AppText>
       </View>
 
       {/* Active Account Identity Card */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          👤 {t('profile.accountSection', locale)}
-        </Text>
+        <AppIconLabel name="user" textStyle={styles.cardSectionTitle}>
+          {t('profile.accountSection', locale)}
+        </AppIconLabel>
         <View style={styles.profileRow}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>
+            <AppText style={styles.avatarText}>
               {activeDef.defaultLabel.charAt(0).toUpperCase()}
-            </Text>
+            </AppText>
           </View>
           <View style={styles.profileInfo}>
             <View style={styles.profileNameRow}>
-              <Text style={styles.displayName}>{activeContext.displayName}</Text>
+              <AppText style={styles.displayName}>{activeContext.displayName}</AppText>
             </View>
-            <Text style={styles.roleLabel}>
+            <AppText style={styles.roleLabel}>
               {t(activeDef.labelKey as any, locale) || activeDef.defaultLabel}
-            </Text>
-            <Text style={styles.roleDescription}>
+            </AppText>
+            <AppText style={styles.roleDescription}>
               {t(activeDef.descriptionKey as any, locale) || activeDef.defaultDescription}
-            </Text>
+            </AppText>
           </View>
         </View>
 
         <View style={styles.demoNoticeBox}>
-          <Text style={styles.demoNoticeText}>
-            ℹ️ {t('profile.demoAccountNotice', locale)}
-          </Text>
+          <AppIconLabel name="info" size="sm" textStyle={styles.demoNoticeText}>
+            {t('profile.demoAccountNotice', locale)}
+          </AppIconLabel>
         </View>
       </View>
 
       {/* Role Switcher Section */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          🔄 {t('profile.roleSection', locale)}
-        </Text>
+        <AppIconLabel name="user-switch" textStyle={styles.cardSectionTitle}>
+          {t('profile.roleSection', locale)}
+        </AppIconLabel>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roleScroll}>
           {DEMO_ROLE_DEFINITIONS.map((def) => {
             const isSelected = def.role === activeRole;
@@ -243,11 +244,11 @@ export const AesGuardianProfileScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={t(def.labelKey as any, locale) || def.defaultLabel}
               >
-                <Text
+                <AppText
                   style={[styles.rolePillText, isSelected && styles.rolePillTextActive]}
                 >
                   {t(def.labelKey as any, locale) || def.defaultLabel}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             );
           })}
@@ -256,39 +257,39 @@ export const AesGuardianProfileScreen: React.FC = () => {
 
       {/* Permissions & Access Boundaries Card */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          🛡️ {t('profile.permissionsSection', locale)}
-        </Text>
+        <AppIconLabel name="shield-check" textStyle={styles.cardSectionTitle}>
+          {t('profile.permissionsSection', locale)}
+        </AppIconLabel>
 
-        <Text style={styles.subheadingGreen}>
-          ✓ {t('profile.authorizedCapabilities', locale)} :
-        </Text>
+        <AppIconLabel name="check" size="sm" color={colors.success} textStyle={styles.subheadingGreen}>
+          {t('profile.authorizedCapabilities', locale)} :
+        </AppIconLabel>
         {currentCaps.authorized.map((capKey) => (
           <View key={capKey} style={styles.capabilityRow}>
-            <Text style={styles.checkIcon}>✓</Text>
-            <Text style={styles.capabilityText}>{t(capKey, locale)}</Text>
+            <AppIcon name="check" size={16} color={colors.success} />
+            <AppText style={styles.capabilityText}>{t(capKey, locale)}</AppText>
           </View>
         ))}
 
-        <Text style={styles.subheadingRed}>
-          ✕ {t('profile.restrictedCapabilities', locale)} :
-        </Text>
+        <AppIconLabel name="lock" size="sm" color={colors.destructive} textStyle={styles.subheadingRed}>
+          {t('profile.restrictedCapabilities', locale)} :
+        </AppIconLabel>
         {currentCaps.restricted.map((restrKey) => (
           <View key={restrKey} style={styles.capabilityRow}>
-            <Text style={styles.crossIcon}>🔒</Text>
-            <Text style={styles.restrictedText}>{t(restrKey, locale)}</Text>
+            <AppIcon name="lock" size={16} color={colors.destructive} />
+            <AppText style={styles.restrictedText}>{t(restrKey, locale)}</AppText>
           </View>
         ))}
       </View>
 
       {/* Language Selector Card */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          🌐 {t('profile.languageSection', locale)}
-        </Text>
-        <Text style={styles.cardSubtitle}>
+        <AppIconLabel name="globe" textStyle={styles.cardSectionTitle}>
+          {t('profile.languageSection', locale)}
+        </AppIconLabel>
+        <AppText style={styles.cardSubtitle}>
           {t('profile.languageSelectorTitle', locale)}
-        </Text>
+        </AppText>
 
         <View style={styles.languageButtonsRow}>
           {SUPPORTED_LOCALES.map((loc) => {
@@ -300,43 +301,45 @@ export const AesGuardianProfileScreen: React.FC = () => {
                   styles.languageButton,
                   isSelected && styles.languageButtonActive,
                 ]}
-                onPress={() => setLocale(loc)}
+                onPress={() => {
+                  setLocale(loc);
+                  void persistLocale(loc);
+                }}
                 accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
               >
-                <Text
-                  style={[
+                <View style={styles.languageButtonContent}>
+                  <AppText style={[
                     styles.languageButtonText,
                     isSelected && styles.languageButtonTextActive,
-                  ]}
-                >
-                  {LOCALE_LABELS[loc]} {isSelected ? '✓' : ''}
-                </Text>
+                  ]}>{LOCALE_LABELS[loc]}</AppText>
+                  {isSelected && <AppIcon name="check" size={14} color={colors.primaryForeground} />}
+                </View>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={styles.rtlNoticeText}>
+        <AppText style={styles.rtlNoticeText}>
           {t('profile.rtlNotice', locale)}
-        </Text>
+        </AppText>
       </View>
 
       {/* Documentation & Quick Links Card */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          📚 {t('profile.navigationSection', locale)}
-        </Text>
+        <AppIconLabel name="book" textStyle={styles.cardSectionTitle}>
+          {t('profile.navigationSection', locale)}
+        </AppIconLabel>
 
         <TouchableOpacity
           style={styles.linkRow}
           onPress={() => navigation.navigate('helpGlossary', { initialSection: 'help' })}
           accessibilityRole="button"
         >
-          <View style={styles.linkLeft}>
-            <Text style={styles.linkIcon}>📖</Text>
-            <Text style={styles.linkText}>{t('profile.helpCenterLink', locale)}</Text>
-          </View>
-          <Text style={styles.linkChevron}>›</Text>
+          <AppIconLabel name="book-open" textStyle={styles.linkText} style={styles.linkLeft}>
+            {t('profile.helpCenterLink', locale)}
+          </AppIconLabel>
+          <AppIcon name="forward-chevron" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -344,11 +347,10 @@ export const AesGuardianProfileScreen: React.FC = () => {
           onPress={() => navigation.navigate('helpGlossary', { initialSection: 'glossary' })}
           accessibilityRole="button"
         >
-          <View style={styles.linkLeft}>
-            <Text style={styles.linkIcon}>📚</Text>
-            <Text style={styles.linkText}>{t('profile.glossaryLink', locale)}</Text>
-          </View>
-          <Text style={styles.linkChevron}>›</Text>
+          <AppIconLabel name="book" textStyle={styles.linkText} style={styles.linkLeft}>
+            {t('profile.glossaryLink', locale)}
+          </AppIconLabel>
+          <AppIcon name="forward-chevron" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -356,33 +358,32 @@ export const AesGuardianProfileScreen: React.FC = () => {
           onPress={() => navigation.navigate('aesSplash' as any, { replay: true })}
           accessibilityRole="button"
         >
-          <View style={styles.linkLeft}>
-            <Text style={styles.linkIcon}>✨</Text>
-            <Text style={styles.linkText}>{t('profile.guidedTourLink', locale)}</Text>
-          </View>
-          <Text style={styles.linkChevron}>›</Text>
+          <AppIconLabel name="sparkles" textStyle={styles.linkText} style={styles.linkLeft}>
+            {t('profile.guidedTourLink', locale)}
+          </AppIconLabel>
+          <AppIcon name="forward-chevron" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
 
       {/* Privacy & Ethical Boundaries Card */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          🔒 {t('profile.privacySection', locale)}
-        </Text>
-        <Text style={styles.privacyBodyText}>
+        <AppIconLabel name="lock" textStyle={styles.cardSectionTitle}>
+          {t('profile.privacySection', locale)}
+        </AppIconLabel>
+        <AppText style={styles.privacyBodyText}>
           {t('profile.privacyContent', locale)}
-        </Text>
+        </AppText>
       </View>
 
       {/* Technical Maintenance & Demo Reset (tech_admin only) */}
       {activeRole === 'tech_admin' && (
         <View style={[styles.card, styles.techCard]}>
-          <Text style={styles.techTitle}>
-            ⚙️ {t('reset.sectionTitle', locale)}
-          </Text>
-          <Text style={styles.techDesc}>
+          <AppIconLabel name="settings" textStyle={styles.techTitle}>
+            {t('reset.sectionTitle', locale)}
+          </AppIconLabel>
+          <AppText style={styles.techDesc}>
             {t('reset.sectionDesc', locale)}
-          </Text>
+          </AppText>
 
           <TouchableOpacity
             style={[styles.resetButton, resetting && styles.resetButtonDisabled]}
@@ -394,9 +395,9 @@ export const AesGuardianProfileScreen: React.FC = () => {
             {resetting ? (
               <ActivityIndicator color={colors.dangerForeground} size="small" />
             ) : (
-              <Text style={styles.resetButtonText}>
-                ⚠️ {t('reset.buttonLabel', locale)}
-              </Text>
+              <AppIconLabel name="alert-triangle" size="sm" color={colors.dangerForeground} textStyle={styles.resetButtonText}>
+                {t('reset.buttonLabel', locale)}
+              </AppIconLabel>
             )}
           </TouchableOpacity>
         </View>
@@ -404,21 +405,21 @@ export const AesGuardianProfileScreen: React.FC = () => {
 
       {/* About the Prototype */}
       <View style={styles.card}>
-        <Text style={styles.cardSectionTitle}>
-          ℹ️ {t('profile.aboutSection', locale)}
-        </Text>
+        <AppIconLabel name="info" textStyle={styles.cardSectionTitle}>
+          {t('profile.aboutSection', locale)}
+        </AppIconLabel>
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{t('profile.appNameLabel', locale)}</Text>
+          <AppText style={styles.metaLabel}>{t('profile.appNameLabel', locale)}</AppText>
         </View>
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{t('profile.dbEngineLabel', locale)}</Text>
+          <AppText style={styles.metaLabel}>{t('profile.dbEngineLabel', locale)}</AppText>
         </View>
       </View>
     </ScrollView>
   );
 };
 
-function createStyles(colors: any) {
+function createStyles(colors: any, isRtl: boolean) {
   return StyleSheet.create({
     root: {
       flex: 1,
@@ -436,13 +437,11 @@ function createStyles(colors: any) {
       fontSize: typography.fontSize.xl,
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
-      fontFamily: typography.fontFamily.urbanist,
       marginBottom: 2,
     },
     subtitle: {
       fontSize: typography.fontSize.xs,
       color: colors.mutedForeground,
-      fontFamily: typography.fontFamily.openSans,
     },
     card: {
       backgroundColor: colors.card,
@@ -463,7 +462,7 @@ function createStyles(colors: any) {
       marginBottom: spacing.xs,
     },
     profileRow: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'center',
       gap: spacing.md,
       marginBottom: spacing.sm,
@@ -485,7 +484,7 @@ function createStyles(colors: any) {
       flex: 1,
     },
     profileNameRow: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'center',
       gap: spacing.xs,
       marginBottom: 2,
@@ -556,19 +555,11 @@ function createStyles(colors: any) {
       marginBottom: spacing.xs,
     },
     capabilityRow: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'center',
       gap: spacing.xs,
       marginBottom: 4,
       paddingLeft: spacing.xs,
-    },
-    checkIcon: {
-      fontSize: 12,
-      color: colors.success,
-      fontWeight: 'bold',
-    },
-    crossIcon: {
-      fontSize: 12,
     },
     capabilityText: {
       fontSize: typography.fontSize.xs - 1,
@@ -581,7 +572,7 @@ function createStyles(colors: any) {
       flex: 1,
     },
     languageButtonsRow: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       gap: spacing.sm,
       marginTop: spacing.xs,
       marginBottom: spacing.xs,
@@ -609,6 +600,11 @@ function createStyles(colors: any) {
       color: colors.primaryForeground ?? '#ffffff',
       fontWeight: typography.fontWeight.bold,
     },
+    languageButtonContent: {
+      flexDirection: isRtl ? 'row-reverse' : 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
     rtlNoticeText: {
       fontSize: typography.fontSize.xs - 2,
       color: colors.mutedForeground,
@@ -616,7 +612,7 @@ function createStyles(colors: any) {
       marginTop: spacing.xs,
     },
     linkRow: {
-      flexDirection: 'row',
+      flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingVertical: spacing.sm,
@@ -624,21 +620,13 @@ function createStyles(colors: any) {
       borderBottomColor: colors.border,
     },
     linkLeft: {
-      flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-    },
-    linkIcon: {
-      fontSize: 18,
     },
     linkText: {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.medium,
       color: colors.foreground,
-    },
-    linkChevron: {
-      fontSize: 18,
-      color: colors.mutedForeground,
     },
     privacyBodyText: {
       fontSize: typography.fontSize.xs - 1,

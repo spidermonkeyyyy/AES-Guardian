@@ -8,7 +8,10 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  StyleSheet,
+} from 'react-native';
 import {
   aesDeclarationStatusColors,
   aesOhCoordinationStatusColors,
@@ -19,6 +22,7 @@ import { t } from '../../../localization';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getThemeColors } from '../../../theme/tokens/colors';
 
+import AppText from '../../../components/AppText';
 export type BadgeDomain = 'declaration' | 'ohCoordination' | 'capa';
 
 export interface AesStatusBadgeProps {
@@ -70,12 +74,12 @@ export const AesStatusBadge: React.FC<AesStatusBadgeProps> = ({
       accessibilityLabel={accessibilityLabel ?? label}
       testID={testID ?? 'aes-status-badge'}
     >
-      <Text
+      <AppText
         style={[styles.text, { color: statusColors.text }]}
         testID={`${testID ?? 'aes-status-badge'}-text`}
       >
         {label}
-      </Text>
+      </AppText>
     </View>
   );
 };

@@ -35,10 +35,10 @@ describe('Schema initialization', () => {
     await expect(initializeDatabase()).resolves.toBeDefined();
   });
 
-  it('applies all migrations (versions 1..8)', async () => {
+  it('applies all migrations (versions 1..10)', async () => {
     const db = await initializeDatabase();
     const versions = await db.getAppliedVersions();
-    expect(versions.map(v => v.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(versions.map(v => v.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   it('is idempotent — re-initialization does not duplicate versions', async () => {
@@ -46,7 +46,7 @@ describe('Schema initialization', () => {
     resetDatabaseForTesting();
     const db = await initializeDatabase();
     const versions = await db.getAppliedVersions();
-    expect(versions.length).toBe(8);
+    expect(versions.length).toBe(10);
   });
 
   it('seeds synthetic demo users during migration 2', async () => {

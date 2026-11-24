@@ -11,7 +11,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
@@ -28,6 +27,7 @@ import {
 } from '../../../core';
 import { t } from '../../../localization';
 
+import AppText from '../../../components/AppText';
 type ParamList = {
   declarationCoordinationStatus: { declarationId: number };
 };
@@ -90,12 +90,12 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
   if (!isAuthorized) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+        <AppText style={[styles.sectionTitle, { color: colors.foreground }]}>
           {t('oh.error.unauthorized')}
-        </Text>
-        <Text style={[styles.errorText, { color: colors.mutedForeground }]}>
+        </AppText>
+        <AppText style={[styles.errorText, { color: colors.mutedForeground }]}>
           {t('oh.detail.unauthorizedMessage')}
-        </Text>
+        </AppText>
       </View>
     );
   }
@@ -111,11 +111,11 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
   if (error) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+        <AppText style={[styles.errorText, { color: colors.destructive }]}>{error}</AppText>
         <TouchableOpacity style={styles.retryButton} onPress={loadStatus}>
-          <Text style={{ color: colors.primary, fontSize: typography.fontSize.bodySmall }}>
+          <AppText style={{ color: colors.primary, fontSize: typography.fontSize.bodySmall }}>
             {t('oh.queue.refresh')}
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </View>
     );
@@ -123,20 +123,20 @@ export const DeclarationCoordinationStatusScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.decl.coordinationStatus')}</Text>
+      <AppText style={[styles.sectionTitle, { color: colors.foreground }]}>{t('oh.decl.coordinationStatus')}</AppText>
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {coordination ? (
           <View style={[styles.statusBadge, getStatusColors(coordination.status)]}>
-            <Text style={[styles.statusText, { color: getStatusColors(coordination.status).color }]}>
+            <AppText style={[styles.statusText, { color: getStatusColors(coordination.status).color }]}>
               {t(`oh.status.${coordination.status}` as any)}
-            </Text>
+            </AppText>
           </View>
         ) : (
-          <Text style={[styles.noCoordText, { color: colors.mutedForeground }]}>{t('oh.decl.noActiveCoordination')}</Text>
+          <AppText style={[styles.noCoordText, { color: colors.mutedForeground }]}>{t('oh.decl.noActiveCoordination')}</AppText>
         )}
       </View>
       <View style={[styles.noteBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.noteText, { color: colors.mutedForeground }]}>{t('oh.disclaimer.clinical')}</Text>
+        <AppText style={[styles.noteText, { color: colors.mutedForeground }]}>{t('oh.disclaimer.clinical')}</AppText>
       </View>
     </View>
   );
