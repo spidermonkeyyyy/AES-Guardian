@@ -91,10 +91,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
       ) : (
         <View style={styles.contentRow} pointerEvents="none">
           {icon && <View style={styles.iconContainer}>{icon}</View>}
-          <AppText
-            variant="label"
-            style={[...getTextStyle(), textStyle]}
-          >
+          <AppText typographyRole="button" style={[...getTextStyle(), textStyle]}>
             {title}
           </AppText>
         </View>
@@ -140,9 +137,9 @@ const styles = StyleSheet.create({
     marginEnd: spacing.xs,
   },
   baseText: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.bodyMedium,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: typography.fontWeight.medium,
   },
   smallText: {
     fontSize: typography.fontSize.bodySmall,

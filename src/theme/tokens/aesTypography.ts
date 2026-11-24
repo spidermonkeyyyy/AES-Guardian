@@ -1,22 +1,17 @@
 /**
  * AES Guardian Design System — Typography Tokens
  *
- * Implements the editorial serif heading and legible sans-serif body scale
- * per Phase 2E UI Implementation Blueprint Section 4.2.
- *
- * Font selections rely strictly on pre-existing platform and project assets:
- * - Serifs: System serif ('Georgia' on iOS, 'serif' on Android)
- * - Sans: System sans-serif ('System' / 'SF Pro' on iOS, 'sans-serif' / 'Roboto' on Android)
- * - Monospace: System monospace ('Menlo' on iOS, 'monospace' on Android)
- * - Arabic: Fallback to system Arabic fonts ('Geeza Pro' on iOS, 'sans-serif' on Android)
+ * Central SANAD typography scale using IBM Plex for interface text and Readex Pro
+ * for section-level headings. Locale-aware shared text components select Arabic IBM Plex.
  */
 
 import { Platform, TextStyle } from 'react-native';
 import { typography } from './typography';
 
 export const aesFontFamilies = {
-  heading: typography.fontFamily.urbanist,
+  heading: typography.fontFamily.display,
   body: typography.fontFamily.openSans,
+  readex: typography.fontFamily.heading,
   monospace: Platform.select({
     ios: 'Menlo',
     android: 'monospace',
@@ -67,32 +62,32 @@ export const aesLineHeights = {
 export const aesTypography = {
   display1: {
     fontFamily: aesFontFamilies.heading,
-    fontSize: aesFontSizes['4xl'],
-    lineHeight: aesLineHeights['4xl'],
+    fontSize: 28,
+    lineHeight: 36,
     fontWeight: aesFontWeights.bold,
   } satisfies TextStyle,
   displayLarge: {
     fontFamily: aesFontFamilies.heading,
-    fontSize: aesFontSizes['5xl'],
-    lineHeight: aesLineHeights['5xl'],
+    fontSize: 36,
+    lineHeight: 44,
     fontWeight: aesFontWeights.bold,
   } satisfies TextStyle,
   heading1: {
     fontFamily: aesFontFamilies.heading,
-    fontSize: aesFontSizes['2xl'],
-    lineHeight: aesLineHeights['2xl'],
-    fontWeight: aesFontWeights.semibold,
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: aesFontWeights.bold,
   } satisfies TextStyle,
   heading2: {
-    fontFamily: aesFontFamilies.body,
-    fontSize: aesFontSizes.xl,
-    lineHeight: aesLineHeights.xl,
+    fontFamily: aesFontFamilies.readex,
+    fontSize: 20,
+    lineHeight: 28,
     fontWeight: aesFontWeights.semibold,
   } satisfies TextStyle,
   subheading: {
-    fontFamily: aesFontFamilies.body,
-    fontSize: aesFontSizes.lg,
-    lineHeight: aesLineHeights.lg,
+    fontFamily: aesFontFamilies.readex,
+    fontSize: 16,
+    lineHeight: 24,
     fontWeight: aesFontWeights.medium,
   } satisfies TextStyle,
   body: {
@@ -103,8 +98,8 @@ export const aesTypography = {
   } satisfies TextStyle,
   bodySmall: {
     fontFamily: aesFontFamilies.body,
-    fontSize: aesFontSizes.sm,
-    lineHeight: aesLineHeights.sm,
+    fontSize: 14,
+    lineHeight: 22,
     fontWeight: aesFontWeights.regular,
   } satisfies TextStyle,
   caption: {
@@ -123,27 +118,27 @@ export const aesTypography = {
   } satisfies TextStyle,
   label: {
     fontFamily: aesFontFamilies.body,
-    fontSize: aesFontSizes.sm,
-    lineHeight: aesLineHeights.sm,
-    fontWeight: aesFontWeights.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: aesFontWeights.medium,
   } satisfies TextStyle,
   labelSmall: {
     fontFamily: aesFontFamilies.body,
-    fontSize: aesFontSizes.caption,
-    lineHeight: aesLineHeights.caption,
-    fontWeight: aesFontWeights.semibold,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: aesFontWeights.medium,
   } satisfies TextStyle,
   button: {
     fontFamily: aesFontFamilies.body,
-    fontSize: aesFontSizes.base,
-    lineHeight: aesLineHeights.md,
-    fontWeight: aesFontWeights.semibold,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: aesFontWeights.medium,
   } satisfies TextStyle,
   buttonSmall: {
     fontFamily: aesFontFamilies.body,
-    fontSize: aesFontSizes.sm,
-    lineHeight: aesLineHeights.sm,
-    fontWeight: aesFontWeights.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: aesFontWeights.medium,
   } satisfies TextStyle,
   statValue: {
     fontFamily: aesFontFamilies.body,

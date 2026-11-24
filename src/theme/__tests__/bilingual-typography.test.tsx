@@ -59,13 +59,31 @@ describe('bilingual typography foundation', () => {
     setLocale('fr');
     const fr = render(
       <ThemeProvider>
-        <AppText typographyRole="body" testID="fr-text">
+        <AppText testID="fr-text">
           Déclaration sécurisée — référence 2026
+        </AppText>
+        <AppText variant="section" testID="fr-section">
+          Vue d'ensemble
+        </AppText>
+        <AppText variant="display" testID="fr-hero">
+          Bienvenue sur SANAD
         </AppText>
       </ThemeProvider>,
     );
     expect(StyleSheet.flatten(screen.getByTestId('fr-text').props.style).fontFamily)
       .toBe(appFontFamilies.latinRegular);
+    expect(StyleSheet.flatten(screen.getByTestId('fr-section').props.style)).toMatchObject({
+      fontFamily: appFontFamilies.readex,
+      fontSize: 20,
+      fontWeight: '600',
+      lineHeight: 28,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('fr-hero').props.style)).toMatchObject({
+      fontFamily: appFontFamilies.latinBold,
+      fontSize: 36,
+      fontWeight: '700',
+      lineHeight: 44,
+    });
     fr.unmount();
 
     setLocale('ar');

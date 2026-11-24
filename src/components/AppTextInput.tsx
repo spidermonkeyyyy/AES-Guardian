@@ -1,7 +1,9 @@
 import React from 'react';
 import { StyleSheet, TextInput, TextInputProps } from 'react-native';
+import { useLocale } from '../localization';
 import { useTheme } from '../theme/ThemeContext';
-import { shapes, spacing, typography } from '../theme/tokens';
+import { getTypographyRoleTokens } from '../theme/tokens/fontFamilies';
+import { shapes, spacing } from '../theme/tokens';
 
 export interface AppTextInputProps extends TextInputProps {
   invalid?: boolean;
@@ -16,6 +18,8 @@ export const AppTextInput = React.forwardRef<TextInput, AppTextInputProps>(({
   ...props
 }, ref) => {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const textStyle = getTypographyRoleTokens('body', locale);
 
   return (
     <TextInput
@@ -24,6 +28,7 @@ export const AppTextInput = React.forwardRef<TextInput, AppTextInputProps>(({
       editable={editable}
       placeholderTextColor={props.placeholderTextColor ?? colors.mutedForeground}
       style={[
+        textStyle,
         bare ? styles.bareInput : styles.input,
         bare
           ? { color: colors.foreground }
@@ -33,6 +38,7 @@ export const AppTextInput = React.forwardRef<TextInput, AppTextInputProps>(({
             color: colors.foreground,
           },
         style,
+        { fontFamily: textStyle.fontFamily },
       ]}
     />
   );
@@ -48,14 +54,10 @@ const styles = StyleSheet.create({
     borderRadius: shapes.input,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.md,
   },
   bareInput: {
     flex: 1,
     minHeight: spacing.minTouchTarget - spacing.sm * 2,
     paddingVertical: spacing.sm,
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.md,
   },
 });

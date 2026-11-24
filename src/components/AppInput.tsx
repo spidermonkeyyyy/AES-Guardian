@@ -76,9 +76,7 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xs,
   },
   label: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.medium,
     marginBottom: spacing.xs,
   },
   inputWrapper: {
@@ -97,18 +95,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.md,
     paddingVertical: spacing.sm,
   },
   errorText: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.xs,
     marginTop: spacing.xxs,
   },
   helperText: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.xs,
     marginTop: spacing.xxs,
   },
 });

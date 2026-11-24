@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import * as eva from '@ui-kitten/eva';
-import { ApplicationProvider } from '@ui-kitten/components';
 import AppNavigator from './src/navigation/AppNavigator';
 import { restoreSession } from './src/features/authentication/hooks/use-auth';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { initializeDatabase, logAuditEvent, SYNTHETIC_DEMO_CONTEXT } from './src/core';
-import { t } from './src/localization';
+import { t, useLocale } from './src/localization';
+import { getAppFontFamily } from './src/theme/tokens/fontFamilies';
+import { SanadUiKittenProvider } from './src/theme/SanadUiKittenProvider';
 
 function MainApp() {
   const { isDark, colors } = useTheme();
+  const locale = useLocale();
   const [dbReady, setDbReady] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
@@ -36,7 +37,12 @@ function MainApp() {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+        <Text
+          style={[
+            styles.loadingText,
+            { color: colors.mutedForeground, fontFamily: getAppFontFamily('body', locale) },
+          ]}
+        >
           {t('db.initializing')}
         </Text>
       </View>
@@ -46,10 +52,20 @@ function MainApp() {
   if (initError) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorTitle, { color: colors.destructive }]}>
+        <Text
+          style={[
+            styles.errorTitle,
+            { color: colors.destructive, fontFamily: getAppFontFamily('pageTitle', locale) },
+          ]}
+        >
           {t('db.error')}
         </Text>
-        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+        <Text
+          style={[
+            styles.loadingText,
+            { color: colors.mutedForeground, fontFamily: getAppFontFamily('body', locale) },
+          ]}
+        >
           {initError}
         </Text>
       </View>
@@ -90,18 +106,9 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <ThemeProvider>
-      <ThemedApplicationProvider>
+      <SanadUiKittenProvider>
         <MainApp />
-      </ThemedApplicationProvider>
+      </SanadUiKittenProvider>
     </ThemeProvider>
-  );
-}
-
-function ThemedApplicationProvider({ children }: { children: React.ReactNode }) {
-  const { isDark } = useTheme();
-  return (
-    <ApplicationProvider {...eva} theme={isDark ? eva.dark : eva.light}>
-      {children}
-    </ApplicationProvider>
   );
 }

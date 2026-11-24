@@ -1,7 +1,8 @@
 import React from 'react';
-import { Text, TextProps, TextStyle } from 'react-native';
+import { Text, TextProps } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { typography } from '../theme/tokens';
+import { useLocale } from '../localization';
+import { getTypographyRoleTokens, TypographyRole } from '../theme/tokens/fontFamilies';
 
 export type AppTextVariant = 'display' | 'title' | 'section' | 'body' | 'label' | 'caption';
 export type AppTextTone = 'primary' | 'secondary' | 'muted' | 'inverse' | 'danger';
@@ -9,44 +10,16 @@ export type AppTextTone = 'primary' | 'secondary' | 'muted' | 'inverse' | 'dange
 export interface AppTextProps extends TextProps {
   variant?: AppTextVariant;
   tone?: AppTextTone;
-  typographyRole?: string;
+  typographyRole?: TypographyRole;
 }
 
-const variantStyles: Record<AppTextVariant, TextStyle> = {
-  display: {
-    fontFamily: typography.fontFamily.urbanist,
-    fontSize: typography.fontSize['3xl'],
-    fontWeight: typography.fontWeight.bold,
-    lineHeight: 38,
-  },
-  title: {
-    fontFamily: typography.fontFamily.urbanist,
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    lineHeight: 30,
-  },
-  section: {
-    fontFamily: typography.fontFamily.urbanist,
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    lineHeight: 26,
-  },
-  body: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.md,
-    lineHeight: 23,
-  },
-  label: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    lineHeight: 20,
-  },
-  caption: {
-    fontFamily: typography.fontFamily.openSans,
-    fontSize: typography.fontSize.xs,
-    lineHeight: 18,
-  },
+const variantRoles: Record<AppTextVariant, TypographyRole> = {
+  display: 'hero',
+  title: 'pageTitle',
+  section: 'sectionHeading',
+  body: 'body',
+  label: 'formLabel',
+  caption: 'caption',
 };
 
 export const AppText = React.forwardRef<Text, AppTextProps>(({
@@ -57,6 +30,8 @@ export const AppText = React.forwardRef<Text, AppTextProps>(({
   ...props
 }, ref) => {
   const { colors } = useTheme();
+  const locale = useLocale();
+  const textStyle = getTypographyRoleTokens(typographyRole ?? variantRoles[variant], locale);
   const color = {
     primary: colors.foreground,
     secondary: colors.mutedForeground,
@@ -65,7 +40,13 @@ export const AppText = React.forwardRef<Text, AppTextProps>(({
     danger: colors.destructive,
   }[tone];
 
-  return <Text ref={ref} {...props} style={[variantStyles[variant], { color }, style]} />;
+  return (
+    <Text
+      ref={ref}
+      {...props}
+      style={[textStyle, { color }, style, { fontFamily: textStyle.fontFamily }]}
+    />
+  );
 });
 
 AppText.displayName = 'AppText';

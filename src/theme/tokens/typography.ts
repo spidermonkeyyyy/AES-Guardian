@@ -6,6 +6,7 @@ export const typography = {
     openSans: appFontFamilies.body,
     display: appFontFamilies.display,
     body: appFontFamilies.body,
+    heading: appFontFamilies.readex,
     arabic: appFontFamilies.arabic,
     monospace: appFontFamilies.monospace,
   },
