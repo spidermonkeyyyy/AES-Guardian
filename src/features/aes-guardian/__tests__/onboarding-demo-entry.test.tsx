@@ -102,14 +102,14 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       setLocale('fr');
       const ltr = render(<SplashScreen />);
       expect(ltr.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
-      expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-wordmark').props.style).writingDirection).toBe('ltr');
       expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-tagline').props.style).textAlign).toBe('center');
       expect(StyleSheet.flatten(ltr.getByTestId('aes-splash-enter-button').props.style).flexDirection).toBe('row');
 
       setLocale('ar');
       const rtl = render(<SplashScreen />);
       expect(rtl.UNSAFE_getAllByType(AppIcon).some((icon: any) => icon.props.name === 'forward')).toBe(true);
-      expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-wordmark').props.style).textAlign).toBe('center');
+      expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-wordmark').props.style).writingDirection).toBe('ltr');
       expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-tagline').props.style).textAlign).toBe('center');
       expect(StyleSheet.flatten(rtl.getByTestId('aes-splash-enter-button').props.style).flexDirection).toBe('row-reverse');
       setLocale('fr');
@@ -121,21 +121,38 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
 
       expect(getByTestId('aes-splash-screen')).toBeTruthy();
       expect(getByTestId('sanad-splash-logo')).toBeTruthy();
-      expect(
-        require('react-native').StyleSheet.flatten(
-          getByTestId('sanad-splash-logo').props.style,
-        ).backgroundColor,
-      ).toBe(aesColors.textInverse);
       expect(getByTestId('aes-splash-wordmark')).toBeTruthy();
       expect(getByText('SANAD')).toBeTruthy();
       expect(getByText('Déclarer. Suivre. Prévenir.')).toBeTruthy();
-      expect(getByText(t('splash.description', 'fr'))).toBeTruthy();
+      expect(getByText("Une solution dédiée à la déclaration, au suivi et à la prévention des accidents d'exposition au sang.")).toBeTruthy();
+      expect(getByTestId('sanad-welcome-hero').props.source).toBe(
+        require('../../../assets/images/welcome/sanad-welcome-illustration.png'),
+      );
+      expect(getByTestId('sanad-welcome-hero').props.resizeMode).toBe('contain');
+      expect(
+        require('react-native').StyleSheet.flatten(
+          getByTestId('aes-splash-screen').props.style,
+        ).backgroundColor,
+      ).toBe('#1c2a1f');
+      expect(
+        getAllByRole('radio').length,
+      ).toBe(3);
+      expect(
+        getByTestId('welcome-language-selector').findAllByType(AppIcon)
+          .some((icon: any) => icon.props.name === 'globe'),
+      ).toBe(true);
       expect(
         getByTestId('sanad-splash-logo').findByType(Image).props.source,
       ).toBe(require('../../../assets/images/logo/sanad_icon.png'));
       expect(getByTestId('welcome-language-fr')).toBeTruthy();
       expect(getByTestId('welcome-language-ar')).toBeTruthy();
       expect(getByTestId('welcome-language-en')).toBeTruthy();
+      expect(getByText('Français')).toBeTruthy();
+      expect(getByText('العربية')).toBeTruthy();
+      expect(getByText('English')).toBeTruthy();
+      expect(getByTestId('welcome-language-fr').props.accessibilityLabel).toBe('Français');
+      expect(getByTestId('welcome-language-ar').props.accessibilityLabel).toBe('العربية');
+      expect(getByTestId('welcome-language-en').props.accessibilityLabel).toBe('English');
       expect(getByText(t('splash.tagline', 'fr'))).toBeTruthy();
       expect(getByRole('button').props.accessibilityLabel).toBe('Commencer');
       expect(getAllByRole('button')).toHaveLength(1);
@@ -156,6 +173,21 @@ describe('Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry Experience', (
       rerender(<SplashScreen />);
       expect(getByText('أبلِغ. تابِع. امنع.')).toBeTruthy();
       expect(StyleSheet.flatten(getByTestId('aes-splash-enter-button').props.style).flexDirection).toBe('row-reverse');
+      setLocale('fr');
+    });
+
+    it('changes the welcome copy when a language option is selected', () => {
+      const { getByTestId, getByText, rerender } = render(<SplashScreen />);
+
+      fireEvent.press(getByTestId('welcome-language-en'));
+      rerender(<SplashScreen />);
+      expect(getByText('Report. Track. Prevent.')).toBeTruthy();
+      expect(getByText('A solution dedicated to reporting, following up, and preventing occupational blood exposure incidents.')).toBeTruthy();
+
+      fireEvent.press(getByTestId('welcome-language-ar'));
+      rerender(<SplashScreen />);
+      expect(getByText('أبلِغ. تابِع. امنع.')).toBeTruthy();
+      expect(getByText('حلّ مخصّص للإبلاغ عن حوادث التعرّض المهني للدم ومتابعتها والوقاية منها.')).toBeTruthy();
       setLocale('fr');
     });
 

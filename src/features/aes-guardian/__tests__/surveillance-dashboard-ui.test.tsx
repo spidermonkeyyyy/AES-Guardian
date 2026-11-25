@@ -164,6 +164,7 @@ jest.mock('../../../localization', () => ({
       key === 'role.oh_professional' ||
       key === 'role.exposed_professional' ||
       key === 'role.tech_admin' ||
+      key === 'surveillance.unauthorizedDetails' ||
       key === 'surveillance.filters.declarationCountLabel'
     )
       ? `${key}:${locale}`
@@ -331,9 +332,11 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
   // ─── 3. Authorization States ────────────────────────────────────
   test('shows unauthorized view for exposed_professional', async () => {
     require('../../../core/auth/boundaries').canViewSurveillanceDashboard.mockReturnValue(false);
-    const { getByTestId, getByText } = render(<SurveillanceDashboardScreen />);
+    const { getByTestId, getByText, queryByText } = render(<SurveillanceDashboardScreen />);
     await waitFor(() => expect(getByTestId('surveillance-unauthorized')).toBeTruthy());
     expect(getByText('surveillance.unauthorized')).toBeTruthy();
+    expect(getByText('surveillance.unauthorizedDetails:fr')).toBeTruthy();
+    expect(queryByText(/Profil sélectionné/i)).toBeNull();
     expect(getByTestId('surveillance-unauthorized-card')).toBeTruthy();
   });
 

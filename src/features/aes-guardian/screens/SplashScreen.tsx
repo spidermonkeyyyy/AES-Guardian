@@ -8,6 +8,7 @@
 import AppText from '../../../components/AppText';
 import React, { useState, useCallback } from 'react';
 import {
+  Image,
   View,
   StyleSheet,
   TouchableOpacity,
@@ -15,12 +16,13 @@ import {
   StatusBar,
   ActivityIndicator,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppIcon } from '../../../components/AppIcon';
 import { SanadLogo } from '../../../components/SanadLogo';
-import { aesColors, aesSpacing, aesRadii } from '../../../theme/tokens';
+import { aesSpacing, aesRadii, darkTheme } from '../../../theme/tokens';
 import {
   LOCALE_LABELS,
   SUPPORTED_LOCALES,
@@ -46,6 +48,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const route = useRoute<RouteProp<RootStackParamList, 'aesSplash'>>();
   const locale = useLocale();
   const layoutDirection = useLayoutDirection();
+  const { width, height } = useWindowDimensions();
+  const heroSize = Math.max(164, Math.min(340, width * 0.88, height * 0.38));
   const [isProceeding, setIsProceeding] = useState(false);
 
   const handleProceed = useCallback(async () => {
@@ -61,9 +65,24 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.canvas} testID="aes-splash-screen">
-      <StatusBar barStyle="light-content" backgroundColor={aesColors.accentGreen} />
+      <StatusBar barStyle="light-content" backgroundColor={welcomeColors.canvas} />
       <View style={styles.page}>
-        <View style={styles.languageBar}>
+        <View style={styles.header}>
+          <View style={[styles.brand, { flexDirection: layoutDirection === 'rtl' ? 'row-reverse' : 'row' }]}>
+            <SanadLogo
+              size="small"
+              showText={false}
+              style={styles.logoSurface}
+              testID="sanad-splash-logo"
+            />
+            <AppText
+              typographyRole="display"
+              style={[styles.wordmark, { writingDirection: 'ltr' }]}
+              testID="aes-splash-wordmark"
+            >
+              {t('splash.wordmark', locale)}
+            </AppText>
+          </View>
           <View
             style={[
               styles.languageSelector,
@@ -71,7 +90,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             ]}
             accessibilityRole="radiogroup"
             accessibilityLabel={t('splash.languageSelector', locale)}
+            testID="welcome-language-selector"
           >
+            <AppIcon
+              name="globe"
+              size={16}
+              color={welcomeColors.secondaryText}
+              decorative
+              testID="welcome-language-globe"
+            />
             {SUPPORTED_LOCALES.map((supportedLocale: SupportedLocale) => {
               const selected = locale === supportedLocale;
               return (
@@ -108,15 +135,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <SanadLogo
-            size="large"
-            showText={false}
-            style={styles.logo}
-            testID="sanad-splash-logo"
+          <Image
+            source={require('../../../assets/images/welcome/sanad-welcome-illustration.png')}
+            style={{ width: heroSize, height: heroSize }}
+            resizeMode="contain"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={t('splash.heroAccessibility', locale)}
+            testID="sanad-welcome-hero"
           />
-          <AppText typographyRole="hero" style={styles.wordmark} testID="aes-splash-wordmark">
-            {t('splash.wordmark', locale)}
-          </AppText>
           <AppText
             variant="section"
             style={styles.tagline}
@@ -140,8 +167,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             </AppText>
           ) : !databaseReady ? (
             <View style={styles.databaseStatus}>
-              <ActivityIndicator color={aesColors.textInverse} testID="welcome-db-loading" />
-              <AppText variant="caption" tone="inverse" style={styles.databaseStatusText}>
+              <ActivityIndicator color={welcomeColors.accent} testID="welcome-db-loading" />
+              <AppText variant="caption" style={styles.databaseStatusText}>
                 {t('db.initializing', locale)}
               </AppText>
             </View>
@@ -168,7 +195,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             <AppIcon
               name="forward"
               size={16}
-              color={aesColors.accentGreen}
+              color={welcomeColors.buttonText}
+              decorative
               testID="aes-splash-forward-icon"
             />
           </TouchableOpacity>
@@ -178,78 +206,104 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   );
 };
 
+const welcomeColors = {
+  canvas: darkTheme.colors.background,
+  surface: darkTheme.colors.card,
+  border: darkTheme.colors.border,
+  primaryText: darkTheme.colors.foreground,
+  secondaryText: darkTheme.colors.mutedForeground,
+  accent: darkTheme.colors.primary,
+  buttonText: darkTheme.colors.primaryForeground,
+};
+
 const styles = StyleSheet.create({
   canvas: {
     flex: 1,
-    backgroundColor: aesColors.accentGreen,
+    backgroundColor: welcomeColors.canvas,
   },
   page: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: aesSpacing.screenHorizontal,
-    paddingVertical: aesSpacing.screenVertical,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 30,
   },
-  languageBar: {
-    alignItems: 'flex-end',
-    minHeight: 44,
+  header: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: aesSpacing.sm,
+  },
+  brand: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoSurface: {
+    padding: 4,
+    borderRadius: aesRadii.pill,
+    borderWidth: 1,
+    borderColor: welcomeColors.border,
+    backgroundColor: welcomeColors.surface,
+  },
+  wordmark: {
+    color: welcomeColors.primaryText,
+    fontSize: 17,
+    lineHeight: 24,
+    letterSpacing: 1.1,
   },
   languageSelector: {
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     padding: 4,
+    paddingHorizontal: 7,
     borderRadius: aesRadii.pill,
-    backgroundColor: 'rgba(0, 0, 0, 0.14)',
+    borderWidth: 1,
+    borderColor: welcomeColors.border,
+    backgroundColor: welcomeColors.surface,
   },
   languageOption: {
-    minHeight: 36,
+    minWidth: 34,
+    minHeight: 34,
     justifyContent: 'center',
-    paddingHorizontal: aesSpacing.sm,
+    alignItems: 'center',
+    paddingHorizontal: 5,
     borderRadius: aesRadii.pill,
   },
   selectedLanguageOption: {
-    backgroundColor: aesColors.textInverse,
+    backgroundColor: welcomeColors.accent,
   },
   languageLabel: {
-    color: aesColors.textInverse,
+    color: welcomeColors.secondaryText,
     fontSize: 11,
     lineHeight: 16,
   },
   selectedLanguageLabel: {
-    color: aesColors.accentGreen,
+    color: welcomeColors.buttonText,
     fontWeight: '700',
   },
   centerBlock: {
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: aesSpacing.lg,
-    gap: aesSpacing.md,
-  },
-  logo: {
-    width: 112,
-    height: 112,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: aesColors.textInverse,
-    borderRadius: aesRadii.modal,
-  },
-  wordmark: {
-    color: aesColors.textInverse,
-    textAlign: 'center',
-    letterSpacing: 0.5,
+    paddingVertical: 20,
+    gap: 14,
   },
   tagline: {
-    color: '#E8F5E9',
+    color: welcomeColors.primaryText,
     textAlign: 'center',
-    opacity: 0.9,
-    paddingHorizontal: aesSpacing.xl,
+    fontSize: 29,
+    lineHeight: 38,
+    paddingHorizontal: 4,
+    maxWidth: 360,
   },
   description: {
-    color: '#E8F5E9',
-    maxWidth: 420,
+    color: welcomeColors.secondaryText,
+    maxWidth: 340,
     textAlign: 'center',
-    opacity: 0.88,
-    paddingHorizontal: aesSpacing.md,
+    fontSize: 14,
+    lineHeight: 22,
+    paddingHorizontal: 8,
   },
   databaseStatus: {
     alignItems: 'center',
@@ -257,25 +311,27 @@ const styles = StyleSheet.create({
     gap: aesSpacing.xs,
   },
   databaseStatusText: {
-    color: aesColors.textInverse,
+    color: welcomeColors.secondaryText,
     textAlign: 'center',
   },
   bottomBar: {
     alignItems: 'center',
-    paddingBottom: aesSpacing.xl,
+    paddingTop: 8,
   },
   enterPill: {
     alignItems: 'center',
-    gap: aesSpacing.sm,
-    backgroundColor: aesColors.textInverse,
-    minHeight: 52,
+    gap: 10,
+    backgroundColor: welcomeColors.accent,
+    minHeight: 58,
     justifyContent: 'center',
-    paddingHorizontal: aesSpacing.xl,
-    borderRadius: aesRadii.pill,
-    alignSelf: 'center',
+    paddingHorizontal: 24,
+    borderRadius: 18,
+    alignSelf: 'stretch',
   },
   enterPillText: {
-    color: aesColors.accentGreen,
+    color: welcomeColors.buttonText,
+    fontSize: 16,
+    lineHeight: 24,
     fontWeight: '700',
   },
 });

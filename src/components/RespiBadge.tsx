@@ -50,7 +50,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   label: {
-    fontFamily: typography.fontFamily.openSans,
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semibold,
   },

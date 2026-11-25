@@ -267,10 +267,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
               {t('surveillance.unauthorized')}
             </AppText>
             <AppText style={[styles.unauthorizedSubtext, { color: aesColors.textSecondary, textAlign: 'center' }]}>
-              {t('surveillance.unauthorized')}
-              {'\n\n'}
-              Profil sélectionné : {activeRoleContext.displayName} ({activeRoleContext.role}).
-              Ce profil ne dispose pas des autorisations nécessaires pour accéder aux indicateurs agrégés de surveillance.
+              {t('surveillance.unauthorizedDetails', locale)}
             </AppText>
             {renderRoleSwitcher()}
           </View>

@@ -53,6 +53,7 @@ export const AesGuardianProfileScreen: React.FC = () => {
 
   const activeDef =
     DEMO_ROLE_DEFINITIONS.find((d) => d.role === activeRole) ?? DEMO_ROLE_DEFINITIONS[0];
+  const activeRoleLabel = t(activeDef.labelKey as TranslationKey, locale);
 
   // Role-specific capability lists
   const capabilitiesByRole: Record<
@@ -205,18 +206,15 @@ export const AesGuardianProfileScreen: React.FC = () => {
         <View style={styles.profileRow}>
           <View style={styles.avatarCircle}>
             <AppText style={styles.avatarText}>
-              {activeDef.defaultLabel.charAt(0).toUpperCase()}
+              {activeRoleLabel.charAt(0).toLocaleUpperCase(locale)}
             </AppText>
           </View>
           <View style={styles.profileInfo}>
             <View style={styles.profileNameRow}>
-              <AppText style={styles.displayName}>{activeContext.displayName}</AppText>
+              <AppText style={styles.displayName}>{activeRoleLabel}</AppText>
             </View>
-            <AppText style={styles.roleLabel}>
-              {t(activeDef.labelKey as any, locale) || activeDef.defaultLabel}
-            </AppText>
             <AppText style={styles.roleDescription}>
-              {t(activeDef.descriptionKey as any, locale) || activeDef.defaultDescription}
+              {t(activeDef.descriptionKey as TranslationKey, locale) || activeDef.defaultDescription}
             </AppText>
           </View>
         </View>
@@ -242,12 +240,12 @@ export const AesGuardianProfileScreen: React.FC = () => {
                 style={[styles.rolePill, isSelected && styles.rolePillActive]}
                 onPress={() => setRole(def.role)}
                 accessibilityRole="button"
-                accessibilityLabel={t(def.labelKey as any, locale) || def.defaultLabel}
+                accessibilityLabel={t(def.labelKey as TranslationKey, locale) || def.defaultLabel}
               >
                 <AppText
                   style={[styles.rolePillText, isSelected && styles.rolePillTextActive]}
                 >
-                  {t(def.labelKey as any, locale) || def.defaultLabel}
+                  {t(def.labelKey as TranslationKey, locale) || def.defaultLabel}
                 </AppText>
               </TouchableOpacity>
             );
@@ -320,9 +318,6 @@ export const AesGuardianProfileScreen: React.FC = () => {
           })}
         </View>
 
-        <AppText style={styles.rtlNoticeText}>
-          {t('profile.rtlNotice', locale)}
-        </AppText>
       </View>
 
       {/* Documentation & Quick Links Card */}
@@ -494,12 +489,6 @@ function createStyles(colors: any, isRtl: boolean) {
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
     },
-    roleLabel: {
-      fontSize: typography.fontSize.xs,
-      fontWeight: typography.fontWeight.semibold,
-      color: colors.primary,
-      marginBottom: 2,
-    },
     roleDescription: {
       fontSize: typography.fontSize.xs - 1,
       color: colors.mutedForeground,
@@ -604,12 +593,6 @@ function createStyles(colors: any, isRtl: boolean) {
       flexDirection: isRtl ? 'row-reverse' : 'row',
       alignItems: 'center',
       gap: spacing.xs,
-    },
-    rtlNoticeText: {
-      fontSize: typography.fontSize.xs - 2,
-      color: colors.mutedForeground,
-      fontStyle: 'italic',
-      marginTop: spacing.xs,
     },
     linkRow: {
       flexDirection: isRtl ? 'row-reverse' : 'row',

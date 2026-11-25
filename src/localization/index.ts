@@ -4,8 +4,8 @@
  * Full localization for Phase 2C.2 declaration workflow.
  * Languages: French (fr — default), English (en), Arabic (ar — RTL).
  *
- * RTL Note: Arabic requires I18nManager.forceRTL(true) + app restart.
- * RTL layout is handled via StyleSheet properties, not text alignment only.
+ * Arabic layout uses the shared direction helpers and is applied without a
+ * native app restart; individual screens still require device verification.
  *
  * REQUIRES_VALIDATION: Clinical/legal terminology translations should be
  * reviewed by a qualified professional before production use.
@@ -357,6 +357,7 @@ export type TranslationKey =
   | 'surveillance.title'
   | 'surveillance.disclaimer'
   | 'surveillance.unauthorized'
+  | 'surveillance.unauthorizedDetails'
   | 'surveillance.roleBadge'
   | 'surveillance.filters.title'
   | 'surveillance.filters.all'
@@ -637,7 +638,6 @@ export type TranslationKey =
   | 'profile.demoAccountNotice'
   | 'profile.languageSection'
   | 'profile.languageSelectorTitle'
-  | 'profile.rtlNotice'
   | 'profile.navigationSection'
   | 'profile.helpCenterLink'
   | 'profile.glossaryLink'
@@ -751,6 +751,7 @@ export type TranslationKey =
   | 'splash.description'
   | 'splash.enter'
   | 'splash.languageSelector'
+  | 'splash.heroAccessibility'
   | 'access.title'
   | 'access.subtitle'
   | 'access.signIn'
@@ -1127,6 +1128,7 @@ const fr: TranslationMap = {
   'surveillance.title': "Surveillance & Suivi Agrégé AES",
   'surveillance.disclaimer': "DONNÉES DE DÉMONSTRATION SYNTHÉTIQUES — Ce tableau de bord présente des indicateurs agrégés à des fins de démonstration technique. Il ne représente pas des statistiques institutionnelles validées.",
   'surveillance.unauthorized': "Accès réservé exclusivement au personnel autorisé (Qualité, Administration RH, Santé au Travail).",
+  'surveillance.unauthorizedDetails': "Ce rôle ne dispose pas des autorisations nécessaires pour accéder aux indicateurs agrégés de surveillance.",
   'surveillance.roleBadge': "Session Surveillance & Qualité (Démo)",
   'surveillance.filters.title': "Filtres de surveillance",
   'surveillance.filters.all': "Tous",
@@ -1409,7 +1411,6 @@ const fr: TranslationMap = {
   'profile.demoAccountNotice': "Compte de démonstration simulé en mémoire locale. Aucune session persistante ni mot de passe requis pour le prototype.",
   'profile.languageSection': "Langue de l'Application",
   'profile.languageSelectorTitle': "Sélectionner la langue active :",
-  'profile.rtlNotice': "Remarque : L'inversion complète de mise en page (RTL) pour l'arabe sera finalisée dans une mise à jour ultérieure.",
   'profile.navigationSection': "Documentation & Ressources",
   'profile.helpCenterLink': "Centre d'Aide & Parcours",
   'profile.glossaryLink': "Glossaire Terminologique AES",
@@ -1509,9 +1510,10 @@ const fr: TranslationMap = {
   // ─── Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry (FR) ───
   'splash.wordmark': 'SANAD',
   'splash.tagline': 'Déclarer. Suivre. Prévenir.',
-  'splash.description': "L’application dédiée à la déclaration, au suivi et à la prévention des accidents d’exposition au sang chez les professionnels de santé.",
+  'splash.description': "Une solution dédiée à la déclaration, au suivi et à la prévention des accidents d'exposition au sang.",
   'splash.enter': 'Commencer',
   'splash.languageSelector': 'Choisir la langue',
+  'splash.heroAccessibility': 'Illustration de prévention des AES : déclaration, protection, suivi et sensibilisation',
   'access.title': 'Accéder à SANAD',
   'access.subtitle': 'Choisissez votre mode d’accès.',
   'access.signIn': 'Se connecter',
@@ -1885,6 +1887,7 @@ const en: TranslationMap = {
   'surveillance.title': "AES Surveillance & Aggregate Monitoring",
   'surveillance.disclaimer': "SYNTHETIC DEMONSTRATION DATA — This dashboard displays aggregate prototype indicators for technical demonstration. It does not represent validated institutional or official statistics.",
   'surveillance.unauthorized': "Access restricted to authorized personnel (Quality Staff, Admin Reviewer, Occupational Health).",
+  'surveillance.unauthorizedDetails': "This role does not have permission to access aggregate surveillance indicators.",
   'surveillance.roleBadge': "Surveillance & Quality Staff Session (Demo)",
   'surveillance.filters.title': "Surveillance Filters",
   'surveillance.filters.all': "All",
@@ -2167,7 +2170,6 @@ const en: TranslationMap = {
   'profile.demoAccountNotice': "In-memory synthetic demonstration account. No persistent session or credentials required.",
   'profile.languageSection': "Application Language",
   'profile.languageSelectorTitle': "Select runtime language:",
-  'profile.rtlNotice': "Note: Complete right-to-left (RTL) mirror layout for Arabic will be finalized in an upcoming release.",
   'profile.navigationSection': "Documentation & Resources",
   'profile.helpCenterLink': "Help Centre & Guided Workflow",
   'profile.glossaryLink': "AES Terminology Glossary",
@@ -2267,9 +2269,10 @@ const en: TranslationMap = {
   // ─── Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry (EN) ───
   'splash.wordmark': 'SANAD',
   'splash.tagline': 'Report. Track. Prevent.',
-  'splash.description': 'An application for healthcare professionals to report, follow up and prevent occupational blood exposure incidents.',
+  'splash.description': 'A solution dedicated to reporting, following up, and preventing occupational blood exposure incidents.',
   'splash.enter': 'Get started',
   'splash.languageSelector': 'Choose language',
+  'splash.heroAccessibility': 'AES prevention illustration with declaration, protection, follow-up, and awareness symbols',
   'access.title': 'Access SANAD',
   'access.subtitle': 'Choose how you would like to continue.',
   'access.signIn': 'Sign in',
@@ -2644,6 +2647,7 @@ const ar: TranslationMap = {
   'surveillance.title': "مراقبة وتتبع حوادث AES الإجمالية",
   'surveillance.disclaimer': "بيانات عرض توضيحي اصطناعية — تعرض لوحة البيانات هذه مؤشرات إجمالية لأغراض العرض التقني فقط، ولا تمثل إحصائيات مؤسسية أو رسمية معتمدة.",
   'surveillance.unauthorized': "الوصول مقتصر حصريًا على الموظفين المصرح لهم (فريق الجودة، المراجع الإداري، طب العمل).",
+  'surveillance.unauthorizedDetails': "لا يملك هذا الدور صلاحية الوصول إلى مؤشرات المراقبة الإجمالية.",
   'surveillance.roleBadge': "جلسة موظف المراقبة والجودة (تجريبي)",
   'surveillance.filters.title': "تصفية المراقبة",
   'surveillance.filters.all': "الكل",
@@ -2927,7 +2931,6 @@ const ar: TranslationMap = {
   'profile.demoAccountNotice': "حساب تركيبي محاكى في الذاكرة المحلية. لا يلزم تسجيل دخول أو كلمة مرور للعرض التوضيحي.",
   'profile.languageSection': "لغة التطبيق",
   'profile.languageSelectorTitle': "اختر لغة الواجهة:",
-  'profile.rtlNotice': "ملاحظة: سيتم استكمال الدعم الكامل لاتجاه اليمين إلى اليسار (RTL) في تحديث مستقبلي.",
   'profile.navigationSection': "التوثيق والمصادر",
   'profile.helpCenterLink': "مركز المساعدة ومسار العمل",
   'profile.glossaryLink': "مسرد مصطلحات الحوادث",
@@ -3027,9 +3030,10 @@ const ar: TranslationMap = {
   // ─── Phase 2E.1.2: Batch 2 Onboarding & Synthetic Demo Entry (AR) ───
   'splash.wordmark': 'SANAD',
   'splash.tagline': 'أبلِغ. تابِع. امنع.',
-  'splash.description': 'تطبيق مخصص لمهنيي الصحة للإبلاغ عن حوادث التعرض المهني للدم ومتابعتها والوقاية منها.',
+  'splash.description': 'حلّ مخصّص للإبلاغ عن حوادث التعرّض المهني للدم ومتابعتها والوقاية منها.',
   'splash.enter': 'ابدأ',
   'splash.languageSelector': 'اختر اللغة',
+  'splash.heroAccessibility': 'رسم توضيحي للوقاية من حوادث التعرّض للدم، يضم الإبلاغ والحماية والمتابعة والتوعية',
   'access.title': 'الدخول إلى SANAD',
   'access.subtitle': 'اختر طريقة المتابعة.',
   'access.signIn': 'تسجيل الدخول',

@@ -259,21 +259,21 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
     test('renders account info and capabilities for exposed_professional', async () => {
       useDemoRoleStore.getState().setRole('exposed_professional');
 
-      const { getByText, queryByText } = render(
+      const { getByText, getAllByText, queryByText } = render(
         <ThemeProvider>
           <AesGuardianProfileScreen />
         </ThemeProvider>,
       );
 
       expect(getByText('Profil & Réglages Démonstrateur')).toBeTruthy();
-      expect(getByText('Professionnel Démo (Synthétique)')).toBeTruthy();
+      expect(getAllByText('Professionnel exposé').length).toBeGreaterThan(0);
       expect(queryByText(/ID #/)).toBeNull();
       expect(getByText(/Déclarer un nouvel AES/i)).toBeTruthy();
       expect(getByText(/Accès interdit au tableau de bord épidémiologique/i)).toBeTruthy();
     });
 
     test('switching role to quality_staff dynamically updates permissions', async () => {
-      const { getByText } = render(
+      const { getByText, getAllByText } = render(
         <ThemeProvider>
           <AesGuardianProfileScreen />
         </ThemeProvider>,
@@ -289,13 +289,13 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
 
       // Role updated
       expect(useDemoRoleStore.getState().activeRole).toBe('quality_staff');
-      expect(getByText('Responsable Qualité (Démo)')).toBeTruthy();
+      expect(getAllByText('Personnel qualité').length).toBeGreaterThan(0);
       expect(getByText(/Consulter les indicateurs épidémiologiques dé-identifiés/i)).toBeTruthy();
       expect(getByText(/Accès aux identités individuelles des soignants refusé/i)).toBeTruthy();
     });
 
     test('language switcher applies new locale immediately', async () => {
-      const { getByText } = render(
+      const { getByText, getAllByText, queryByText } = render(
         <ThemeProvider>
           <AesGuardianProfileScreen />
         </ThemeProvider>,
@@ -314,6 +314,8 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
       expect(getLocale()).toBe('ar');
       expect(getByText('ملف وإعدادات العارض')).toBeTruthy();
       expect(getByText('جولة تعريفية')).toBeTruthy();
+      expect(getAllByText(t('role.exposed_professional', 'ar')).length).toBeGreaterThan(0);
+      expect(queryByText(/سيتم استكمال الدعم الكامل/i)).toBeNull();
 
       // Switch back to French
       fireEvent.press(getByText(/Français/i));

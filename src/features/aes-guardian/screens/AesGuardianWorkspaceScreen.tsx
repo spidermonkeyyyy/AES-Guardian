@@ -31,7 +31,7 @@ import {
   AesGuardianRole,
   seedDemoScenarioIfEmpty,
 } from '../../../core';
-import { t, useLocale } from '../../../localization';
+import { t, useLocale, type TranslationKey } from '../../../localization';
 
 import AppText from '../../../components/AppText';
 import { AppIcon, AppIconLabel, type AppIconName } from '../../../components/AppIcon';
@@ -207,6 +207,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
 
   const activeDef =
     DEMO_ROLE_DEFINITIONS.find((d) => d.role === activeRole) ?? DEMO_ROLE_DEFINITIONS[0];
+  const activeRoleLabel = t(activeDef.labelKey as TranslationKey, locale);
 
   const ModuleCard: React.FC<ModuleCardProps> = ({
     iconName,
@@ -320,7 +321,7 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roleScrollView}>
           {DEMO_ROLE_DEFINITIONS.map((def) => {
             const isSelected = def.role === activeRole;
-            const roleLabel = t(def.labelKey as any) || def.defaultLabel;
+            const roleLabel = t(def.labelKey as TranslationKey, locale) || def.defaultLabel;
             return (
               <TouchableOpacity
                 key={def.role}
@@ -350,18 +351,18 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
           <View style={styles.activeRoleRow}>
             <View style={styles.avatarCircle}>
               <AppText style={styles.avatarText}>
-                {activeDef.defaultLabel.charAt(0).toUpperCase()}
+                {activeRoleLabel.charAt(0).toLocaleUpperCase(locale)}
               </AppText>
             </View>
             <View style={styles.activeRoleInfo}>
               <View style={styles.roleBadgeRow}>
-                <AppText style={styles.activeRoleName}>{activeContext.displayName}</AppText>
+                <AppText style={styles.activeRoleName}>{activeRoleLabel}</AppText>
                 <View style={styles.roleChipSmall}>
                   <AppText style={styles.roleChipSmallText}>ID #{activeContext.userId}</AppText>
                 </View>
               </View>
               <AppText style={styles.activeRoleDescription}>
-                {t(activeDef.descriptionKey as any) || activeDef.defaultDescription}
+                {t(activeDef.descriptionKey as TranslationKey, locale) || activeDef.defaultDescription}
               </AppText>
             </View>
           </View>
