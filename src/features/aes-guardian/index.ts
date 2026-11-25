@@ -38,6 +38,7 @@ export {
   AesButton,
   AesRoundArrowButton,
   AesOptionCard,
+  DashboardMetricCard,
 } from './components';
 export type {
   AesScreenContainerProps,
@@ -49,6 +50,7 @@ export type {
   AesRoundArrowButtonVariant,
   AesOptionCardProps,
   AesOptionCardVariant,
+  DashboardMetricCardProps,
 } from './components';
 
 // Phase 2E.1.2: First-launch storage utility

@@ -290,7 +290,7 @@ describe('DeclarationListScreen controlled UI Kitten migration', () => {
     expect(StyleSheet.flatten(screen.getByTestId(`declaration-reference-${declarationIds.draft}`).props.style).fontFamily)
       .toBe(getAppFontFamily('cardHeading', 'ar'));
     expect(StyleSheet.flatten(screen.getByTestId(`declaration-date-${declarationIds.draft}`).props.style).textAlign)
-      .toBe('left');
+      .toBe('right');
 
     act(() => setLocale('fr'));
     await waitFor(() => expect(screen.getByText('Mes déclarations')).toBeTruthy());

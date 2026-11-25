@@ -40,6 +40,7 @@ import { AesScreenContainer, AesScreenHeader, AesStatusBadge } from '../componen
 import { useTheme } from '../../../theme/ThemeContext';
 import { AppIcon } from '../../../components/AppIcon';
 import AppText from '../../../components/AppText';
+import { resolveDemoNarrative } from '../../../localization/demoNarratives';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type FilterKey = 'all' | 'draft' | 'submitted' | 'under_review' | 'closed';
@@ -268,7 +269,13 @@ export const DeclarationListScreen: React.FC = () => {
                 testID={`declaration-card-header-${item.id}`}
               >
                 <AppText
-                  style={[styles.referenceText, { color: colors.foreground }]}
+                  style={[
+                    styles.referenceText,
+                    {
+                      color: colors.foreground,
+                      textAlign: locale === 'ar' ? 'right' : 'left',
+                    },
+                  ]}
                   testID={`declaration-reference-${item.id}`}
                 >
                   {item.reference_number || t('list.refUnavailable')}
@@ -281,7 +288,14 @@ export const DeclarationListScreen: React.FC = () => {
               </View>
               {item.incident_date ? (
                 <AppText
-                  style={[styles.cardMeta, { color: colors.mutedForeground }]}
+                  style={[
+                    styles.cardMeta,
+                    {
+                      color: colors.mutedForeground,
+                      textAlign: locale === 'ar' ? 'right' : 'left',
+                      writingDirection: 'ltr',
+                    },
+                  ]}
                   testID={`declaration-date-${item.id}`}
                 >
                   {`${t('list.incidentDate')}: ${item.incident_date}`}
@@ -289,7 +303,14 @@ export const DeclarationListScreen: React.FC = () => {
               ) : null}
               {item.incident_type ? (
                 <AppText
-                  style={[styles.cardMeta, { color: colors.mutedForeground }]}
+                  style={[
+                    styles.cardMeta,
+                    {
+                      color: colors.mutedForeground,
+                      textAlign: locale === 'ar' ? 'right' : 'left',
+                      writingDirection: 'ltr',
+                    },
+                  ]}
                   testID={`declaration-type-${item.id}`}
                 >
                   {`${t('list.incidentType')}: ${(t as any)(`form.incidentType.${item.incident_type.replace('_exposure', '')}`) ?? item.incident_type}`}
@@ -297,9 +318,21 @@ export const DeclarationListScreen: React.FC = () => {
               ) : null}
               {item.circumstances ? (
                 <AppText
-                  style={[styles.cardCircumstances, { color: colors.foreground }]}
+                  style={[
+                    styles.cardCircumstances,
+                    {
+                      color: colors.foreground,
+                      textAlign: locale === 'ar' ? 'right' : 'left',
+                      writingDirection: locale === 'ar' ? 'rtl' : 'ltr',
+                    },
+                  ]}
                 >
-                  {item.circumstances}
+                  {resolveDemoNarrative(
+                    item.reference_number,
+                    'circumstances',
+                    item.circumstances,
+                    locale,
+                  )}
                 </AppText>
               ) : null}
             </TouchableOpacity>

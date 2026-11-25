@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { PreventionOverviewScreen } from '../screens/PreventionOverviewScreen';
 import { useDemoRoleStore } from '../../../core/auth/use-demo-role';
 import { setLocale, t } from '../../../localization';
+import { ThemeProvider, useTheme } from '../../../theme/ThemeContext';
+
+function SetDarkModeOnMount() {
+  const { setThemeMode } = useTheme();
+  useEffect(() => setThemeMode('dark'), [setThemeMode]);
+  return null;
+}
 
 jest.setTimeout(15000);
 
@@ -64,6 +71,8 @@ describe('PreventionOverviewScreen AES UI', () => {
   test('quality staff renders aggregate metrics', async () => {
     const { getByTestId } = render(<PreventionOverviewScreen />);
     await waitFor(() => expect(getByTestId('prevention-overview-total')).toBeTruthy());
+    expect(StyleSheet.flatten(getByTestId('prevention-overview-declarations').props.style).backgroundColor)
+      .toBe('#f8f5f0');
     expect(getByTestId('prevention-overview-count-proposed').props.children).toBe(3);
     expect(getByTestId('prevention-overview-count-in_progress').props.children).toBe(2);
     expect(getByTestId('prevention-overview-count-completed').props.children).toBe(3);
@@ -142,6 +151,31 @@ describe('PreventionOverviewScreen AES UI', () => {
     expect(getByTestId('prevention-overview-badge-in_progress')).toBeTruthy();
     expect(getByTestId('prevention-overview-badge-completed')).toBeTruthy();
     expect(getByTestId('prevention-overview-badge-cancelled')).toBeTruthy();
+    expect(getByTestId('prevention-overview-completion-progress')).toBeTruthy();
+    expect(getByTestId('prevention-overview-capa-progress-card')).toBeTruthy();
+  });
+
+  test('uses live dark-theme surfaces and exposes aggregate labels accessibly', async () => {
+    const screen = render(
+      <ThemeProvider>
+        <SetDarkModeOnMount />
+        <PreventionOverviewScreen />
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('prevention-overview-metrics')).toBeTruthy());
+    expect(StyleSheet.flatten(screen.getByTestId('prevention-overview-declarations').props.style).backgroundColor)
+      .toBe('#2d3a2e');
+    expect(screen.getByTestId('prevention-overview-status-proposed').props.children.props.accessibilityLabel)
+      .toBe(`${t('prevention.overview.proposed')}: 3`);
+    expect(screen.getByTestId('prevention-overview-total').props.children.props.accessibilityLabel)
+      .toBe(`${t('prevention.overview.total')}: 9`);
+  });
+
+  test('keeps overview controls at accessible touch-target height', async () => {
+    const { getByTestId } = render(<PreventionOverviewScreen />);
+    await waitFor(() => expect(getByTestId('prevention-overview-view-register')).toBeTruthy());
+    expect(StyleSheet.flatten(getByTestId('prevention-overview-view-register').props.style).height)
+      .toBeGreaterThanOrEqual(48);
   });
 
   test('quality staff can navigate to the existing create route', async () => {
@@ -207,6 +241,10 @@ describe('PreventionOverviewScreen AES UI', () => {
     const empty = render(<PreventionOverviewScreen />);
     await waitFor(() => expect(empty.getByTestId('prevention-overview-empty')).toBeTruthy());
     expect(empty.getByTestId('prevention-overview-declaration-count').props.children).toBe(0);
+    expect(empty.getByTestId('prevention-overview-count-proposed').props.children).toBe(0);
+    expect(empty.getByTestId('prevention-overview-count-in_progress').props.children).toBe(0);
+    expect(empty.getByTestId('prevention-overview-count-completed').props.children).toBe(0);
+    expect(empty.getByTestId('prevention-overview-count-cancelled').props.children).toBe(0);
   });
 
   test('uses localized generic error text and retries', async () => {

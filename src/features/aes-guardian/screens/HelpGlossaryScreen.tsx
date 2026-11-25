@@ -26,6 +26,7 @@ import { RootStackParamList } from '../../../navigation/routes';
 import AppText from '../../../components/AppText';
 import AppTextInput from '../../../components/AppTextInput';
 import { AppIcon, AppIconLabel } from '../../../components/AppIcon';
+import { AesLifecycleVisual } from '../components';
 type HelpGlossaryRouteProp = RouteProp<RootStackParamList, 'helpGlossary'>;
 
 interface HelpSectionItem {
@@ -204,6 +205,7 @@ export const HelpGlossaryScreen: React.FC = () => {
                     <AppText style={styles.cardContent}>
                       {t(sec.contentKey, locale)}
                     </AppText>
+                    {sec.id === 'sec2' ? <AesLifecycleVisual /> : null}
                   </View>
                 )}
               </View>

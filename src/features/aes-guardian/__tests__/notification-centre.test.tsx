@@ -174,7 +174,7 @@ describe('Phase 2D.2G — Notification Centre UI & Interaction Integration', () 
 
   describe('Screen Behavior & Render States', () => {
     test('renders empty state when user has zero notifications', async () => {
-      const { getByText } = render(
+      const { getByText, getByTestId } = render(
         <ThemeProvider>
           <NotificationCentreScreen />
         </ThemeProvider>,
@@ -183,6 +183,7 @@ describe('Phase 2D.2G — Notification Centre UI & Interaction Integration', () 
       await waitFor(() => {
         expect(getByText(t('notificationCentre.empty', 'fr'))).toBeTruthy();
         expect(getByText(t('notificationCentre.emptySubtitle', 'fr'))).toBeTruthy();
+        expect(getByTestId('notification-centre-empty')).toBeTruthy();
       });
     });
 

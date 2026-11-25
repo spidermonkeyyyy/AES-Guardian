@@ -80,8 +80,8 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
   // 2. Screen 4.1: DeclarationFormScreen (5-Step Guided Wizard)
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Screen 4.1: DeclarationFormScreen (5-Step Wizard)', () => {
-    it('initializes at Step 1 with ordered 5-segment progress bar and step counter', () => {
-      const { getByTestId, getByText } = render(
+    it('initializes at Step 1 with controlled five-step progress and step counter', () => {
+      const { getByTestId, getByText, getByRole } = render(
         <ThemeProvider>
           <DeclarationFormScreen />
         </ThemeProvider>
@@ -89,6 +89,12 @@ describe('AES Guardian Phase 2E.1.3: Batch 3 Guided Declaration Workflow', () =>
 
       expect(getByTestId('declaration-step-1')).toBeTruthy();
       expect(getByTestId('declaration-progress-bar')).toBeTruthy();
+      expect(getByRole('progressbar').props.accessibilityValue).toEqual({
+        min: 1,
+        max: 5,
+        now: 1,
+        text: '1 / 5',
+      });
       expect(getByText('Étape 1 sur 5')).toBeTruthy();
       expect(getByText('Informations Générales')).toBeTruthy();
       expect(getByTestId('declaration-incident-date-input')).toBeTruthy();

@@ -24,6 +24,7 @@ import {
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
   Reanimated.default.call = () => {};
+  Reanimated.useReducedMotion = () => true;
   return Reanimated;
 });
 
@@ -128,24 +129,18 @@ jest.mock('../../../core/auth/boundaries', () => ({
   AuthContext: {},
 }));
 
-jest.mock('../../../theme/ThemeContext', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#121212',
-      background: '#F8F9FA',
-      card: '#FFFFFF',
-      border: '#EEEEEE',
-      foreground: '#212121',
-      mutedForeground: '#616161',
-      accent: '#1B5E20',
-      primaryForeground: '#FFFFFF',
-      destructive: '#B71C1C',
-      secondary: '#6A1B9A',
-    },
-  }),
-}));
-
 let mockLocale = 'fr';
+let mockThemeIsDark = false;
+
+jest.mock('../../../theme/ThemeContext', () => {
+  const { getThemeColors } = jest.requireActual('../../../theme/tokens/colors');
+  return {
+    useTheme: () => ({
+      colors: getThemeColors(mockThemeIsDark),
+      isDark: mockThemeIsDark,
+    }),
+  };
+});
 
 jest.mock('../../../localization', () => ({
   useLocale: () => mockLocale,
@@ -155,8 +150,9 @@ jest.mock('../../../localization', () => ({
   getLayoutTextAlign: (direction: 'ltr' | 'rtl') =>
     direction === 'rtl' ? 'right' : 'left',
   isRTL: () => mockLocale === 'ar',
-  t: (key: string, locale?: string) =>
-    locale && (
+  t: (key: string, locale?: string) => {
+    const activeLocale = locale ?? mockLocale;
+    return (
       key === 'surveillance.overview.draft' ||
       key === 'form.incidentType.percutaneous' ||
       key === 'role.quality_staff' ||
@@ -165,15 +161,22 @@ jest.mock('../../../localization', () => ({
       key === 'role.exposed_professional' ||
       key === 'role.tech_admin' ||
       key === 'surveillance.unauthorizedDetails' ||
-      key === 'surveillance.filters.declarationCountLabel'
+      key === 'surveillance.filters.declarationCountLabel' ||
+      key === 'surveillance.filters.startDate' ||
+      key === 'surveillance.filters.endDate' ||
+      key === 'surveillance.filters.invalidDate' ||
+      key === 'surveillance.filters.invalidDateRange'
     )
-      ? `${key}:${locale}`
-      : key,
+      ? `${key}:${activeLocale}`
+      : key;
+  },
 }));
 
 describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockThemeIsDark = false;
+    mockLocale = 'fr';
     require('../../../core/auth/boundaries').canViewSurveillanceDashboard.mockImplementation(
       (ctx: any) => ctx?.role === 'quality_staff' || ctx?.role === 'admin_reviewer' || ctx?.role === 'oh_professional',
     );
@@ -231,8 +234,7 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
     const bars = getAllByTestId(/surveillance-exposure-bar-/);
     expect(bars).toHaveLength(4);
     const exposureLabel = within(bars[0]).getByText('form.incidentType.percutaneous:fr');
-    expect(exposureLabel.props.numberOfLines).toBe(3);
-    expect(StyleSheet.flatten(exposureLabel.props.style).width).toBe(112);
+    expect(StyleSheet.flatten(exposureLabel.props.style).flexBasis).toBe(112);
   });
 
   test('renders status distribution card with AesStatusBadge for each status', async () => {
@@ -445,6 +447,107 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
     });
   });
 
+  test.each(['fr', 'en', 'ar'] as const)(
+    'stacks compact date fields and preserves localized labels and LTR ISO entry in %s',
+    async (locale) => {
+      mockLocale = locale;
+      const { getByTestId } = render(<SurveillanceDashboardScreen />);
+      await waitFor(() => expect(getByTestId('surveillance-date-range')).toBeTruthy());
+      const dateRange = getByTestId('surveillance-date-range');
+
+      fireEvent(dateRange, 'layout', { nativeEvent: { layout: { width: 300 } } });
+      await waitFor(() => {
+        expect(StyleSheet.flatten(dateRange.props.style).flexDirection).toBe('column');
+      });
+
+      for (const [field, key] of [
+        ['start', 'surveillance.filters.startDate'],
+        ['end', 'surveillance.filters.endDate'],
+      ] as const) {
+        const input = getByTestId(`surveillance-${field}-date-input`);
+        expect(input.props.placeholder).toBe(`${key}:${locale}`);
+        expect(input.props.accessibilityLabel).toBe(`${key}:${locale}`);
+        expect(StyleSheet.flatten(input.props.style)).toMatchObject({
+          writingDirection: 'ltr',
+          minHeight: 48,
+        });
+        expect(getByTestId(`surveillance-${field}-date-field`)).toBeTruthy();
+      }
+
+      fireEvent(dateRange, 'layout', { nativeEvent: { layout: { width: 500 } } });
+      await waitFor(() => {
+        expect(StyleSheet.flatten(dateRange.props.style).flexDirection)
+          .toBe(locale === 'ar' ? 'row-reverse' : 'row');
+      });
+    },
+  );
+
+  test('applies valid ISO date filters without changing repository filter semantics', async () => {
+    const loadMetrics = jest.fn().mockResolvedValue(mockMetrics);
+    require('../../../core/database').getDatabase.mockReturnValue({
+      getSurveillanceDashboardMetrics: loadMetrics,
+    });
+    const screen = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => expect(screen.getByTestId('surveillance-dashboard')).toBeTruthy());
+
+    fireEvent.changeText(screen.getByTestId('surveillance-start-date-input'), '2025-02-01');
+    await waitFor(() => {
+      expect(loadMetrics).toHaveBeenLastCalledWith(4, { startDate: '2025-02-01' });
+    });
+    fireEvent.changeText(screen.getByTestId('surveillance-end-date-input'), '2025-02-28');
+    await waitFor(() => {
+      expect(loadMetrics).toHaveBeenLastCalledWith(4, {
+        startDate: '2025-02-01',
+        endDate: '2025-02-28',
+      });
+    });
+  });
+
+  test.each([
+    ['2025-02-30', '', 'surveillance.filters.invalidDate'],
+    ['2025-03-01', '2025-02-28', 'surveillance.filters.invalidDateRange'],
+  ])('does not query results for invalid dates (%s, %s)', async (start, end, errorKey) => {
+    const loadMetrics = jest.fn().mockResolvedValue(mockMetrics);
+    require('../../../core/database').getDatabase.mockReturnValue({
+      getSurveillanceDashboardMetrics: loadMetrics,
+    });
+    const screen = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => expect(screen.getByTestId('surveillance-dashboard')).toBeTruthy());
+    const initialCallCount = loadMetrics.mock.calls.length;
+    if (start) fireEvent.changeText(screen.getByTestId('surveillance-start-date-input'), start);
+    if (start && end) {
+      await waitFor(() => {
+        expect(loadMetrics).toHaveBeenLastCalledWith(4, { startDate: start });
+      });
+    }
+    const callsBeforeInvalid = loadMetrics.mock.calls.length;
+    if (end) fireEvent.changeText(screen.getByTestId('surveillance-end-date-input'), end);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('surveillance-date-filter-error')).toBeTruthy();
+      expect(screen.getByText(`${errorKey}:fr`)).toBeTruthy();
+    });
+    expect(loadMetrics).toHaveBeenCalledTimes(callsBeforeInvalid || initialCallCount);
+    expect(screen.getByTestId('surveillance-kpi-total')).toBeTruthy();
+  });
+
+  test.each(['fr', 'en', 'ar'] as const)('localizes invalid-date guidance in %s, including RTL', async (locale) => {
+    mockLocale = locale;
+    const { getByTestId } = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => expect(getByTestId('surveillance-dashboard')).toBeTruthy());
+    fireEvent.changeText(getByTestId('surveillance-start-date-input'), '2025-02-30');
+    await waitFor(() => {
+      expect(getByTestId('surveillance-date-filter-error').props.accessibilityRole).toBe('alert');
+      expect(getByTestId('surveillance-date-filter-error').props.children).toBe(
+        `surveillance.filters.invalidDate:${locale}`,
+      );
+    });
+    expect(StyleSheet.flatten(getByTestId('surveillance-date-filter-error').props.style).textAlign)
+      .toBe(locale === 'ar' ? 'right' : 'left');
+    expect(StyleSheet.flatten(getByTestId('surveillance-start-date-input').props.style).writingDirection)
+      .toBe('ltr');
+  });
+
   test('clears all filters when clear button pressed', async () => {
     const { getByTestId } = render(<SurveillanceDashboardScreen />);
     await waitFor(() => expect(getByTestId('surveillance-status-filter-submitted')).toBeTruthy());
@@ -482,6 +585,7 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
   test('displays completed OH coordinations count', async () => {
     const { getByTestId } = render(<SurveillanceDashboardScreen />);
     await waitFor(() => expect(getByTestId('surveillance-kpi-completed-oh')).toBeTruthy());
+    await waitFor(() => expect(getByTestId('surveillance-oh-completion-progress')).toBeTruthy());
   });
 
   // ─── 7. Distribution Bars & Visualization ───────────────────────
@@ -587,6 +691,29 @@ describe('SurveillanceDashboardScreen — UI Tests (Phase 2E.1.7.1 Batch 7)', ()
       const pill = getByTestId('surveillance-status-filter-submitted');
       expect(pill.props.accessibilityLabel).toBeTruthy();
     });
+  });
+
+  test.each([false, true])('uses active theme tokens (dark=%s)', async (isDark) => {
+    mockThemeIsDark = isDark;
+    const { getByTestId } = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => expect(getByTestId('surveillance-dashboard')).toBeTruthy());
+    const { getThemeColors } = require('../../../theme/tokens/colors');
+    const colors = getThemeColors(isDark);
+    expect(StyleSheet.flatten(getByTestId('surveillance-filters').props.style).backgroundColor)
+      .toBe(colors.card);
+    expect(StyleSheet.flatten(getByTestId('role-pill-quality_staff').props.style).backgroundColor)
+      .toBe(colors.primary);
+  });
+
+  test('charts and metric cards expose text equivalents with values', async () => {
+    const { getByTestId } = render(<SurveillanceDashboardScreen />);
+    await waitFor(() => expect(getByTestId('surveillance-temporal')).toBeTruthy());
+    expect(getByTestId('surveillance-kpi-total').props.children.props.accessibilityLabel)
+      .toBe('surveillance.overview.total: 6');
+    expect(getByTestId('surveillance-temporal-bar-2025-01').props.accessibilityLabel)
+      .toBe('2025-01: 2');
+    expect(getByTestId('surveillance-status-row-draft').props.accessibilityLabel)
+      .toBe('surveillance.overview.draft:fr: 1');
   });
 
   test('clear filters button has accessibility label', async () => {

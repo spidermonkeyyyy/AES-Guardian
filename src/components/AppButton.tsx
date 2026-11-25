@@ -22,6 +22,9 @@ interface AppButtonProps {
   icon?: React.ReactNode;
   style?: ViewStyle | ViewStyle[];
   textStyle?: TextStyle;
+  testID?: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export const AppButton: React.FC<AppButtonProps> = ({
@@ -35,6 +38,9 @@ export const AppButton: React.FC<AppButtonProps> = ({
   icon,
   style,
   textStyle,
+  testID,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const { colors } = useTheme();
 
@@ -79,6 +85,11 @@ export const AppButton: React.FC<AppButtonProps> = ({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.7}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       {loading ? (
         <ActivityIndicator

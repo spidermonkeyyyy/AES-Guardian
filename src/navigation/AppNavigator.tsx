@@ -7,7 +7,6 @@ import {
   AdminReviewQueueScreen,
   AccessScreen,
   AesGuardianProfileScreen,
-  AesGuardianWorkspaceScreen,
   CorrectionResponseScreen,
   CreateCoordinationScreen,
   DeclarationCoordinationStatusScreen,
@@ -38,6 +37,7 @@ import {
 } from './DirectionalStackBackButton';
 import { RootStackParamList } from './routes';
 import { useLocale } from '../localization';
+import { AesGuardianTabNavigator } from './AesGuardianTabNavigator';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -106,7 +106,11 @@ export default function AppNavigator({
         <Stack.Screen name="aesLanguageSelect" component={LanguageSelectionScreen} options={{ headerShown: false }} />
         <Stack.Screen name="aesDisclaimer" component={PrototypeDisclaimerScreen} options={{ headerShown: false }} />
         <Stack.Screen name="aesDemoPicker" component={DemoAccountPickerScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="aesGuardianWorkspace" component={AesGuardianWorkspaceScreen} />
+        <Stack.Screen
+          name="aesGuardianWorkspace"
+          component={AesGuardianTabNavigator}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="declarations" component={DeclarationListScreen} />
         <Stack.Screen name="newDeclaration" component={DeclarationFormScreen} />
         <Stack.Screen name="declarationDetails" component={DeclarationDetailsScreen} />

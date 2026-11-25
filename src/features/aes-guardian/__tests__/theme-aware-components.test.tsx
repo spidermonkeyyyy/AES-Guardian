@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { AppText } from '../../../components/AppText';
 import { AppTextInput } from '../../../components/AppTextInput';
@@ -54,5 +54,46 @@ describe('theme-aware presentation components', () => {
     expect(getByTestId('green-action').props.style).toEqual(
       expect.objectContaining({ backgroundColor: '#81C784' }),
     );
+  });
+
+  it('applies top and landscape-side safe-area edges without claiming the bottom inset', () => {
+    const { getByTestId } = render(
+      <ThemeProvider>
+        <AesScreenContainer testID="safe-area-screen">
+          <View />
+        </AesScreenContainer>
+      </ThemeProvider>,
+    );
+
+    expect(getByTestId('safe-area-screen').props.edges).toEqual({
+      top: 'additive',
+      right: 'additive',
+      bottom: 'off',
+      left: 'additive',
+    });
+  });
+
+  it('uses live semantic status colors with readable contrast in both themes', () => {
+    const light = render(
+      <ThemeProvider>
+        <AesStatusBadge status="under_review" domain="declaration" testID="light-warning" />
+      </ThemeProvider>,
+    );
+    expect(StyleSheet.flatten(light.getByTestId('light-warning').props.style).backgroundColor)
+      .toBe('#FFF3E0');
+    expect(StyleSheet.flatten(light.getByTestId('light-warning-text').props.style).color)
+      .toBe('#3e2723');
+    light.unmount();
+
+    const dark = render(
+      <ThemeProvider>
+        <SetDarkModeOnMount />
+        <AesStatusBadge status="under_review" domain="declaration" testID="dark-warning" />
+      </ThemeProvider>,
+    );
+    expect(StyleSheet.flatten(dark.getByTestId('dark-warning').props.style).backgroundColor)
+      .toBe('#3E2A14');
+    expect(StyleSheet.flatten(dark.getByTestId('dark-warning-text').props.style).color)
+      .toBe('#f0ebe5');
   });
 });

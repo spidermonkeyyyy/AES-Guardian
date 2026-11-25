@@ -60,6 +60,12 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
 export type TranslationKey =
   // Extra keys for pre-existing destination screens
   | 'navigation.back'
+  | 'navigation.tab.home'
+  | 'navigation.tab.declare'
+  | 'navigation.tab.followup'
+  | 'navigation.tab.prevention'
+  | 'navigation.tab.profile'
+  | 'navigation.tab.accessibility'
   | 'workspace.nav.title'
   | 'prevention.create.acknowledgement.confirm'
   | 'prevention.create.acknowledgement.inProgress'
@@ -365,6 +371,8 @@ export type TranslationKey =
   | 'surveillance.filters.exposure'
   | 'surveillance.filters.startDate'
   | 'surveillance.filters.endDate'
+  | 'surveillance.filters.invalidDate'
+  | 'surveillance.filters.invalidDateRange'
   | 'surveillance.filters.clear'
   | 'surveillance.overview.title'
   | 'surveillance.overview.total'
@@ -401,6 +409,10 @@ export type TranslationKey =
   | 'prevention.overview.in_progress'
   | 'prevention.overview.completed'
   | 'prevention.overview.cancelled'
+  | 'prevention.progress.title'
+  | 'prevention.progress.label'
+  | 'prevention.progress.subLabel'
+  | 'progress.oh.completed'
   | 'prevention.overview.viewRegister'
   | 'prevention.overview.newAction'
   | 'prevention.register.title'
@@ -496,6 +508,30 @@ export type TranslationKey =
   | 'workspace.roleDesc.oh'
   | 'workspace.roleDesc.quality'
   | 'workspace.roleDesc.tech'
+  | 'workspace.dashboard.title'
+  | 'workspace.dashboard.loading'
+  | 'workspace.dashboard.error'
+  | 'workspace.dashboard.retry'
+  | 'workspace.dashboard.ownDeclarations'
+  | 'workspace.dashboard.correctionRequests'
+  | 'workspace.dashboard.loadedLimit'
+  | 'workspace.dashboard.reviewItems'
+  | 'workspace.dashboard.activeCoordinations'
+  | 'workspace.dashboard.activeCoordinationDetail'
+  | 'workspace.dashboard.surveillanceDeclarations'
+  | 'workspace.dashboard.deidentifiedAggregate'
+  | 'workspace.dashboard.preventionActions'
+  | 'workspace.dashboard.registeredActions'
+  | 'workspace.dashboard.unreadNotifications'
+  | 'workspace.dashboard.databaseEngine'
+  | 'workspace.dashboard.schemaVersion'
+  | 'workspace.dashboard.unavailable'
+  | 'workspace.dashboard.nextAction'
+  | 'workspace.dashboard.openDeclarations'
+  | 'workspace.dashboard.openCorrections'
+  | 'workspace.dashboard.openReviewQueue'
+  | 'workspace.dashboard.openOhQueue'
+  | 'workspace.dashboard.openSurveillance'
   | 'workspace.correctionActionRequired'
   | 'workspace.correctionActionDesc'
   | 'workspace.permittedModulesTitle'
@@ -582,6 +618,15 @@ export type TranslationKey =
   | 'help.section7.content'
   | 'help.section8.title'
   | 'help.section8.content'
+  | 'help.lifecycle.title'
+  | 'help.lifecycle.declaration'
+  | 'help.lifecycle.conditionalBranch'
+  | 'help.lifecycle.oh'
+  | 'help.lifecycle.optionalIfApplicable'
+  | 'help.lifecycle.capa'
+  | 'help.lifecycle.independent'
+  | 'help.lifecycle.notLinear'
+  | 'help.lifecycle.closedNoTransition'
 
   // Glossary Terms (1 to 14)
   | 'glossary.term1.term'
@@ -829,6 +874,12 @@ type TranslationMap = Record<TranslationKey, string>;
 const fr: TranslationMap = {
   // Extra keys
   'navigation.back': 'Retour',
+  'navigation.tab.home': 'Accueil',
+  'navigation.tab.declare': 'Déclarer',
+  'navigation.tab.followup': 'Suivi',
+  'navigation.tab.prevention': 'Prévention',
+  'navigation.tab.profile': 'Profil',
+  'navigation.tab.accessibility': 'Navigation principale',
   'workspace.nav.title': 'Espace SANAD',
   'prevention.create.acknowledgement.confirm': 'Confirmer la présentation',
   'prevention.create.acknowledgement.inProgress': 'Confirmation en cours...',
@@ -1136,6 +1187,8 @@ const fr: TranslationMap = {
   'surveillance.filters.exposure': "Type d'exposition :",
   'surveillance.filters.startDate': "Du : AAAA-MM-JJ",
   'surveillance.filters.endDate': "Au : AAAA-MM-JJ",
+  'surveillance.filters.invalidDate': "Les dates doivent être valides et au format AAAA-MM-JJ. Les résultats affichés utilisent le dernier filtre valide.",
+  'surveillance.filters.invalidDateRange': "La date de début doit précéder ou correspondre à la date de fin. Les résultats affichés utilisent le dernier filtre valide.",
   'surveillance.filters.clear': "Réinitialiser les filtres",
   'surveillance.overview.title': "Indicateurs Généraux",
   'surveillance.overview.total': "Total Déclarations",
@@ -1173,6 +1226,10 @@ const fr: TranslationMap = {
   'prevention.overview.in_progress': "En cours",
   'prevention.overview.completed': "Clôturées",
   'prevention.overview.cancelled': "Annulées",
+  'prevention.progress.title': "Achèvement des actions CAPA enregistrées",
+  'prevention.progress.label': "Actions enregistrées achevées",
+  'prevention.progress.subLabel': "Ne mesure pas l'efficacité institutionnelle",
+  'progress.oh.completed': "Coordinations SST achevées",
   'prevention.overview.viewRegister': "Voir le Registre",
   'prevention.overview.newAction': "Nouvelle Action",
   'prevention.register.title': "Registre des Actions",
@@ -1269,6 +1326,30 @@ const fr: TranslationMap = {
   'workspace.roleDesc.oh': "Prise en charge médico-professionnelle, suivi sérologique (VIH/VHB/VHC), événements de suivi, clôture SST.",
   'workspace.roleDesc.quality': "Surveillance épidémiologique dé-identifiée, consultation des indicateurs agrégés, pilotage du plan d’actions CAPA.",
   'workspace.roleDesc.tech': "Maintenance système, vérification du schéma SQLite et intégrité locale. Accès clinique et personnel strictement interdit.",
+  'workspace.dashboard.title': 'Vue d’ensemble',
+  'workspace.dashboard.loading': 'Chargement des données autorisées…',
+  'workspace.dashboard.error': 'Les données du tableau de bord sont indisponibles. Réessayez.',
+  'workspace.dashboard.retry': 'Réessayer',
+  'workspace.dashboard.ownDeclarations': 'Déclarations de la liste récente',
+  'workspace.dashboard.correctionRequests': 'Corrections dans la liste récente',
+  'workspace.dashboard.loadedLimit': 'Derniers enregistrements chargés (maximum 100), pas un total global.',
+  'workspace.dashboard.reviewItems': 'Éléments chargés dans la file de revue',
+  'workspace.dashboard.activeCoordinations': 'Coordinations actives',
+  'workspace.dashboard.activeCoordinationDetail': 'En attente de réception ou prises en charge.',
+  'workspace.dashboard.surveillanceDeclarations': 'Déclarations agrégées',
+  'workspace.dashboard.deidentifiedAggregate': 'Indicateur agrégé dé-identifié.',
+  'workspace.dashboard.preventionActions': 'Actions de prévention',
+  'workspace.dashboard.registeredActions': 'Actions du registre autorisé.',
+  'workspace.dashboard.unreadNotifications': 'Notifications non lues',
+  'workspace.dashboard.databaseEngine': 'Moteur de base de données',
+  'workspace.dashboard.schemaVersion': 'Version du schéma',
+  'workspace.dashboard.unavailable': 'Indisponible',
+  'workspace.dashboard.nextAction': 'Prochaine étape',
+  'workspace.dashboard.openDeclarations': 'Ouvrir mes déclarations',
+  'workspace.dashboard.openCorrections': 'Consulter les demandes de correction',
+  'workspace.dashboard.openReviewQueue': 'Ouvrir la file de revue',
+  'workspace.dashboard.openOhQueue': 'Ouvrir le suivi Santé au Travail',
+  'workspace.dashboard.openSurveillance': 'Ouvrir la surveillance agrégée',
   'workspace.correctionActionRequired': "Demande de correction en attente",
   'workspace.correctionActionDesc': "L'administrateur RH a requis une correction sur l'une de vos déclarations. Veuillez compléter les informations.",
   'workspace.permittedModulesTitle': "Modules Autorisés pour ce Rôle",
@@ -1355,6 +1436,15 @@ const fr: TranslationMap = {
   'help.section7.content': "L'application applique un cloisonnement strict des habilitations : Professionnel Exposé (déclaration et ses propres dossiers), Administrateur RH (recevabilité et orientation), Santé au Travail (suivi médical réglementaire), Qualité (indicateurs agrégés et CAPA), et Administrateur Technique (maintenance locale sans accès aux données de santé).",
   'help.section8.title': "8. Confidentialité et limites du prototype",
   'help.section8.content': "Cette application est un environnement de simulation académique utilisant exclusivement des données synthétiques locales. Elle ne constitue pas un dispositif médical, ne formule aucun diagnostic et ne fournit aucune recommandation thérapeutique ou posologique.",
+  'help.lifecycle.title': "Visualisation statique du parcours AES",
+  'help.lifecycle.declaration': "Processus de déclaration AES",
+  'help.lifecycle.conditionalBranch': "Branche conditionnelle",
+  'help.lifecycle.oh': "Coordination de Santé au Travail",
+  'help.lifecycle.optionalIfApplicable': "Processus facultatif, si une coordination existe",
+  'help.lifecycle.capa': "Prévention / CAPA",
+  'help.lifecycle.independent': "Processus indépendant",
+  'help.lifecycle.notLinear': "Ces processus sont liés, mais ne se suivent pas automatiquement.",
+  'help.lifecycle.closedNoTransition': "Clôture : aucune autre transition",
 
   // Glossary Terms (1 to 14)
   'glossary.term1.term': "AES (Accident d'Exposition au Sang)",
@@ -1588,6 +1678,12 @@ const fr: TranslationMap = {
 const en: TranslationMap = {
   // Extra keys
   'navigation.back': 'Back',
+  'navigation.tab.home': 'Home',
+  'navigation.tab.declare': 'Report',
+  'navigation.tab.followup': 'Follow-up',
+  'navigation.tab.prevention': 'Prevention',
+  'navigation.tab.profile': 'Profile',
+  'navigation.tab.accessibility': 'Main navigation',
   'workspace.nav.title': 'SANAD Workspace',
   'prevention.create.acknowledgement.confirm': 'Confirm presentation',
   'prevention.create.acknowledgement.inProgress': 'Confirming presentation...',
@@ -1895,6 +1991,8 @@ const en: TranslationMap = {
   'surveillance.filters.exposure': "Exposure Type:",
   'surveillance.filters.startDate': "From: YYYY-MM-DD",
   'surveillance.filters.endDate': "To: YYYY-MM-DD",
+  'surveillance.filters.invalidDate': "Enter valid dates in YYYY-MM-DD format. Results shown still use the last valid filters.",
+  'surveillance.filters.invalidDateRange': "The start date must be on or before the end date. Results shown still use the last valid filters.",
   'surveillance.filters.clear': "Clear Filters",
   'surveillance.overview.title': "Overview Indicators",
   'surveillance.overview.total': "Total Declarations",
@@ -1932,6 +2030,10 @@ const en: TranslationMap = {
   'prevention.overview.in_progress': "In Progress",
   'prevention.overview.completed': "Completed",
   'prevention.overview.cancelled': "Cancelled",
+  'prevention.progress.title': "Completion of registered CAPA actions",
+  'prevention.progress.label': "Registered actions completed",
+  'prevention.progress.subLabel': "Does not measure institutional prevention effectiveness",
+  'progress.oh.completed': "Completed occupational-health coordinations",
   'prevention.overview.viewRegister': "View Register",
   'prevention.overview.newAction': "New Action",
   'prevention.register.title': "Action Register",
@@ -2028,6 +2130,30 @@ const en: TranslationMap = {
   'workspace.roleDesc.oh': "Occupational health management, serological follow-up (HIV/HBV/HCV), follow-up events, SST closure.",
   'workspace.roleDesc.quality': "De-identified epidemiological surveillance, aggregate metrics review, CAPA action plan management.",
   'workspace.roleDesc.tech': "System maintenance, SQLite schema verification and local integrity. Clinical and personal data strictly prohibited.",
+  'workspace.dashboard.title': 'Overview',
+  'workspace.dashboard.loading': 'Loading authorized data…',
+  'workspace.dashboard.error': 'Dashboard data is unavailable. Please try again.',
+  'workspace.dashboard.retry': 'Try again',
+  'workspace.dashboard.ownDeclarations': 'Declarations in recent list',
+  'workspace.dashboard.correctionRequests': 'Corrections in recent list',
+  'workspace.dashboard.loadedLimit': 'Latest loaded records (up to 100), not an overall total.',
+  'workspace.dashboard.reviewItems': 'Items loaded in the review queue',
+  'workspace.dashboard.activeCoordinations': 'Active coordinations',
+  'workspace.dashboard.activeCoordinationDetail': 'Awaiting acknowledgement or acknowledged.',
+  'workspace.dashboard.surveillanceDeclarations': 'Aggregated declarations',
+  'workspace.dashboard.deidentifiedAggregate': 'De-identified aggregate indicator.',
+  'workspace.dashboard.preventionActions': 'Prevention actions',
+  'workspace.dashboard.registeredActions': 'Actions in the authorized register.',
+  'workspace.dashboard.unreadNotifications': 'Unread notifications',
+  'workspace.dashboard.databaseEngine': 'Database engine',
+  'workspace.dashboard.schemaVersion': 'Schema version',
+  'workspace.dashboard.unavailable': 'Unavailable',
+  'workspace.dashboard.nextAction': 'Next step',
+  'workspace.dashboard.openDeclarations': 'Open my declarations',
+  'workspace.dashboard.openCorrections': 'Review correction requests',
+  'workspace.dashboard.openReviewQueue': 'Open review queue',
+  'workspace.dashboard.openOhQueue': 'Open Occupational Health follow-up',
+  'workspace.dashboard.openSurveillance': 'Open aggregate surveillance',
   'workspace.correctionActionRequired': "Pending Correction Request",
   'workspace.correctionActionDesc': "The administrative reviewer has requested a correction on one of your declarations. Please provide the required information.",
   'workspace.permittedModulesTitle': "Permitted Modules for this Role",
@@ -2114,6 +2240,15 @@ const en: TranslationMap = {
   'help.section7.content': "The application strictly compartmentalizes permissions: Exposed Professional (declaration and own records), Admin Reviewer (compliance and referral), OH Professional (confidential follow-up), Quality Staff (de-identified surveillance and CAPA), and Tech Admin (local database maintenance without healthcare data access).",
   'help.section8.title': "8. Prototype Privacy & Limitations",
   'help.section8.content': "This prototype runs strictly locally on-device using synthetic data. It is not a medical device, provides no diagnostic determinations, and offers no therapeutic or dosing recommendations.",
+  'help.lifecycle.title': "Static AES process overview",
+  'help.lifecycle.declaration': "AES Declaration Process",
+  'help.lifecycle.conditionalBranch': "Conditional branch",
+  'help.lifecycle.oh': "Occupational-Health Coordination",
+  'help.lifecycle.optionalIfApplicable': "Optional process when coordination exists",
+  'help.lifecycle.capa': "Prevention / CAPA",
+  'help.lifecycle.independent': "Independent process",
+  'help.lifecycle.notLinear': "These processes are related but do not follow one another automatically.",
+  'help.lifecycle.closedNoTransition': "Closed: no further transition",
 
   // Glossary Terms (1 to 14)
   'glossary.term1.term': "AES (Blood & Body Fluid Exposure)",
@@ -2347,6 +2482,12 @@ const en: TranslationMap = {
 const ar: TranslationMap = {
   // Extra keys
   'navigation.back': 'رجوع',
+  'navigation.tab.home': 'الرئيسية',
+  'navigation.tab.declare': 'الإبلاغ',
+  'navigation.tab.followup': 'المتابعة',
+  'navigation.tab.prevention': 'الوقاية',
+  'navigation.tab.profile': 'الملف الشخصي',
+  'navigation.tab.accessibility': 'التنقل الرئيسي',
   'workspace.nav.title': 'مساحة SANAD',
   'prevention.create.acknowledgement.confirm': 'تأكيد العرض',
   'prevention.create.acknowledgement.inProgress': 'جاري تأكيد العرض...',
@@ -2655,6 +2796,8 @@ const ar: TranslationMap = {
   'surveillance.filters.exposure': "نوع التعرض:",
   'surveillance.filters.startDate': "من: YYYY-MM-DD",
   'surveillance.filters.endDate': "إلى: YYYY-MM-DD",
+  'surveillance.filters.invalidDate': "أدخل تواريخ صحيحة بالتنسيق YYYY-MM-DD. لا تزال النتائج المعروضة تستخدم آخر عوامل تصفية صالحة.",
+  'surveillance.filters.invalidDateRange': "يجب أن يكون تاريخ البدء قبل تاريخ الانتهاء أو مساويًا له. لا تزال النتائج المعروضة تستخدم آخر عوامل تصفية صالحة.",
   'surveillance.filters.clear': "إلغاء التصفية",
   'surveillance.overview.title': "المؤشرات العامة",
   'surveillance.overview.total': "إجمالي التصريحات",
@@ -2692,6 +2835,10 @@ const ar: TranslationMap = {
   'prevention.overview.in_progress': "قيد التنفيذ",
   'prevention.overview.completed': "مكتملة",
   'prevention.overview.cancelled': "ملغاة",
+  'prevention.progress.title': "إنجاز إجراءات الوقاية المسجلة",
+  'prevention.progress.label': "الإجراءات المسجلة المكتملة",
+  'prevention.progress.subLabel': "لا يقيس فعالية الوقاية المؤسسية",
+  'progress.oh.completed': "تنسيق الصحة المهنية المكتمل",
   'prevention.overview.viewRegister': "عرض السجل",
   'prevention.overview.newAction': "إجراء جديد",
   'prevention.register.title': "سجل الإجراءات",
@@ -2789,6 +2936,30 @@ const ar: TranslationMap = {
   'workspace.roleDesc.oh': "المتابعة الطبية المهنية، الفحوصات المصلية (HIV/HBV/HCV)، تسجيل أحداث المتابعة، وإغلاق الملف.",
   'workspace.roleDesc.quality': "الترصد الوبائي مجهول الهوية، مراجعة المؤشرات التجميعية، وإدارة خطة إجراءات الوقاية CAPA.",
   'workspace.roleDesc.tech': "صيانة النظام، التحقق من مخطط SQLite والسلامة الفنية المحلية. يمنع الوصول للبيانات السريرية والشخصية.",
+  'workspace.dashboard.title': 'نظرة عامة',
+  'workspace.dashboard.loading': 'جارٍ تحميل البيانات المصرح بها…',
+  'workspace.dashboard.error': 'بيانات لوحة المعلومات غير متاحة. يرجى إعادة المحاولة.',
+  'workspace.dashboard.retry': 'إعادة المحاولة',
+  'workspace.dashboard.ownDeclarations': 'البلاغات في القائمة الأخيرة',
+  'workspace.dashboard.correctionRequests': 'طلبات التصحيح في القائمة الأخيرة',
+  'workspace.dashboard.loadedLimit': 'أحدث السجلات المحملة (حتى 100)، وليست إجماليًا شاملًا.',
+  'workspace.dashboard.reviewItems': 'العناصر المحملة في قائمة المراجعة',
+  'workspace.dashboard.activeCoordinations': 'عمليات التنسيق النشطة',
+  'workspace.dashboard.activeCoordinationDetail': 'بانتظار الإقرار أو تم الإقرار بها.',
+  'workspace.dashboard.surveillanceDeclarations': 'البلاغات المجمعة',
+  'workspace.dashboard.deidentifiedAggregate': 'مؤشر تجميعي منزوع الهوية.',
+  'workspace.dashboard.preventionActions': 'إجراءات الوقاية',
+  'workspace.dashboard.registeredActions': 'إجراءات في السجل المصرح به.',
+  'workspace.dashboard.unreadNotifications': 'الإشعارات غير المقروءة',
+  'workspace.dashboard.databaseEngine': 'محرك قاعدة البيانات',
+  'workspace.dashboard.schemaVersion': 'إصدار المخطط',
+  'workspace.dashboard.unavailable': 'غير متاح',
+  'workspace.dashboard.nextAction': 'الخطوة التالية',
+  'workspace.dashboard.openDeclarations': 'فتح بلاغاتي',
+  'workspace.dashboard.openCorrections': 'مراجعة طلبات التصحيح',
+  'workspace.dashboard.openReviewQueue': 'فتح قائمة المراجعة',
+  'workspace.dashboard.openOhQueue': 'فتح متابعة الصحة المهنية',
+  'workspace.dashboard.openSurveillance': 'فتح الترصد التجميعي',
   'workspace.correctionActionRequired': "طلب تصحيح بانتظار الرد",
   'workspace.correctionActionDesc': "طلب المراجع الإداري تصحيحاً على أحد بلاغاتك. يرجى استكمال البيانات المطلوبة.",
   'workspace.permittedModulesTitle': "الوحدات المصرح بها لهذا الدور",
@@ -2875,6 +3046,15 @@ const ar: TranslationMap = {
   'help.section7.content': "يطبق النظام فصلاً صارماً للصلاحيات: الممارس المعرض (الإبلاغ وملفاته فقط)، المشرف الإداري (الفحص والتوجيه)، طب العمل (المتابعة السرية)، الجودة (المؤشرات والوقاية)، والمسؤول التقني (صيانة قاعدة البيانات المحلية دون أي وصول سريري).",
   'help.section8.title': "8. الخصوصية وحدود النموذج التجريبي",
   'help.section8.content': "يعمل هذا النموذج محلياً وبشكل معزول باستخدام بيانات تركيبية. ولا يُعد جهازاً طبياً ولا يقدم تشخيصات أو وصفات علاجية أو جرعات دوائية.",
+  'help.lifecycle.title': "عرض ثابت لمسار عملية AES",
+  'help.lifecycle.declaration': "مسار الإبلاغ عن AES",
+  'help.lifecycle.conditionalBranch': "فرع مشروط",
+  'help.lifecycle.oh': "تنسيق طب العمل",
+  'help.lifecycle.optionalIfApplicable': "عملية اختيارية إذا كان التنسيق موجوداً",
+  'help.lifecycle.capa': "الوقاية / CAPA",
+  'help.lifecycle.independent': "عملية مستقلة",
+  'help.lifecycle.notLinear': "هذه العمليات مترابطة لكنها لا تتبع بعضها تلقائياً.",
+  'help.lifecycle.closedNoTransition': "مغلق: لا توجد انتقالات أخرى",
 
   // Glossary Terms (1 to 14)
   'glossary.term1.term': "AES (حادث التعرض للدم)",

@@ -9,8 +9,8 @@
  */
 
 import React from 'react';
-import { Alert, StyleSheet } from 'react-native';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import {
   initializeDatabase,
   resetDatabaseForTesting,
@@ -23,11 +23,6 @@ import { aesTypography } from '../../../theme/tokens';
 import { AesStatusBadge } from '../components/AesStatusBadge';
 import { DeclarationListScreen } from '../screens/DeclarationListScreen';
 import { DeclarationDetailsScreen } from '../screens/DeclarationDetailsScreen';
-import {
-  aesDeclarationStatusColors,
-  aesOhCoordinationStatusColors,
-  aesCapaStatusColors,
-} from '../../../theme/tokens/aesColors';
 
 const { clearAllMockStores } = require('@op-engineering/op-sqlite');
 
@@ -148,10 +143,10 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
       // Renders 'draft' string, not the declaration label 'Brouillon'
       expect(getByText('draft')).toBeTruthy();
       const badge = getByTestId('aes-status-badge');
-      // Style uses fallback colors #EEEEEE background, not declaration colors
+      // Style uses the live theme's neutral fallback, not declaration colors.
       expect(badge.props.style).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ backgroundColor: '#EEEEEE', borderColor: '#E0E0E0' }),
+          expect.objectContaining({ backgroundColor: '#f0e9e0', borderColor: '#e0d6c9' }),
         ])
       );
     });
@@ -338,8 +333,8 @@ describe('AES Guardian Phase 2E.1.4.3.1: Batch 4 Acceptance Audit & Targeted Ver
         const ratio = getContrastRatio(fg, bg);
 
         expect(ratio).toBeGreaterThanOrEqual(4.5);
-        expect(bg.toUpperCase()).toBe('#EEEEEE');
-        expect(fg.toUpperCase()).toBe('#616161');
+        expect(bg.toUpperCase()).toBe('#F0E9E0');
+        expect(fg.toUpperCase()).toBe('#6D4C41');
         expect(textStyle.fontSize).toBe(aesTypography.labelSmall?.fontSize ?? 11);
         expect(textStyle.fontWeight).toBe('600');
       }

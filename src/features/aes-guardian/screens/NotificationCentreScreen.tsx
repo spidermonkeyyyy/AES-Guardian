@@ -42,6 +42,13 @@ import type { RootStackParamList } from '../../../navigation/routes';
 
 import AppText from '../../../components/AppText';
 import { AppIcon } from '../../../components/AppIcon';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '../../../components';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -446,15 +453,15 @@ export const NotificationCentreScreen: React.FC = () => {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <AppIcon name="bell" size={40} color={colors.mutedForeground} style={{ marginBottom: spacing.md }} />
-            <AppText style={[styles.emptyTitle, { color: colors.foreground }]}>
-              {t('notificationCentre.empty', locale)}
-            </AppText>
-            <AppText style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-              {t('notificationCentre.emptySubtitle', locale)}
-            </AppText>
-          </View>
+          <Empty testID="notification-centre-empty">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <AppIcon name="bell" size={24} color={colors.mutedForeground} decorative />
+              </EmptyMedia>
+              <EmptyTitle>{t('notificationCentre.empty', locale)}</EmptyTitle>
+            </EmptyHeader>
+            <EmptyDescription>{t('notificationCentre.emptySubtitle', locale)}</EmptyDescription>
+          </Empty>
         }
         ItemSeparatorComponent={() => (
           <View style={[styles.separator, { backgroundColor: colors.border }]} />

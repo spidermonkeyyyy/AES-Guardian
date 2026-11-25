@@ -10,6 +10,13 @@
  */
 
 import AppText from '../../../components/AppText';
+import { AppIcon } from '../../../components/AppIcon';
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertIcon,
+} from '../../../components';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -17,11 +24,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {
-  aesColors,
   aesSpacing,
   aesRadii,
   aesTypography,
 } from '../../../theme/tokens';
+import type { ColorToken } from '../../../theme/tokens/colors';
+import { useTheme } from '../../../theme/ThemeContext';
 import {
   getDatabase,
   canManagePreventionActions,
@@ -36,7 +44,6 @@ import {
   useLocale,
   useLayoutDirection,
   getLayoutRowDirection,
-  getLayoutTextAlign,
   type TranslationKey,
 } from '../../../localization';
 import { useNavigation } from '@react-navigation/native';
@@ -49,6 +56,7 @@ import {
   AesStatusBadge,
   AesButton,
 } from '../components';
+import { AnimatedProgressCard, CircleProgress } from '../../../components';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -62,12 +70,12 @@ const ROLE_LABEL_KEYS: Record<AesGuardianRole, TranslationKey> = {
 
 export const PreventionOverviewScreen: React.FC = () => {
   const navigation = useNavigation<NavProp>();
+  const { colors: themeColors } = useTheme();
   const locale = useLocale();
   const layoutDirection = useLayoutDirection();
   const rtl = layoutDirection === 'rtl';
   const rowDirection = getLayoutRowDirection(layoutDirection);
-  const textAlign = getLayoutTextAlign(layoutDirection);
-  const styles = createStyles(rtl);
+  const styles = createStyles(themeColors, rtl);
   const activeRole = useDemoRoleStore(state => state.activeRole);
   const activeContext = useDemoRoleStore(state => state.activeContext);
   const userId = activeContext.userId;
@@ -148,7 +156,7 @@ export const PreventionOverviewScreen: React.FC = () => {
         {renderActiveRole()}
         <AesCard
           elevated
-          accentBorderColor={aesColors.banners.error.border}
+          accentBorderColor={themeColors.destructive}
           testID="prevention-overview-unauthorized-card"
         >
           <AppText style={styles.unauthorizedText}>{t('prevention.unauthorized')}</AppText>
@@ -170,7 +178,7 @@ export const PreventionOverviewScreen: React.FC = () => {
         />
         {renderActiveRole()}
         <View style={styles.centeredState} testID="prevention-overview-loading-state">
-          <ActivityIndicator size="large" color={aesColors.accentGreen} />
+          <ActivityIndicator size="large" color={themeColors.primary} />
           <AppText style={styles.loadingText}>{t('app.loading')}</AppText>
         </View>
       </AesScreenContainer>
@@ -186,19 +194,24 @@ export const PreventionOverviewScreen: React.FC = () => {
           testID="prevention-overview-header"
         />
         {renderActiveRole()}
-        <AesCard
-          elevated
-          accentBorderColor={aesColors.banners.error.border}
+        <Alert
+          variant="error"
+          accessibilityRole="alert"
           testID="prevention-overview-error-card"
         >
-          <AppText style={styles.errorText}>{t('error.generic', locale)}</AppText>
-          <AesButton
-            title={t('prevention.register.retry', locale)}
-            onPress={() => setRetryVersion(version => version + 1)}
-            variant="outline"
-            testID="prevention-overview-retry"
-          />
-        </AesCard>
+          <AlertIcon>
+            <AppIcon name="alert-triangle" size={32} decorative />
+          </AlertIcon>
+          <AlertDescription>{t('error.generic', locale)}</AlertDescription>
+          <AlertAction>
+            <AesButton
+              title={t('prevention.register.retry', locale)}
+              onPress={() => setRetryVersion(version => version + 1)}
+              variant="outline"
+              testID="prevention-overview-retry"
+            />
+          </AlertAction>
+        </Alert>
       </AesScreenContainer>
     );
   }
@@ -224,59 +237,127 @@ export const PreventionOverviewScreen: React.FC = () => {
       />
       {renderActiveRole()}
 
-      <View style={styles.disclaimerBanner} testID="prevention-overview-disclaimer">
-        <AppText style={[styles.disclaimerText, { textAlign: rtl ? 'right' : 'left' }]}>
-          {t('prevention.disclaimer')}
-        </AppText>
-      </View>
+      <Alert
+        variant="warning"
+        layout="block"
+        dismissible={false}
+        testID="prevention-overview-disclaimer"
+        accessibilityRole="summary"
+      >
+        <AlertIcon>
+          <AppIcon name="alert-triangle" size={16} decorative />
+        </AlertIcon>
+        <AlertDescription>{t('prevention.disclaimer')}</AlertDescription>
+      </Alert>
 
-      <AesCard elevated testID="prevention-overview-declarations">
-        <AppText style={styles.metricLabel}>{t('surveillance.overview.total', locale)}</AppText>
-        <AppText style={styles.totalValue} testID="prevention-overview-declaration-count">
-          {declarationTotal}
-        </AppText>
+      <AesCard
+        elevated
+        testID="prevention-overview-declarations"
+      >
+        <View
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={`${t('surveillance.overview.total', locale)}: ${declarationTotal}`}
+        >
+          <AppText style={styles.metricLabel}>{t('surveillance.overview.total', locale)}</AppText>
+          <AppText style={styles.totalValue} testID="prevention-overview-declaration-count">
+            {declarationTotal}
+          </AppText>
+        </View>
       </AesCard>
 
-      {overview.total === 0 ? (
+      {overview.total === 0 && (
         <AesCard elevated testID="prevention-overview-empty">
           <AppText style={[styles.emptyText, { textAlign: rtl ? 'right' : 'left' }]}>
             {t('prevention.register.empty')}
           </AppText>
         </AesCard>
-      ) : (
-        <View style={styles.metricsContainer} testID="prevention-overview-metrics">
-          <AesCard elevated testID="prevention-overview-total">
-            <AppText style={styles.metricLabel}>{t('prevention.overview.total')}</AppText>
-            <AppText style={styles.totalValue}>{overview.total}</AppText>
+      )}
+      <View
+        style={[styles.metricsContainer, { flexDirection: rowDirection }]}
+        testID="prevention-overview-metrics"
+      >
+          <AesCard
+            elevated
+            style={styles.metricCard}
+            testID="prevention-overview-total"
+          >
+            <View
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`${t('prevention.overview.total', locale)}: ${overview.total}`}
+            >
+              <AppText style={styles.metricLabel}>{t('prevention.overview.total')}</AppText>
+              <AppText style={styles.totalValue}>{overview.total}</AppText>
+            </View>
           </AesCard>
 
           {statusCards.map(({ status, value, labelKey }) => (
             <AesCard
               key={status}
               elevated
+              style={styles.metricCard}
               testID={`prevention-overview-status-${status}`}
-              accentBorderColor={aesColors.status.capa[status].border}
             >
-              <View style={styles.statusCardHeader}>
-                <AesStatusBadge
-                  status={status}
-                  domain="capa"
-                  testID={`prevention-overview-badge-${status}`}
-                />
-                <AppText
-                  style={styles.statusValue}
-                  testID={`prevention-overview-count-${status}`}
-                >
-                  {value}
+              <View
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={`${t(labelKey, locale)}: ${value}`}
+                style={styles.statusCardContent}
+              >
+                <View style={styles.statusCardHeader}>
+                  <AesStatusBadge
+                    status={status}
+                    domain="capa"
+                    testID={`prevention-overview-badge-${status}`}
+                  />
+                  <AppText
+                    style={styles.statusValue}
+                    testID={`prevention-overview-count-${status}`}
+                  >
+                    {value}
+                  </AppText>
+                  {status === 'completed' &&
+                    Number.isFinite(overview.total) &&
+                    overview.total > 0 &&
+                    Number.isFinite(value) &&
+                    value >= 0 ? (
+                      <CircleProgress
+                        value={Math.min(value, overview.total)}
+                        maxValue={overview.total}
+                        size={48}
+                        strokeWidth={5}
+                        showValue
+                        accessibilityLabel={t('prevention.progress.title', locale)}
+                        accessibilityValueText={`${Math.min(value, overview.total)} / ${overview.total}`}
+                        testID="prevention-overview-completion-progress"
+                      />
+                    ) : null}
+                </View>
+                <AppText style={[styles.statusLabel, { textAlign: rtl ? 'right' : 'left' }]}>
+                  {t(labelKey)}
                 </AppText>
               </View>
-              <AppText style={[styles.statusLabel, { textAlign: rtl ? 'right' : 'left' }]}>
-                {t(labelKey)}
-              </AppText>
             </AesCard>
           ))}
-        </View>
-      )}
+      </View>
+
+      {Number.isFinite(overview.total) &&
+        overview.total > 0 &&
+        Number.isFinite(overview.completed) &&
+        overview.completed >= 0 ? (
+          <View testID="prevention-overview-animated-progress">
+            <AnimatedProgressCard
+              icon={<AppIcon name="check-circle" size={18} color={themeColors.primaryForeground} decorative />}
+              title={t('prevention.progress.title', locale)}
+              progressLabel={t('prevention.progress.label', locale)}
+              progressSubLabel={t('prevention.progress.subLabel', locale)}
+              currentValue={Math.min(overview.completed, overview.total)}
+              maxValue={overview.total}
+              testID="prevention-overview-capa-progress-card"
+            />
+          </View>
+        ) : null}
 
       <View style={[styles.actionRow, { flexDirection: rowDirection }]}>
         <AesButton
@@ -300,41 +381,39 @@ export const PreventionOverviewScreen: React.FC = () => {
   );
 };
 
-function createStyles(rtl: boolean) {
+function createStyles(themeColors: ColorToken, rtl: boolean) {
   return StyleSheet.create({
     containerContent: {
       flexGrow: 1,
     },
     activeRoleContainer: {
-      marginHorizontal: aesSpacing.screenHorizontal,
       marginBottom: aesSpacing.sm,
     },
     activeRoleLabel: {
       ...aesTypography.caption,
-      color: aesColors.textSecondary,
+      color: themeColors.mutedForeground,
       textAlign: rtl ? 'right' : 'left',
     },
     disclaimerBanner: {
-      backgroundColor: aesColors.banners.warning.bg,
+      backgroundColor: themeColors.warningBackground,
       borderStartWidth: 4,
-      borderStartColor: aesColors.banners.warning.border,
-      marginHorizontal: aesSpacing.screenHorizontal,
+      borderStartColor: themeColors.warning,
       marginTop: aesSpacing.sm,
       padding: aesSpacing.sm,
       borderRadius: aesRadii.badge,
     },
     disclaimerText: {
       ...aesTypography.bodySmall,
-      color: aesColors.banners.warning.text,
+      color: themeColors.foreground,
     },
     unauthorizedText: {
       ...aesTypography.heading2,
-      color: aesColors.banners.error.text,
+      color: themeColors.danger,
       textAlign: 'center',
     },
     unauthorizedDetail: {
       ...aesTypography.bodySmall,
-      color: aesColors.textSecondary,
+      color: themeColors.mutedForeground,
       textAlign: 'center',
       marginTop: aesSpacing.sm,
     },
@@ -346,31 +425,37 @@ function createStyles(rtl: boolean) {
     },
     loadingText: {
       ...aesTypography.body,
-      color: aesColors.textSecondary,
+      color: themeColors.mutedForeground,
       marginTop: aesSpacing.md,
       textAlign: 'center',
     },
     errorText: {
       ...aesTypography.body,
-      color: aesColors.banners.error.text,
+      color: themeColors.danger,
       textAlign: 'center',
     },
     emptyText: {
       ...aesTypography.body,
-      color: aesColors.textSecondary,
+      color: themeColors.mutedForeground,
     },
     metricsContainer: {
-      marginHorizontal: aesSpacing.screenHorizontal,
       marginTop: aesSpacing.sm,
+      flexWrap: 'wrap',
+      gap: aesSpacing.xs,
+    },
+    metricCard: {
+      flexBasis: '48%',
+      flexGrow: 1,
+      minWidth: 132,
     },
     metricLabel: {
       ...aesTypography.label,
-      color: aesColors.textSecondary,
+      color: themeColors.mutedForeground,
       textAlign: rtl ? 'right' : 'left',
     },
     totalValue: {
       ...aesTypography.statValueLarge,
-      color: aesColors.accentGreen,
+      color: themeColors.primary,
       textAlign: rtl ? 'right' : 'left',
       marginTop: aesSpacing.xs,
     },
@@ -379,20 +464,23 @@ function createStyles(rtl: boolean) {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
+    statusCardContent: {
+      minHeight: 72,
+      justifyContent: 'center',
+    },
     statusValue: {
       ...aesTypography.statValue,
-      color: aesColors.textPrimary,
+      color: themeColors.foreground,
     },
     statusLabel: {
       ...aesTypography.bodySmall,
-      color: aesColors.textSecondary,
+      color: themeColors.mutedForeground,
       marginTop: aesSpacing.xs,
     },
     actionRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: aesSpacing.sm,
-      marginHorizontal: aesSpacing.screenHorizontal,
       marginVertical: aesSpacing.lg,
     },
   });

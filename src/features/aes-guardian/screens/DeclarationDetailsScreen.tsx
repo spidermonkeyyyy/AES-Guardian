@@ -36,6 +36,7 @@ import {
   canRespondToCorrection,
 } from '../../../core';
 import { t, useLocale, type SupportedLocale } from '../../../localization';
+import { resolveDemoNarrative } from '../../../localization/demoNarratives';
 import { AesScreenContainer, AesScreenHeader, AesStatusBadge } from '../components';
 
 import AppText from '../../../components/AppText';
@@ -77,12 +78,34 @@ function formatAppDate(value: string, locale: SupportedLocale): string {
 
 // ─── Helper components ────────────────────────────────────────────────────────
 
-const LabelValue: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <View style={styles.labelValueRow}>
-    <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>{label}</AppText>
-    <AppText style={[styles.fieldValue, { color: aesColors.textPrimary }]}>{value}</AppText>
-  </View>
-);
+const LabelValue: React.FC<{ label: string; value: string }> = ({ label, value }) => {
+  const locale = useLocale();
+  const isRtl = locale === 'ar';
+  return (
+    <View style={styles.labelValueRow}>
+      <AppText
+        style={[
+          styles.fieldLabel,
+          { color: aesColors.textSecondary, textAlign: isRtl ? 'right' : 'left' },
+        ]}
+      >
+        {label}
+      </AppText>
+      <AppText
+        style={[
+          styles.fieldValue,
+          {
+            color: aesColors.textPrimary,
+            textAlign: isRtl ? 'right' : 'left',
+            writingDirection: isRtl ? 'rtl' : 'ltr',
+          },
+        ]}
+      >
+        {value}
+      </AppText>
+    </View>
+  );
+};
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -238,8 +261,22 @@ export const DeclarationDetailsScreen: React.FC = () => {
     <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
       {/* Header card */}
       <View style={[styles.sectionCard]}>
-        <View style={styles.cardTopRow}>
-          <AppText style={[styles.referenceText, { color: aesColors.textPrimary }]}>
+        <View
+          style={[
+            styles.cardTopRow,
+            { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+          ]}
+        >
+          <AppText
+            style={[
+              styles.referenceText,
+              {
+                color: aesColors.textPrimary,
+                textAlign: locale === 'ar' ? 'right' : 'left',
+                writingDirection: 'ltr',
+              },
+            ]}
+          >
             {declaration.reference_number || t('list.refUnavailable')}
           </AppText>
           <AesStatusBadge status={declaration.status} domain="declaration" />
@@ -271,7 +308,12 @@ export const DeclarationDetailsScreen: React.FC = () => {
           </AppText>
           {pendingCorrectionReview.correction_reason ? (
             <AppText style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
-              {pendingCorrectionReview.correction_reason}
+              {resolveDemoNarrative(
+                declaration.reference_number,
+                'correction_reason',
+                pendingCorrectionReview.correction_reason,
+                locale,
+              )}
             </AppText>
           ) : (
             <AppText style={[styles.bannerText, { color: aesBannerColors.warning.text }]}>
@@ -339,13 +381,23 @@ export const DeclarationDetailsScreen: React.FC = () => {
         {declaration.circumstances ? (
           <LabelValue
             label={t('details.circumstances')}
-            value={declaration.circumstances}
+            value={resolveDemoNarrative(
+              declaration.reference_number,
+              'circumstances',
+              declaration.circumstances,
+              locale,
+            )}
           />
         ) : null}
         {declaration.exposure_description ? (
           <LabelValue
             label={t('details.exposureDescription')}
-            value={declaration.exposure_description}
+            value={resolveDemoNarrative(
+              declaration.reference_number,
+              'exposure_description',
+              declaration.exposure_description,
+              locale,
+            )}
           />
         ) : null}
       </View>
@@ -360,11 +412,24 @@ export const DeclarationDetailsScreen: React.FC = () => {
           {declaration.protective_measures_taken ? (
             <LabelValue
               label={t('details.protectiveMeasures')}
-              value={declaration.protective_measures_taken}
+              value={resolveDemoNarrative(
+                declaration.reference_number,
+                'protective_measures_taken',
+                declaration.protective_measures_taken,
+                locale,
+              )}
             />
           ) : null}
           {declaration.notes ? (
-            <LabelValue label={t('details.notes')} value={declaration.notes} />
+            <LabelValue
+              label={t('details.notes')}
+              value={resolveDemoNarrative(
+                declaration.reference_number,
+                'notes',
+                declaration.notes,
+                locale,
+              )}
+            />
           ) : null}
           {!hasData ? (
             <AppText style={[styles.emptyTabText, { color: aesColors.textSecondary }]}>
@@ -380,7 +445,12 @@ export const DeclarationDetailsScreen: React.FC = () => {
     <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
       <View style={styles.sectionCard}>
         {/* Current status badge */}
-        <View style={styles.badgeRow}>
+        <View
+          style={[
+            styles.badgeRow,
+            { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+          ]}
+        >
           <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
             {t('details.status')}
           </AppText>
@@ -395,7 +465,12 @@ export const DeclarationDetailsScreen: React.FC = () => {
             </AppText>
             {reviewHistory.map((review, idx) => (
               <View key={review.id ?? idx} style={styles.reviewRow}>
-                <View style={styles.reviewRowHeader}>
+                <View
+                  style={[
+                    styles.reviewRowHeader,
+                    { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+                  ]}
+                >
                   <AppText style={[styles.reviewDate, { color: aesColors.textSecondary }]}>
                     {review.reviewed_at
                       ? formatAppDate(review.reviewed_at, locale)
@@ -410,7 +485,12 @@ export const DeclarationDetailsScreen: React.FC = () => {
                 </View>
                 {review.comments ? (
                   <AppText style={[styles.reviewComment, { color: aesColors.textSecondary }]}>
-                    {review.comments}
+                    {resolveDemoNarrative(
+                      declaration.reference_number,
+                      'review_comments',
+                      review.comments,
+                      locale,
+                    )}
                   </AppText>
                 ) : null}
               </View>
@@ -489,7 +569,12 @@ export const DeclarationDetailsScreen: React.FC = () => {
       return (
         <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentPadding}>
           <View style={styles.sectionCard}>
-            <View style={styles.badgeRow}>
+            <View
+              style={[
+                styles.badgeRow,
+                { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+              ]}
+            >
               <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
                 {t('details.followup.coordinationStatus')}
               </AppText>
@@ -526,7 +611,12 @@ export const DeclarationDetailsScreen: React.FC = () => {
           <AppText style={[styles.sectionLabel, { color: aesColors.textPrimary }]}>
             {t('details.followup.adminSummary')}
           </AppText>
-          <View style={styles.badgeRow}>
+          <View
+            style={[
+              styles.badgeRow,
+              { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+            ]}
+          >
             <AppText style={[styles.fieldLabel, { color: aesColors.textSecondary }]}>
               {t('details.followup.coordinationStatus')}
             </AppText>
@@ -599,7 +689,10 @@ export const DeclarationDetailsScreen: React.FC = () => {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={[styles.tabBar, { borderBottomColor: aesColors.borderSubdued }]}
-        contentContainerStyle={styles.tabBarContent}
+        contentContainerStyle={[
+          styles.tabBarContent,
+          { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+        ]}
         testID="details-tab-bar"
       >
         {TAB_KEYS.map((tabKey) => {

@@ -57,6 +57,7 @@ import { RootStackParamList } from '../../../navigation/routes';
 
 import AppText from '../../../components/AppText';
 import AppTextInput from '../../../components/AppTextInput';
+import { ProgressIndicator } from '../../../components';
 type ParamList = {
   newDeclaration: { declarationId?: number };
 };
@@ -506,20 +507,13 @@ export const DeclarationFormScreen: React.FC = () => {
           </View>
 
           {/* 5-Segment Progress Bar */}
-          <View style={styles.progressBarRow} testID="declaration-progress-bar">
-            {[1, 2, 3, 4, 5].map((segIndex) => {
-              const isFilled = segIndex <= step;
-              return (
-                <View
-                  key={segIndex}
-                  style={[
-                    styles.progressSegment,
-                    isFilled ? styles.progressSegmentFilled : styles.progressSegmentEmpty,
-                  ]}
-                />
-              );
-            })}
-          </View>
+          <ProgressIndicator
+            step={step}
+            totalSteps={5}
+            showActions={false}
+            accessibilityLabel={stepCounterText}
+            testID="declaration-progress-bar"
+          />
         </View>
 
         {/* Scrollable Step Content */}

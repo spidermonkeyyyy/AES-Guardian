@@ -9,11 +9,11 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ViewStyle,
   StyleProp,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { aesSpacing } from '../../../theme/tokens';
 import { useTheme } from '../../../theme/ThemeContext';
 
@@ -40,7 +40,11 @@ export const AesScreenContainer: React.FC<AesScreenContainerProps> = ({
   const surfaceColor = backgroundColor ?? colors.background;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: surfaceColor }]} testID={testID}>
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={[styles.safeArea, { backgroundColor: surfaceColor }]}
+      testID={testID}
+    >
       <StatusBar
         barStyle={statusBarStyle ?? (isDark ? 'light-content' : 'dark-content')}
         backgroundColor={surfaceColor}

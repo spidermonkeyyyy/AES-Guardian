@@ -22,3 +22,8 @@ export type { AesOptionCardProps, AesOptionCardVariant } from './AesOptionCard';
 
 export { AesStatusBadge } from './AesStatusBadge';
 export type { AesStatusBadgeProps, BadgeDomain } from './AesStatusBadge';
+
+export { DashboardMetricCard } from './DashboardMetricCard';
+export type { DashboardMetricCardProps } from './DashboardMetricCard';
+
+export { AesLifecycleVisual } from './AesLifecycleVisual';

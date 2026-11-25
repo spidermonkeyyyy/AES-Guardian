@@ -32,7 +32,13 @@ import {
   translations,
   SUPPORTED_LOCALES,
 } from '../../../localization';
-import { ThemeProvider } from '../../../theme/ThemeContext';
+import { ThemeProvider, useTheme } from '../../../theme/ThemeContext';
+
+function SetDarkModeOnMount() {
+  const { setThemeMode } = useTheme();
+  React.useEffect(() => setThemeMode('dark'), [setThemeMode]);
+  return null;
+}
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -79,6 +85,15 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
         'help.section1.content',
         'help.section8.title',
         'help.section8.content',
+        'help.lifecycle.title',
+        'help.lifecycle.declaration',
+        'help.lifecycle.conditionalBranch',
+        'help.lifecycle.oh',
+        'help.lifecycle.optionalIfApplicable',
+        'help.lifecycle.capa',
+        'help.lifecycle.independent',
+        'help.lifecycle.notLinear',
+        'help.lifecycle.closedNoTransition',
         'glossary.term1.term',
         'glossary.term1.definition',
         'glossary.term14.term',
@@ -160,6 +175,56 @@ describe('Phase 2D.1 — Help Centre, Glossary & Demonstrator Profile', () => {
       // Tap again to collapse
       fireEvent.press(getByText(/2\. Comprendre le parcours de déclaration/i));
       expect(queryByText(/Le soignant victime d'une exposition/i)).toBeNull();
+    });
+
+    test('renders static AES lifecycle areas without a mandatory linear lifecycle', async () => {
+      const { getByText, getByTestId } = render(
+        <ThemeProvider>
+          <HelpGlossaryScreen />
+        </ThemeProvider>,
+      );
+
+      fireEvent.press(getByText(/2\. Comprendre le parcours de déclaration/i));
+
+      expect(getByTestId('aes-lifecycle-visual')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-declaration')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-oh')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-capa')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-status-draft')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-status-correction')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-status-resubmitted')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-status-closed')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-oh-pending')).toBeTruthy();
+      expect(getByTestId('aes-lifecycle-capa-proposed')).toBeTruthy();
+      expect(getByText(/Ces processus sont liés, mais ne se suivent pas automatiquement/i)).toBeTruthy();
+      expect(getByText(/Branche conditionnelle/i)).toBeTruthy();
+      expect(getByText(/Processus facultatif, si une coordination existe/i)).toBeTruthy();
+      expect(getByText(/Processus indépendant/i)).toBeTruthy();
+    });
+
+    test('renders lifecycle labels in English and Arabic RTL and in dark theme', () => {
+      setLocale('en');
+      const en = render(
+        <ThemeProvider>
+          <SetDarkModeOnMount />
+          <HelpGlossaryScreen />
+        </ThemeProvider>,
+      );
+      fireEvent.press(en.getByText(/2\. Understanding the Declaration Workflow/i));
+      expect(en.getByText('Static AES process overview')).toBeTruthy();
+      expect(en.getByText(/These processes are related but do not follow one another automatically/i)).toBeTruthy();
+      en.unmount();
+
+      setLocale('ar');
+      const ar = render(
+        <ThemeProvider>
+          <HelpGlossaryScreen />
+        </ThemeProvider>,
+      );
+      fireEvent.press(ar.getByText(/2\. فهم مسار الإبلاغ عن الحادث/i));
+      expect(ar.getByText('عرض ثابت لمسار عملية AES')).toBeTruthy();
+      expect(ar.getByText(/هذه العمليات مترابطة لكنها لا تتبع بعضها تلقائياً/i)).toBeTruthy();
+      setLocale('fr');
     });
 
     test('switches to glossary tab and filters terms by search text', async () => {

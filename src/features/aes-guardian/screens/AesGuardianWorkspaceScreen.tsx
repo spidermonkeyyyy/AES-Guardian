@@ -9,7 +9,7 @@
  * - Guided end-to-end demonstration scenario roadmap
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -19,8 +19,10 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../../navigation/routes';
 import { useTheme } from '../../../theme/ThemeContext';
 import { spacing, typography, shapes } from '../../../theme/tokens';
 import type { ColorToken } from '../../../theme/tokens/colors';
@@ -29,56 +31,73 @@ import {
   useDemoRoleStore,
   DEMO_ROLE_DEFINITIONS,
   AesGuardianRole,
-  seedDemoScenarioIfEmpty,
 } from '../../../core';
 import { t, useLocale, type TranslationKey } from '../../../localization';
 
 import AppText from '../../../components/AppText';
 import { AppIcon, AppIconLabel, type AppIconName } from '../../../components/AppIcon';
+import { AesButton, AesCard, DashboardMetricCard } from '../components';
+
+type WorkspaceDashboardData =
+  | {
+      role: 'exposed_professional';
+      declarationsLoaded: number;
+      correctionRequestsLoaded: number;
+      unreadNotificationCount: number;
+    }
+  | {
+      role: 'admin_reviewer';
+      reviewItemsLoaded: number;
+      unreadNotificationCount: number;
+    }
+  | {
+      role: 'oh_professional';
+      activeCoordinations: number;
+      unreadNotificationCount: number;
+    }
+  | {
+      role: 'quality_staff';
+      surveillanceDeclarations: number;
+      preventionActions: number;
+      unreadNotificationCount: number;
+    }
+  | {
+      role: 'tech_admin';
+      schemaVersion?: number;
+    };
+
+type WorkspaceDashboardState = {
+  identityKey: string;
+  status: 'loading' | 'success' | 'error';
+  data?: WorkspaceDashboardData;
+};
+
 interface ModuleCardProps {
   iconName: AppIconName;
   title: string;
   description: string;
-  badge?: string;
-  badgeColor?: string;
-  badgeTextColor?: string;
   onPress: () => void;
   accentColor?: string;
 }
 
 export const AesGuardianWorkspaceScreen: React.FC = () => {
   const { colors } = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
   const locale = useLocale();
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, locale);
 
   const {
     activeRole,
     activeContext,
     setRole,
-    canDeclare,
-    canReview,
-    canCoordinate,
-    canFollowUp,
-    canViewSurveillance,
-    canViewPrevention,
-    canManagePrevention,
   } = useDemoRoleStore();
 
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [stats, setStats] = useState<{
-    myDeclarationsCount?: number;
-    pendingCorrectionsCount?: number;
-    adminQueueCount?: number;
-    ohQueueCount?: number;
-    surveillanceCount?: number;
-    capaCount?: number;
-    schemaVersion?: number;
-  }>({});
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [dashboardState, setDashboardState] = useState<WorkspaceDashboardState | null>(null);
+  const dashboardRequestId = useRef(0);
+  const identityKey = `${activeRole}:${activeContext.userId ?? 'unavailable'}`;
 
   const handleResetDemoData = () => {
     if (activeRole !== 'tech_admin') {
@@ -128,11 +147,12 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
                 t('reset.successTitle', locale),
                 `${t('reset.successMessage', locale)}\n\n• ${res.declarationsCount} déclarations\n• ${res.preventionActionsCount} actions CAPA\n• Journal d'audit réinitialisé`,
               );
-            } catch (err: any) {
+            } catch (error) {
               setResetting(false);
+              const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
               Alert.alert(
                 t('reset.errorTitle', locale),
-                `${t('reset.errorMessage', locale)} ${err?.message || 'Erreur inconnue'}`,
+                `${t('reset.errorMessage', locale)} ${errorMessage}`,
               );
             }
           },
@@ -143,67 +163,119 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
   };
 
   const loadRoleStats = useCallback(async () => {
-    try {
-      const db = getDatabase();
-      const newStats: typeof stats = {};
+    const requestId = ++dashboardRequestId.current;
+    const currentIdentityKey = `${activeRole}:${activeContext.userId ?? 'unavailable'}`;
+    setDashboardState({ identityKey: currentIdentityKey, status: 'loading' });
 
-      if (activeRole === 'exposed_professional' && activeContext.userId) {
-        const myDecls = await db.getDeclarations({ userId: activeContext.userId, requestingUserId: activeContext.userId });
-        newStats.myDeclarationsCount = myDecls.length;
-        newStats.pendingCorrectionsCount = myDecls.filter(
-          (d) => d.status === 'correction_requested',
-        ).length;
-      } else if (activeRole === 'admin_reviewer' && activeContext.userId) {
-        const queue = await db.getReviewQueue({ requestingUserId: activeContext.userId });
-        newStats.adminQueueCount = queue.length;
-      } else if (activeRole === 'oh_professional' && activeContext.userId) {
-        const ohQueue = await db.listOhCoordinationsQueue(activeContext.userId);
-        newStats.ohQueueCount = ohQueue.length;
-      } else if (activeRole === 'quality_staff' && activeContext.userId) {
-        const surv = await db.getSurveillanceDashboardMetrics(activeContext.userId);
-        newStats.surveillanceCount = surv.overview.totalDeclarations;
-        const capa = await db.getPreventionOverview(activeContext.userId);
-        newStats.capaCount = capa.total;
-      } else if (activeRole === 'tech_admin') {
-        const versionRes = await db.query<{ version: number }>(
+    try {
+      if (activeContext.userId == null) {
+        throw new Error('Active demonstration user is unavailable.');
+      }
+
+      const db = getDatabase();
+      let data: WorkspaceDashboardData;
+
+      if (activeRole === 'exposed_professional') {
+        const declarations = await db.getDeclarations({
+          userId: activeContext.userId,
+          requestingUserId: activeContext.userId,
+          limit: 100,
+        });
+        const unreadNotificationCount = await db.getUnreadNotificationCount(activeContext.userId);
+        data = {
+          role: activeRole,
+          declarationsLoaded: declarations.length,
+          correctionRequestsLoaded: declarations.filter(
+            (declaration) => declaration.status === 'correction_requested',
+          ).length,
+          unreadNotificationCount,
+        };
+      } else if (activeRole === 'admin_reviewer') {
+        const reviewQueue = await db.getReviewQueue({
+          requestingUserId: activeContext.userId,
+          limit: 100,
+        });
+        const unreadNotificationCount = await db.getUnreadNotificationCount(activeContext.userId);
+        data = {
+          role: activeRole,
+          reviewItemsLoaded: reviewQueue.length,
+          unreadNotificationCount,
+        };
+      } else if (activeRole === 'oh_professional') {
+        const coordinations = await db.listOhCoordinationsQueue(activeContext.userId);
+        const unreadNotificationCount = await db.getUnreadNotificationCount(activeContext.userId);
+        data = {
+          role: activeRole,
+          activeCoordinations: coordinations.length,
+          unreadNotificationCount,
+        };
+      } else if (activeRole === 'quality_staff') {
+        const [surveillance, preventionActions, unreadNotificationCount] = await Promise.all([
+          db.getSurveillanceDashboardMetrics(activeContext.userId),
+          db.getPreventionOverview(activeContext.userId),
+          db.getUnreadNotificationCount(activeContext.userId),
+        ]);
+        data = {
+          role: activeRole,
+          surveillanceDeclarations: surveillance.overview.totalDeclarations,
+          preventionActions: preventionActions.total,
+          unreadNotificationCount,
+        };
+      } else {
+        const versionRes = await db.query<{ version: number | null }>(
           `SELECT MAX(version) as version FROM schema_versions`,
         );
         const schemaVersion = versionRes.rows[0]?.version;
-        if (schemaVersion !== undefined && schemaVersion !== null) {
-          newStats.schemaVersion = schemaVersion;
-        }
+        data = {
+          role: 'tech_admin',
+          ...(schemaVersion != null ? { schemaVersion } : {}),
+        };
       }
 
-      setStats(newStats);
-    } catch (err: any) {
-      console.warn('[Workspace] loadRoleStats error:', err?.message);
-    }
-
-    // Load unread notification count for non-tech_admin roles
-    if (activeRole !== 'tech_admin' && activeContext.userId) {
-      try {
-        const db = getDatabase();
-        const count = await db.getUnreadNotificationCount(activeContext.userId);
-        setUnreadNotificationCount(count);
-      } catch {
-        // non-critical — badge stays at previous value
+      if (dashboardRequestId.current === requestId) {
+        setDashboardState({
+          identityKey: currentIdentityKey,
+          status: 'success',
+          data,
+        });
       }
-    } else {
-      setUnreadNotificationCount(0);
+    } catch (error) {
+      console.warn('[Workspace] loadRoleStats error:', error);
+      if (dashboardRequestId.current === requestId) {
+        setDashboardState({ identityKey: currentIdentityKey, status: 'error' });
+      }
     }
   }, [activeRole, activeContext.userId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadRoleStats();
-    setRefreshing(false);
+    try {
+      await loadRoleStats();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
-    if (isFocused) {
-      loadRoleStats();
+    if (!isFocused) {
+      dashboardRequestId.current += 1;
+      return undefined;
     }
+    void loadRoleStats();
+    return () => {
+      dashboardRequestId.current += 1;
+    };
   }, [isFocused, loadRoleStats]);
+
+  const roleDashboardState = dashboardState?.identityKey === identityKey
+    ? dashboardState
+    : null;
+  const dashboardData = roleDashboardState?.status === 'success'
+    ? roleDashboardState.data
+    : undefined;
+  const unreadNotificationCount = dashboardData && dashboardData.role !== 'tech_admin'
+    ? dashboardData.unreadNotificationCount
+    : 0;
 
   const activeDef =
     DEMO_ROLE_DEFINITIONS.find((d) => d.role === activeRole) ?? DEMO_ROLE_DEFINITIONS[0];
@@ -213,14 +285,18 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
     iconName,
     title,
     description,
-    badge,
-    badgeColor,
-    badgeTextColor,
     onPress,
     accentColor,
   }) => (
     <TouchableOpacity
-      style={[styles.moduleCard, accentColor ? { borderLeftColor: accentColor, borderLeftWidth: 4 } : null]}
+      style={[
+        styles.moduleCard,
+        accentColor
+          ? locale === 'ar'
+            ? { borderRightColor: accentColor, borderRightWidth: 4 }
+            : { borderLeftColor: accentColor, borderLeftWidth: 4 }
+          : null,
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
       accessibilityRole="button"
@@ -233,13 +309,6 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         <View style={styles.moduleTitleBox}>
           <View style={styles.moduleTitleRow}>
             <AppText style={styles.moduleTitle}>{title}</AppText>
-            {badge ? (
-              <View style={[styles.badge, { backgroundColor: badgeColor ?? colors.primary }]}>
-                <AppText style={[styles.badgeText, badgeTextColor ? { color: badgeTextColor } : null]}>
-                  {badge}
-                </AppText>
-              </View>
-            ) : null}
           </View>
           <AppText style={styles.moduleDescription}>{description}</AppText>
         </View>
@@ -249,13 +318,18 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
   );
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} />
-      }
+    <SafeAreaView
+      edges={['top', 'left', 'right']}
+      style={styles.safeArea}
+      testID="workspace-safe-area"
     >
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} />
+        }
+      >
       {/* Top Identity Header */}
       <View style={styles.header}>
         <View style={styles.brandRow}>
@@ -266,22 +340,25 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
             <AppText style={styles.appName}>SANAD</AppText>
             <AppText style={styles.appTagline}>{t('workspace.tagline', locale)}</AppText>
           </View>
-          <View style={styles.headerActionsRow}>
+          <View style={styles.headerActionsRow} testID="workspace-header-actions">
             {activeRole !== 'tech_admin' && (
               <TouchableOpacity
                 style={styles.headerActionButton}
                 onPress={() => navigation.navigate('notificationCentre')}
                 accessibilityRole="button"
                 accessibilityLabel={t('notificationCentre.a11y.unreadBadge', locale)}
+                testID="workspace-header-notifications"
               >
-                <AppIcon name="bell" size={20} color={colors.foreground} />
-                {unreadNotificationCount > 0 && (
-                  <View style={styles.notifBadge} testID="workspace-unread-badge">
-                    <AppText style={styles.notifBadgeText}>
-                      {unreadNotificationCount > 99 ? '99+' : String(unreadNotificationCount)}
-                    </AppText>
-                  </View>
-                )}
+                <View style={styles.headerActionSurface}>
+                  <AppIcon name="bell" size={20} color={colors.foreground} />
+                  {unreadNotificationCount > 0 && (
+                    <View style={styles.notifBadge} testID="workspace-unread-badge">
+                      <AppText style={styles.notifBadgeText}>
+                        {unreadNotificationCount > 99 ? '99+' : String(unreadNotificationCount)}
+                      </AppText>
+                    </View>
+                  )}
+                </View>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -289,16 +366,22 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               onPress={() => navigation.navigate('helpGlossary')}
               accessibilityRole="button"
               accessibilityLabel={t('helpGlossary.tabHelp', locale)}
+              testID="workspace-header-help"
             >
-              <AppIcon name="help-circle" size={20} color={colors.foreground} />
+              <View style={styles.headerActionSurface}>
+                <AppIcon name="help-circle" size={20} color={colors.foreground} />
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.headerActionButton}
               onPress={() => navigation.navigate('aesGuardianProfile')}
               accessibilityRole="button"
               accessibilityLabel={t('profile.title', locale)}
+              testID="workspace-header-profile"
             >
-              <AppIcon name="user" size={20} color={colors.foreground} />
+              <View style={styles.headerActionSurface}>
+                <AppIcon name="user" size={20} color={colors.foreground} />
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -318,7 +401,16 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
       {/* Unified Demonstration Role Selector */}
       <View style={styles.roleSelectorSection}>
         <AppText style={styles.sectionHeaderTitle}>{t('workspace.roleSelectorTitle')}</AppText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.roleScrollView}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.roleScrollView}
+          testID="workspace-role-selector"
+          contentContainerStyle={[
+            styles.roleScrollContent,
+            { flexDirection: locale === 'ar' ? 'row-reverse' : 'row' },
+          ]}
+        >
           {DEMO_ROLE_DEFINITIONS.map((def) => {
             const isSelected = def.role === activeRole;
             const roleLabel = t(def.labelKey as TranslationKey, locale) || def.defaultLabel;
@@ -332,6 +424,8 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
                 onPress={() => setRole(def.role)}
                 accessibilityRole="button"
                 accessibilityLabel={roleLabel}
+                accessibilityState={{ selected: isSelected }}
+                testID={`workspace-role-${def.role}`}
               >
                 <AppText
                   style={[
@@ -369,20 +463,166 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Actionable Callout (if Exposed Professional has pending correction) */}
-      {activeRole === 'exposed_professional' && (stats.pendingCorrectionsCount ?? 0) > 0 && (
-        <TouchableOpacity
-          style={styles.actionableCallout}
-          onPress={() => navigation.navigate('declarations')}
-        >
-          <AppIcon name="bell" size={20} color={colors.destructive} />
-          <View style={{ flex: 1 }}>
-            <AppText style={styles.calloutTitle}>{t('workspace.correctionActionRequired')}</AppText>
-            <AppText style={styles.calloutText}>{t('workspace.correctionActionDesc')}</AppText>
-          </View>
-          <AppIcon name="forward" size={20} color={colors.destructive} />
-        </TouchableOpacity>
-      )}
+      <View style={styles.dashboardSection} testID="workspace-dashboard">
+        <AppText variant="section" style={styles.sectionHeaderTitle}>
+          {t('workspace.dashboard.title', locale)}
+        </AppText>
+
+        {roleDashboardState?.status === 'error' ? (
+          <AesCard elevated style={styles.dashboardStateCard}>
+            <AppText variant="body" style={styles.dashboardStateText}>
+              {t('workspace.dashboard.error', locale)}
+            </AppText>
+            <AesButton
+              title={t('workspace.dashboard.retry', locale)}
+              onPress={() => void loadRoleStats()}
+              variant="outline"
+              style={styles.dashboardRetryButton}
+              testID="workspace-dashboard-retry"
+            />
+          </AesCard>
+        ) : !dashboardData ? (
+          <AesCard elevated style={styles.dashboardStateCard}>
+            <ActivityIndicator
+              color={colors.primary}
+              accessibilityLabel={t('workspace.dashboard.loading', locale)}
+              testID="workspace-dashboard-loading"
+            />
+            <AppText
+              variant="body"
+              tone="muted"
+              style={styles.dashboardStateText}
+              accessibilityLiveRegion="polite"
+            >
+              {t('workspace.dashboard.loading', locale)}
+            </AppText>
+          </AesCard>
+        ) : (
+          <>
+            <View
+              style={styles.dashboardMetricGrid}
+              testID="workspace-dashboard-metric-grid"
+            >
+              {dashboardData.role === 'exposed_professional' ? (
+                <>
+                  <DashboardMetricCard
+                    icon="document"
+                    label={t('workspace.dashboard.ownDeclarations', locale)}
+                    value={dashboardData.declarationsLoaded}
+                    detail={t('workspace.dashboard.loadedLimit', locale)}
+                    testID="workspace-metric-own-declarations"
+                  />
+                  <DashboardMetricCard
+                    icon="alert-circle"
+                    label={t('workspace.dashboard.correctionRequests', locale)}
+                    value={dashboardData.correctionRequestsLoaded}
+                    detail={t('workspace.dashboard.loadedLimit', locale)}
+                    testID="workspace-metric-corrections"
+                  />
+                </>
+              ) : null}
+              {dashboardData.role === 'admin_reviewer' ? (
+                <DashboardMetricCard
+                  icon="clipboard-list"
+                  label={t('workspace.dashboard.reviewItems', locale)}
+                  value={dashboardData.reviewItemsLoaded}
+                  detail={t('workspace.dashboard.loadedLimit', locale)}
+                  testID="workspace-metric-review-items"
+                />
+              ) : null}
+              {dashboardData.role === 'oh_professional' ? (
+                <DashboardMetricCard
+                  icon="medical"
+                  label={t('workspace.dashboard.activeCoordinations', locale)}
+                  value={dashboardData.activeCoordinations}
+                  detail={t('workspace.dashboard.activeCoordinationDetail', locale)}
+                  testID="workspace-metric-active-coordinations"
+                />
+              ) : null}
+              {dashboardData.role === 'quality_staff' ? (
+                <>
+                  <DashboardMetricCard
+                    icon="chart"
+                    label={t('workspace.dashboard.surveillanceDeclarations', locale)}
+                    value={dashboardData.surveillanceDeclarations}
+                    detail={t('workspace.dashboard.deidentifiedAggregate', locale)}
+                    testID="workspace-metric-surveillance"
+                  />
+                  <DashboardMetricCard
+                    icon="target"
+                    label={t('workspace.dashboard.preventionActions', locale)}
+                    value={dashboardData.preventionActions}
+                    detail={t('workspace.dashboard.registeredActions', locale)}
+                    testID="workspace-metric-prevention-actions"
+                  />
+                </>
+              ) : null}
+              {dashboardData.role === 'tech_admin' ? (
+                <>
+                  <DashboardMetricCard
+                    icon="settings"
+                    label={t('workspace.dashboard.databaseEngine', locale)}
+                    value="op-sqlite"
+                    testID="workspace-metric-database-engine"
+                  />
+                  <DashboardMetricCard
+                    icon="settings"
+                    label={t('workspace.dashboard.schemaVersion', locale)}
+                    value={dashboardData.schemaVersion != null
+                      ? `v${dashboardData.schemaVersion}`
+                      : t('workspace.dashboard.unavailable', locale)}
+                    testID="workspace-metric-schema-version"
+                  />
+                </>
+              ) : null}
+              {dashboardData.role !== 'tech_admin' ? (
+                <DashboardMetricCard
+                  icon="bell"
+                  label={t('workspace.dashboard.unreadNotifications', locale)}
+                  value={dashboardData.unreadNotificationCount}
+                  testID="workspace-metric-unread-notifications"
+                />
+              ) : null}
+            </View>
+
+            {dashboardData.role !== 'tech_admin' ? (
+              <AesCard elevated style={styles.nextActionCard}>
+                <AppText variant="label" tone="muted" style={styles.nextActionLabel}>
+                  {t('workspace.dashboard.nextAction', locale)}
+                </AppText>
+                <AesButton
+                  title={
+                    dashboardData.role === 'exposed_professional'
+                      && dashboardData.correctionRequestsLoaded > 0
+                      ? t('workspace.dashboard.openCorrections', locale)
+                      : dashboardData.role === 'exposed_professional'
+                        ? t('workspace.dashboard.openDeclarations', locale)
+                        : dashboardData.role === 'admin_reviewer'
+                          ? t('workspace.dashboard.openReviewQueue', locale)
+                          : dashboardData.role === 'oh_professional'
+                            ? t('workspace.dashboard.openOhQueue', locale)
+                            : t('workspace.dashboard.openSurveillance', locale)
+                  }
+                  onPress={() => {
+                    if (dashboardData.role === 'exposed_professional') {
+                      navigation.navigate('declarations');
+                    } else if (dashboardData.role === 'admin_reviewer') {
+                      navigation.navigate('adminReviewQueue');
+                    } else if (dashboardData.role === 'oh_professional') {
+                      navigation.navigate('ohCoordinationQueue');
+                    } else if (dashboardData.role === 'quality_staff') {
+                      navigation.navigate('surveillanceDashboard');
+                    }
+                  }}
+                  variant="green"
+                  style={styles.nextActionButton}
+                  testID="workspace-dashboard-next-action"
+                />
+              </AesCard>
+            ) : null}
+          </>
+        )}
+      </View>
 
       {/* Role-Permitted Modules Grid */}
       <View style={styles.modulesSection}>
@@ -402,7 +642,6 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconName="clipboard-list"
               title={t('workspace.module.myDeclarations')}
               description={t('workspace.module.myDeclarationsDesc')}
-              badge={stats.myDeclarationsCount !== undefined ? `${stats.myDeclarationsCount}` : undefined}
               onPress={() => navigation.navigate('declarations')}
             />
             <View style={styles.privacyNoticeBox}>
@@ -420,9 +659,6 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconName="scale"
               title={t('workspace.module.adminQueue')}
               description={t('workspace.module.adminQueueDesc')}
-              badge={stats.adminQueueCount !== undefined ? `${stats.adminQueueCount} ${t('workspace.badgePending')}` : undefined}
-              badgeColor={colors.warning}
-              badgeTextColor={colors.foreground}
               accentColor={colors.warning}
               onPress={() => navigation.navigate('adminReviewQueue')}
             />
@@ -455,8 +691,6 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconName="medical"
               title={t('workspace.module.ohQueue')}
               description={t('workspace.module.ohQueueDesc')}
-              badge={stats.ohQueueCount !== undefined ? `${stats.ohQueueCount} ${t('workspace.badgeActive')}` : undefined}
-              badgeColor={colors.info}
               accentColor={colors.info}
               onPress={() => navigation.navigate('ohCoordinationQueue')}
             />
@@ -489,8 +723,6 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconName="chart"
               title={t('workspace.module.surveillanceDashboard')}
               description={t('workspace.module.surveillanceDashboardDesc')}
-              badge={stats.surveillanceCount !== undefined ? `${stats.surveillanceCount} ${t('workspace.badgeIncidents')}` : undefined}
-              badgeColor="#6366F1"
               accentColor={colors.info}
               onPress={() => navigation.navigate('surveillanceDashboard')}
             />
@@ -498,8 +730,6 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
               iconName="target"
               title={t('workspace.module.preventionOverview')}
               description={t('workspace.module.preventionOverviewDesc')}
-              badge={stats.capaCount !== undefined ? `${stats.capaCount} ${t('workspace.badgeActions')}` : undefined}
-              badgeColor="#10B981"
               accentColor={colors.success}
               onPress={() => navigation.navigate('preventionOverview')}
             />
@@ -526,33 +756,6 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
         {/* 5. TECHNICAL ADMINISTRATOR MODULES */}
         {activeRole === 'tech_admin' && (
           <>
-            <View style={styles.techStatusCard}>
-              <AppIconLabel
-                name="settings"
-                size="sm"
-                textStyle={styles.techCardTitle}
-                style={styles.techTitleRow}
-              >
-                {t('workspace.tech.sqliteIntegrity')}
-              </AppIconLabel>
-              <View style={styles.techRow}>
-                <AppText style={styles.techLabel}>{t('workspace.tech.engine')} :</AppText>
-                <AppText style={styles.techValue}>op-sqlite</AppText>
-              </View>
-              <View style={styles.techRow}>
-                <AppText style={styles.techLabel}>{t('workspace.tech.schemaVersion')} :</AppText>
-                <AppText style={styles.techValue}>
-                  {stats.schemaVersion != null ? `v${stats.schemaVersion}` : '—'}
-                </AppText>
-              </View>
-              <View style={styles.techRow}>
-                <AppText style={styles.techLabel}>{t('workspace.tech.fkCheck')} :</AppText>
-                <AppText style={[styles.techValue, { color: colors.success, fontWeight: 'bold' }]}>
-                  {t('workspace.tech.fkOk')}
-                </AppText>
-              </View>
-            </View>
-
             {/* Technical Maintenance Reset Card */}
             <View style={styles.techResetCard}>
               <AppIconLabel name="settings" textStyle={styles.techResetTitle}>
@@ -628,13 +831,21 @@ export const AesGuardianWorkspaceScreen: React.FC = () => {
           ))}
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
-function createStyles(colors: ColorToken) {
+function createStyles(colors: ColorToken, locale: 'fr' | 'en' | 'ar') {
+  const isRtl = locale === 'ar';
+  const rowDirection = isRtl ? 'row-reverse' : 'row';
+  const textAlign = isRtl ? 'right' : 'left';
   return StyleSheet.create({
     root: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    safeArea: {
       flex: 1,
       backgroundColor: colors.background,
     },
@@ -646,7 +857,7 @@ function createStyles(colors: ColorToken) {
       marginBottom: spacing.sm,
     },
     brandRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'center',
       gap: spacing.sm,
     },
@@ -677,11 +888,18 @@ function createStyles(colors: ColorToken) {
       color: colors.mutedForeground,
     },
     headerActionsRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'center',
       gap: spacing.xs,
     },
     headerActionButton: {
+      width: spacing.minTouchTarget,
+      height: spacing.minTouchTarget,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerActionSurface: {
+      position: 'relative',
       width: 36,
       height: 36,
       borderRadius: shapes.sm,
@@ -717,14 +935,15 @@ function createStyles(colors: ColorToken) {
     },
     disclaimerBanner: {
       backgroundColor: colors.warningBackground,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.warning,
+      ...(isRtl
+        ? { borderRightWidth: 4, borderRightColor: colors.warning }
+        : { borderLeftWidth: 4, borderLeftColor: colors.warning }),
       borderRadius: shapes.sm,
       padding: spacing.sm,
       marginBottom: spacing.md,
     },
     bannerRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'flex-start',
       gap: spacing.sm,
     },
@@ -736,11 +955,13 @@ function createStyles(colors: ColorToken) {
       fontWeight: typography.fontWeight.bold,
       color: colors.warning,
       marginBottom: 2,
+      textAlign,
     },
     bannerSubtitle: {
       fontSize: typography.fontSize.xs - 1,
       color: colors.warning,
       lineHeight: 16,
+      textAlign,
     },
     roleSelectorSection: {
       marginBottom: spacing.lg,
@@ -759,14 +980,20 @@ function createStyles(colors: ColorToken) {
     roleScrollView: {
       marginBottom: spacing.sm,
     },
+    roleScrollContent: {
+      alignItems: 'center',
+    },
     rolePill: {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
+      minHeight: spacing.minTouchTarget,
       borderRadius: shapes.full,
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
-      marginRight: spacing.sm,
+      marginHorizontal: spacing.xs,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     rolePillActive: {
       backgroundColor: colors.primary,
@@ -789,7 +1016,7 @@ function createStyles(colors: ColorToken) {
       padding: spacing.md,
     },
     activeRoleRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'center',
       gap: spacing.md,
     },
@@ -810,7 +1037,7 @@ function createStyles(colors: ColorToken) {
       flex: 1,
     },
     roleBadgeRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'center',
       gap: spacing.xs,
       marginBottom: 2,
@@ -819,6 +1046,7 @@ function createStyles(colors: ColorToken) {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
+      textAlign,
     },
     roleChipSmall: {
       backgroundColor: colors.surfaceVariant,
@@ -834,26 +1062,37 @@ function createStyles(colors: ColorToken) {
       fontSize: typography.fontSize.xs,
       color: colors.mutedForeground,
       lineHeight: 16,
+      textAlign,
     },
-    actionableCallout: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    dashboardSection: {
+      marginBottom: spacing.lg,
+    },
+    dashboardMetricGrid: {
+      flexDirection: rowDirection,
+      flexWrap: 'wrap',
       gap: spacing.sm,
-      backgroundColor: colors.dangerBackground,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.danger,
-      padding: spacing.sm,
-      borderRadius: shapes.sm,
-      marginBottom: spacing.md,
+      marginTop: spacing.sm,
     },
-    calloutTitle: {
-      fontSize: typography.fontSize.xs,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.danger,
+    dashboardStateCard: {
+      alignItems: 'center',
+      marginTop: spacing.sm,
+      padding: spacing.md,
     },
-    calloutText: {
-      fontSize: typography.fontSize.xs - 1,
-      color: colors.danger,
+    dashboardStateText: {
+      marginTop: spacing.xs,
+      textAlign: 'center',
+    },
+    dashboardRetryButton: {
+      marginTop: spacing.sm,
+    },
+    nextActionCard: {
+      marginTop: spacing.sm,
+    },
+    nextActionLabel: {
+      textAlign,
+    },
+    nextActionButton: {
+      marginTop: spacing.sm,
     },
     modulesSection: {
       marginBottom: spacing.lg,
@@ -867,7 +1106,7 @@ function createStyles(colors: ColorToken) {
       marginBottom: spacing.sm,
     },
     moduleHeaderRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'center',
       gap: spacing.md,
     },
@@ -883,30 +1122,21 @@ function createStyles(colors: ColorToken) {
       flex: 1,
     },
     moduleTitleRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'center',
-      gap: spacing.xs,
       marginBottom: 2,
     },
     moduleTitle: {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
-    },
-    badge: {
-      paddingHorizontal: spacing.xs,
-      paddingVertical: 1,
-      borderRadius: shapes.full,
-    },
-    badgeText: {
-      fontSize: typography.fontSize.xs - 2,
-      color: colors.primaryForeground,
-      fontWeight: typography.fontWeight.bold,
+      textAlign,
     },
     moduleDescription: {
       fontSize: typography.fontSize.xs,
       color: colors.mutedForeground,
       lineHeight: 16,
+      textAlign,
     },
     privacyNoticeBox: {
       backgroundColor: colors.surfaceVariant,
@@ -922,44 +1152,9 @@ function createStyles(colors: ColorToken) {
       lineHeight: 16,
     },
     privacyNoticeRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'flex-start',
       gap: spacing.xs,
-    },
-    techTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    techStatusCard: {
-      backgroundColor: colors.card,
-      borderRadius: shapes.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: spacing.md,
-      marginBottom: spacing.sm,
-    },
-    techCardTitle: {
-      fontSize: typography.fontSize.sm,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.foreground,
-      marginBottom: spacing.sm,
-    },
-    techRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: spacing.xs,
-    },
-    techLabel: {
-      fontSize: typography.fontSize.xs,
-      color: colors.mutedForeground,
-    },
-    techValue: {
-      fontSize: typography.fontSize.xs,
-      color: colors.foreground,
-      flexShrink: 1,
-      marginStart: spacing.sm,
-      textAlign: 'right',
     },
     scenarioSection: {
       marginTop: spacing.xs,
@@ -972,7 +1167,7 @@ function createStyles(colors: ColorToken) {
       padding: spacing.sm,
     },
     scenarioStepRow: {
-      flexDirection: 'row',
+      flexDirection: rowDirection,
       alignItems: 'center',
       gap: spacing.sm,
       paddingVertical: spacing.sm,
@@ -1002,10 +1197,12 @@ function createStyles(colors: ColorToken) {
       fontSize: typography.fontSize.xs,
       fontWeight: typography.fontWeight.bold,
       color: colors.foreground,
+      textAlign,
     },
     stepDescText: {
       fontSize: typography.fontSize.xs - 2,
       color: colors.mutedForeground,
+      textAlign,
     },
     stepSwitchBtn: {
       backgroundColor: colors.secondary,
@@ -1034,8 +1231,9 @@ function createStyles(colors: ColorToken) {
       borderRadius: shapes.md,
       borderWidth: 1,
       borderColor: colors.danger,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.danger,
+      ...(isRtl
+        ? { borderRightWidth: 4, borderRightColor: colors.danger }
+        : { borderLeftWidth: 4, borderLeftColor: colors.danger }),
       padding: spacing.md,
       marginBottom: spacing.sm,
     },

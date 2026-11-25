@@ -12,13 +12,8 @@ import {
   View,
   StyleSheet,
 } from 'react-native';
-import {
-  aesDeclarationStatusColors,
-  aesOhCoordinationStatusColors,
-  aesCapaStatusColors,
-} from '../../../theme/tokens/aesColors';
 import { aesTypography } from '../../../theme/tokens';
-import { t } from '../../../localization';
+import { t, type TranslationKey } from '../../../localization';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getThemeColors } from '../../../theme/tokens/colors';
 
@@ -43,11 +38,11 @@ export const AesStatusBadge: React.FC<AesStatusBadgeProps> = ({
 
   let label: string;
   if (domain === 'declaration') {
-    label = (t as any)(`status.${status}`) ?? status;
+    label = t(`status.${status}` as TranslationKey);
   } else if (domain === 'ohCoordination') {
-    label = (t as any)(`oh.status.${status}`) ?? status;
+    label = t(`oh.status.${status}` as TranslationKey);
   } else {
-    label = (t as any)(`prevention.detail.status.${status}`) ?? (t as any)(`capa.status.${status}`) ?? status;
+    label = t(`prevention.detail.status.${status}` as TranslationKey);
   }
 
   if (
@@ -104,20 +99,17 @@ function getStatusColors(
   colors: ReturnType<typeof getThemeColors>,
   isDark: boolean,
 ) {
-  if (!isDark) {
-    const colorMap =
-      domain === 'declaration'
-        ? aesDeclarationStatusColors
-        : domain === 'ohCoordination'
-          ? aesOhCoordinationStatusColors
-          : aesCapaStatusColors;
-    return (
-      (colorMap as Record<string, { bg: string; text: string; border: string }>)[status] ?? {
-        bg: '#EEEEEE',
-        text: '#616161',
-        border: '#E0E0E0',
-      }
-    );
+  const domainStatuses: Record<BadgeDomain, readonly string[]> = {
+    declaration: ['draft', 'submitted', 'under_review', 'correction_requested', 'resubmitted', 'closed'],
+    ohCoordination: ['pending_acknowledgement', 'acknowledged', 'completed', 'cancelled'],
+    capa: ['proposed', 'in_progress', 'completed', 'cancelled'],
+  };
+  if (!domainStatuses[domain].includes(status)) {
+    return {
+      bg: colors.muted,
+      text: colors.mutedForeground,
+      border: colors.border,
+    };
   }
 
   if (status === 'closed' || status === 'completed') {
@@ -129,7 +121,7 @@ function getStatusColors(
   }
   if (status === 'cancelled' || status === 'correction_requested') {
     return {
-      bg: isDark ? colors.destructive : colors.dangerBackground,
+      bg: colors.dangerBackground,
       text: isDark ? colors.destructiveForeground : colors.danger,
       border: colors.destructive,
     };
@@ -142,7 +134,7 @@ function getStatusColors(
   ) {
     return {
       bg: colors.warningBackground,
-      text: colors.warning,
+      text: colors.foreground,
       border: colors.warning,
     };
   }

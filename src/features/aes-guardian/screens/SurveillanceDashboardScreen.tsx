@@ -17,6 +17,13 @@
 
 import AppTextInput from '../../../components/AppTextInput';
 import AppText from '../../../components/AppText';
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertIcon,
+  CircleProgress,
+} from '../../../components';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -24,12 +31,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
-  SafeAreaView,
-  StatusBar,
   ViewStyle,
-  TextStyle,
-  StyleProp,
 } from 'react-native';
 import { AppIcon } from '../../../components/AppIcon';
 
@@ -40,13 +42,16 @@ import {
   AesButton,
   AesStatusBadge,
 } from '../components';
-import { aesColors, aesSpacing, aesRadii, aesTypography, aesShadows } from '../../../theme/tokens';
+import { aesSpacing, aesRadii, aesTypography } from '../../../theme/tokens';
+import type { ColorToken } from '../../../theme/tokens/colors';
 import { useTheme } from '../../../theme/ThemeContext';
 import {
+  t,
   useLocale,
   useLayoutDirection,
   getLayoutRowDirection,
   getLayoutTextAlign,
+  type TranslationKey,
 } from '../../../localization';
 import {
   getDatabase,
@@ -63,27 +68,18 @@ import {
   AesIncidentType,
   ReviewOutcome,
   OhCoordinationStatus,
-  OhFollowUpEventCategory,
   DECLARATION_STATUSES,
   AES_INCIDENT_TYPES,
 } from '../../../core';
-import { t } from '../../../localization';
-
-const DEMO_ROLES: Array<{ key: string; label: string; context: AuthContext }> = [
-  { key: 'quality_staff', label: t('surveillance.filters.all'), context: SYNTHETIC_QUALITY_STAFF_CONTEXT },
-  { key: 'admin_reviewer', label: t('surveillance.filters.all'), context: SYNTHETIC_ADMIN_REVIEWER_CONTEXT },
-  { key: 'oh_professional', label: t('surveillance.filters.all'), context: SYNTHETIC_OH_PROFESSIONAL_CONTEXT },
-  { key: 'exposed_professional', label: t('surveillance.filters.all'), context: SYNTHETIC_DEMO_CONTEXT },
-  { key: 'tech_admin', label: t('surveillance.filters.all'), context: SYNTHETIC_TECH_ADMIN_CONTEXT },
-];
 
 const MIN_TOUCH_TARGET = 48;
+const DATE_FIELDS_STACK_BREAKPOINT = 360;
 
 export const SurveillanceDashboardScreen: React.FC = () => {
   const { colors: themeColors } = useTheme();
+  const styles = createStyles(themeColors);
   const locale = useLocale();
   const layoutDirection = useLayoutDirection();
-  const rtl = layoutDirection === 'rtl';
   const rowDirection = getLayoutRowDirection(layoutDirection);
   const textAlign = getLayoutTextAlign(layoutDirection);
 
@@ -114,44 +110,50 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
   const [metrics, setMetrics] = useState<SurveillanceDashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedStatus, setSelectedStatus] = useState<DeclarationStatus | undefined>(undefined);
   const [selectedExposure, setSelectedExposure] = useState<AesIncidentType | undefined>(undefined);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [dateFieldsAvailableWidth, setDateFieldsAvailableWidth] = useState(0);
+  const [dateFilterError, setDateFilterError] = useState<
+    'surveillance.filters.invalidDate' | 'surveillance.filters.invalidDateRange' | null
+  >(null);
 
   const loadMetrics = useCallback(async () => {
     if (!isAuthorized) {
       setLoading(false);
       return;
     }
+    const dateError = validateDateRange(startDate, endDate);
+    if (dateError) {
+      setDateFilterError(dateError);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setDateFilterError(null);
+    setDateFilterError(null);
     try {
       const db = getDatabase();
       const filters: SurveillanceFilters = {};
       if (selectedStatus) filters.status = selectedStatus;
       if (selectedExposure) filters.incidentType = selectedExposure;
-      if (startDate.trim().length === 10) filters.startDate = startDate.trim();
-      if (endDate.trim().length === 10) filters.endDate = endDate.trim();
+      if (startDate.trim()) filters.startDate = startDate.trim();
+      if (endDate.trim()) filters.endDate = endDate.trim();
 
       const data = await db.getSurveillanceDashboardMetrics(activeRoleContext.userId!, filters);
       setMetrics(data);
       setError(null);
-    } catch (err: any) {
-      setError(err?.message ?? t('error.loadFailed'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('error.loadFailed'));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [isAuthorized, activeRoleContext, selectedStatus, selectedExposure, startDate, endDate]);
 
   useEffect(() => {
-    loadMetrics();
-  }, [loadMetrics]);
-
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
     loadMetrics();
   }, [loadMetrics]);
 
@@ -162,7 +164,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
     setEndDate('');
   };
 
-  const hasActiveFilters = selectedStatus || selectedExposure || startDate || endDate;
+  const hasActiveFilters = Boolean(selectedStatus || selectedExposure || startDate || endDate);
 
   // Destructure metrics arrays with defaults (used in useMemo hooks that must be called unconditionally)
   const temporalDistribution = metrics?.temporalDistribution ?? [];
@@ -207,10 +209,10 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 {
                   backgroundColor: active
                     ? isBlocked
-                      ? aesColors.banners.error.bg
-                      : aesColors.primaryAction
-                    : aesColors.surfaceSubdued,
-                  borderColor: active ? 'transparent' : aesColors.borderMedium,
+                      ? themeColors.dangerBackground
+                      : themeColors.primary
+                    : themeColors.muted,
+                  borderColor: active ? 'transparent' : themeColors.border,
                 },
               ]}
               onPress={() => setActiveRoleContext(r.context)}
@@ -227,9 +229,9 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                     {
                       color: active
                         ? isBlocked
-                          ? aesColors.banners.error.text
-                          : aesColors.textInverse
-                        : aesColors.textPrimary,
+                          ? themeColors.danger
+                          : themeColors.primaryForeground
+                        : themeColors.foreground,
                     },
                   ]}
                 >
@@ -239,7 +241,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                   <AppIcon
                     name="lock"
                     size={14}
-                    color={active ? aesColors.banners.error.text : aesColors.textSecondary}
+                    color={active ? themeColors.danger : themeColors.mutedForeground}
                   />
                 )}
               </View>
@@ -253,20 +255,19 @@ export const SurveillanceDashboardScreen: React.FC = () => {
   if (!isAuthorized) {
     return (
       <AesScreenContainer scrollable testID="surveillance-unauthorized">
-        <StatusBar barStyle="dark-content" backgroundColor={aesColors.canvas} animated />
         {renderRoleSwitcher()}
         <AesCard
           style={styles.unauthorizedCard}
           elevated={true}
-          accentBorderColor={aesColors.banners.error.border}
+          accentBorderColor={themeColors.destructive}
           testID="surveillance-unauthorized-card"
         >
           <View style={styles.unauthorizedContent}>
-            <AppIcon name="alert-circle" size={32} color={aesColors.banners.error.text} style={styles.unauthorizedIcon} />
-            <AppText style={[styles.unauthorizedTitle, { color: aesColors.banners.error.text }]}>
+            <AppIcon name="alert-circle" size={32} color={themeColors.danger} style={styles.unauthorizedIcon} />
+            <AppText style={[styles.unauthorizedTitle, { color: themeColors.danger }]}>
               {t('surveillance.unauthorized')}
             </AppText>
-            <AppText style={[styles.unauthorizedSubtext, { color: aesColors.textSecondary, textAlign: 'center' }]}>
+            <AppText style={[styles.unauthorizedSubtext, { color: themeColors.mutedForeground, textAlign: 'center' }]}>
               {t('surveillance.unauthorizedDetails', locale)}
             </AppText>
             {renderRoleSwitcher()}
@@ -279,10 +280,9 @@ export const SurveillanceDashboardScreen: React.FC = () => {
   if (loading) {
     return (
       <AesScreenContainer scrollable testID="surveillance-loading">
-        <StatusBar barStyle="dark-content" backgroundColor={aesColors.canvas} animated />
         {renderRoleSwitcher()}
         <View style={styles.centeredLoader}>
-          <ActivityIndicator size="large" color={aesColors.primaryAction} />
+          <ActivityIndicator size="large" color={themeColors.primary} />
           <AppText style={styles.loadingText}>{t('app.loading')}</AppText>
         </View>
       </AesScreenContainer>
@@ -292,12 +292,17 @@ export const SurveillanceDashboardScreen: React.FC = () => {
   if (error || !metrics) {
     return (
       <AesScreenContainer scrollable testID="surveillance-error">
-        <StatusBar barStyle="dark-content" backgroundColor={aesColors.canvas} animated />
         {renderRoleSwitcher()}
-        <AesCard style={styles.errorCard} elevated testID="surveillance-error-card">
-          <View style={styles.errorContent}>
-            <AppIcon name="alert-triangle" size={32} color={aesColors.banners.error.text} style={styles.errorIcon} />
-            <AppText style={[styles.errorTitle, { color: aesColors.banners.error.text }]}>{error ?? t('error.loadFailed')}</AppText>
+        <Alert
+          variant="error"
+          accessibilityRole="alert"
+          testID="surveillance-error-card"
+        >
+          <AlertIcon>
+            <AppIcon name="alert-triangle" size={32} decorative />
+          </AlertIcon>
+          <AlertDescription>{error ?? t('error.loadFailed')}</AlertDescription>
+          <AlertAction>
             <AesButton
               title={t('oh.queue.refresh')}
               onPress={loadMetrics}
@@ -305,8 +310,8 @@ export const SurveillanceDashboardScreen: React.FC = () => {
               fullWidth={false}
               testID="surveillance-retry-button"
             />
-          </View>
-        </AesCard>
+          </AlertAction>
+        </Alert>
       </AesScreenContainer>
     );
   }
@@ -317,10 +322,13 @@ export const SurveillanceDashboardScreen: React.FC = () => {
   const occupationalHealth = metrics.occupationalHealth;
 
   // RTL-aware layout styles computed from the `rtl` value
-  const disclaimerRowStyle: ViewStyle = { ...styles.disclaimerRow, flexDirection: rowDirection };
   const filterSummaryRowStyle: ViewStyle = { ...styles.filterSummaryRow, flexDirection: rowDirection };
   const filtersHeaderStyle: ViewStyle = { ...styles.filtersHeader, flexDirection: rowDirection };
-  const dateRowStyle: ViewStyle = { ...styles.dateRow, flexDirection: rowDirection };
+  const stackDateFields = dateFieldsAvailableWidth <= DATE_FIELDS_STACK_BREAKPOINT;
+  const dateRowStyle: ViewStyle = {
+    ...styles.dateRow,
+    flexDirection: stackDateFields ? 'column' : rowDirection,
+  };
   const kpiGridStyle: ViewStyle = { ...styles.kpiGrid, flexDirection: rowDirection };
   const barRowStyle: ViewStyle = { ...styles.barRow, flexDirection: rowDirection };
   const distributionRowStyle: ViewStyle = { ...styles.distributionRow, flexDirection: rowDirection };
@@ -328,8 +336,6 @@ export const SurveillanceDashboardScreen: React.FC = () => {
 
   return (
     <AesScreenContainer scrollable testID="surveillance-dashboard">
-      <StatusBar barStyle="dark-content" backgroundColor={aesColors.canvas} animated />
-
       <AesScreenHeader
         title={t('surveillance.title')}
         subtitle={t('surveillance.disclaimer')}
@@ -338,22 +344,28 @@ export const SurveillanceDashboardScreen: React.FC = () => {
       />
       {renderRoleSwitcher()}
 
-      <AesCard style={styles.disclaimerCard} elevated={false} testID="surveillance-disclaimer">
-        <View style={disclaimerRowStyle}>
-          <AppIcon name="info" size={16} color={aesColors.accentGreen} style={styles.disclaimerIcon} />
-          <AppText style={[styles.disclaimerText, { textAlign }]}>{t('surveillance.disclaimer')}</AppText>
-        </View>
-      </AesCard>
+      <Alert
+        variant="info"
+        layout="block"
+        dismissible={false}
+        testID="surveillance-disclaimer"
+        accessibilityRole="summary"
+      >
+        <AlertIcon>
+          <AppIcon name="info" size={16} decorative />
+        </AlertIcon>
+        <AlertDescription>{t('surveillance.disclaimer')}</AlertDescription>
+      </Alert>
 
       {filterSummary?.hasActiveFilters && (
         <AesCard
           style={styles.filterSummaryCard}
           elevated={false}
-          accentBorderColor={aesColors.accentGreen}
+          accentBorderColor={themeColors.primary}
           testID="surveillance-filter-summary"
         >
           <View style={filterSummaryRowStyle}>
-            <AppIcon name="filter" size={16} color={aesColors.accentGreen} />
+            <AppIcon name="filter" size={16} color={themeColors.primary} />
             <AppText style={[styles.filterSummaryText, { textAlign }]}>
               {t('surveillance.filters.title')} : {filterSummary.matchingDeclarations} / {filterSummary.totalRecords} {t('surveillance.filters.declarationCountLabel', locale)}
             </AppText>
@@ -397,8 +409,8 @@ export const SurveillanceDashboardScreen: React.FC = () => {
             style={[
               styles.filterPill,
               {
-                backgroundColor: !selectedStatus ? aesColors.primaryAction : aesColors.surfaceSubdued,
-                borderColor: !selectedStatus ? 'transparent' : aesColors.borderMedium,
+                backgroundColor: !selectedStatus ? themeColors.primary : themeColors.muted,
+                borderColor: !selectedStatus ? 'transparent' : themeColors.border,
               },
             ]}
             onPress={() => setSelectedStatus(undefined)}
@@ -411,7 +423,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
             <AppText
               style={[
                 styles.filterPillText,
-                { color: !selectedStatus ? aesColors.textInverse : aesColors.textPrimary },
+                { color: !selectedStatus ? themeColors.primaryForeground : themeColors.foreground },
               ]}
             >
               {t('surveillance.filters.all')}
@@ -425,8 +437,8 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 style={[
                   styles.filterPill,
                   {
-                    backgroundColor: active ? aesColors.primaryAction : aesColors.surfaceSubdued,
-                    borderColor: active ? 'transparent' : aesColors.borderMedium,
+                    backgroundColor: active ? themeColors.primary : themeColors.muted,
+                    borderColor: active ? 'transparent' : themeColors.border,
                   },
                 ]}
                 onPress={() => setSelectedStatus(active ? undefined : st)}
@@ -439,7 +451,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 <AppText
                   style={[
                     styles.filterPillText,
-                    { color: active ? aesColors.textInverse : aesColors.textPrimary },
+                    { color: active ? themeColors.primaryForeground : themeColors.foreground },
                   ]}
                 >
                   {statusLabelMap[st]}
@@ -462,8 +474,8 @@ export const SurveillanceDashboardScreen: React.FC = () => {
             style={[
               styles.filterPill,
               {
-                backgroundColor: !selectedExposure ? aesColors.primaryAction : aesColors.surfaceSubdued,
-                borderColor: !selectedExposure ? 'transparent' : aesColors.borderMedium,
+                backgroundColor: !selectedExposure ? themeColors.primary : themeColors.muted,
+                borderColor: !selectedExposure ? 'transparent' : themeColors.border,
               },
             ]}
             onPress={() => setSelectedExposure(undefined)}
@@ -476,7 +488,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
             <AppText
               style={[
                 styles.filterPillText,
-                { color: !selectedExposure ? aesColors.textInverse : aesColors.textPrimary },
+                { color: !selectedExposure ? themeColors.primaryForeground : themeColors.foreground },
               ]}
             >
               {t('surveillance.filters.all')}
@@ -490,8 +502,8 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 style={[
                   styles.filterPill,
                   {
-                    backgroundColor: active ? aesColors.primaryAction : aesColors.surfaceSubdued,
-                    borderColor: active ? 'transparent' : aesColors.borderMedium,
+                    backgroundColor: active ? themeColors.primary : themeColors.muted,
+                    borderColor: active ? 'transparent' : themeColors.border,
                   },
                 ]}
                 onPress={() => setSelectedExposure(active ? undefined : it)}
@@ -504,7 +516,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 <AppText
                   style={[
                     styles.filterPillText,
-                    { color: active ? aesColors.textInverse : aesColors.textPrimary },
+                    { color: active ? themeColors.primaryForeground : themeColors.foreground },
                   ]}
                 >
                   {exposureLabelMap[it]}
@@ -515,68 +527,123 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         </ScrollView>
 
         {/* Date range inputs */}
-        <View style={dateRowStyle}>
-          <View style={{ flex: 1, marginStart: aesSpacing.xs, marginEnd: aesSpacing.xs }}>
+        <View
+          style={dateRowStyle}
+          onLayout={(event) => setDateFieldsAvailableWidth(event.nativeEvent.layout.width)}
+          testID="surveillance-date-range"
+        >
+          <View
+            style={[styles.dateField, !stackDateFields && styles.dateFieldInline]}
+            testID="surveillance-start-date-field"
+          >
             <AppTextInput
               style={[
                 styles.dateInput,
-                { backgroundColor: aesColors.surfaceSubdued, borderColor: aesColors.borderMedium, color: aesColors.textPrimary },
+                { backgroundColor: themeColors.muted, borderColor: themeColors.border, color: themeColors.foreground },
                 { textAlign: 'left', writingDirection: 'ltr' },
               ]}
               placeholder={t('surveillance.filters.startDate')}
-              placeholderTextColor={aesColors.textTertiary}
+              placeholderTextColor={themeColors.mutedForeground}
               value={startDate}
               onChangeText={setStartDate}
               maxLength={10}
               testID="surveillance-start-date-input"
               accessibilityLabel={t('surveillance.filters.startDate')}
+              accessibilityHint={dateFilterError ? t(dateFilterError, locale) : undefined}
             />
           </View>
-          <View style={{ flex: 1 }}>
+          <View
+            style={[styles.dateField, !stackDateFields && styles.dateFieldInline]}
+            testID="surveillance-end-date-field"
+          >
             <AppTextInput
               style={[
                 styles.dateInput,
-                { backgroundColor: aesColors.surfaceSubdued, borderColor: aesColors.borderMedium, color: aesColors.textPrimary },
+                { backgroundColor: themeColors.muted, borderColor: themeColors.border, color: themeColors.foreground },
                 { textAlign: 'left', writingDirection: 'ltr' },
               ]}
               placeholder={t('surveillance.filters.endDate')}
-              placeholderTextColor={aesColors.textTertiary}
+              placeholderTextColor={themeColors.mutedForeground}
               value={endDate}
               onChangeText={setEndDate}
               maxLength={10}
               testID="surveillance-end-date-input"
               accessibilityLabel={t('surveillance.filters.endDate')}
+              accessibilityHint={dateFilterError ? t(dateFilterError, locale) : undefined}
             />
           </View>
         </View>
+        {dateFilterError && (
+          <AppText
+            style={[styles.dateFilterError, { textAlign }]}
+            testID="surveillance-date-filter-error"
+            accessibilityRole="alert"
+          >
+            {t(dateFilterError, locale)}
+          </AppText>
+        )}
       </AesCard>
 
       {/* ─── 1. OVERVIEW INDICATORS ───────────────────────────── */}
       <AppText style={[styles.mainSectionTitle, { textAlign }]}>{t('surveillance.overview.title')}</AppText>
       <View style={kpiGridStyle} testID="surveillance-overview-grid">
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-total">
-          <AppText style={[styles.kpiValue, { color: aesColors.primaryAction }]}>{overview.totalDeclarations}</AppText>
+          <View accessible accessibilityRole="text" accessibilityLabel={`${t('surveillance.overview.total', locale)}: ${overview.totalDeclarations}`}>
+          <AppText style={[styles.kpiValue, { color: themeColors.primary }]}>{overview.totalDeclarations}</AppText>
           <AppText style={styles.kpiLabel}>{t('surveillance.overview.total')}</AppText>
+          </View>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-submitted">
-          <AppText style={[styles.kpiValue, { color: aesColors.accentGreen }]}>{overview.submittedDeclarations}</AppText>
+          <View accessible accessibilityRole="text" accessibilityLabel={`${t('surveillance.overview.submitted', locale)}: ${overview.submittedDeclarations}`}>
+          <AppText style={[styles.kpiValue, { color: themeColors.primary }]}>{overview.submittedDeclarations}</AppText>
           <AppText style={styles.kpiLabel}>{t('surveillance.overview.submitted')}</AppText>
+          </View>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-under-review">
-          <AppText style={[styles.kpiValue, { color: aesColors.banners.warning.text }]}>{overview.underReviewDeclarations}</AppText>
+          <View accessible accessibilityRole="text" accessibilityLabel={`${t('surveillance.overview.underReview', locale)}: ${overview.underReviewDeclarations}`}>
+          <AppText style={[styles.kpiValue, { color: themeColors.foreground }]}>{overview.underReviewDeclarations}</AppText>
           <AppText style={styles.kpiLabel}>{t('surveillance.overview.underReview')}</AppText>
+          </View>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-correction">
-          <AppText style={[styles.kpiValue, { color: aesColors.banners.error.text }]}>{overview.correctionRequestedDeclarations}</AppText>
+          <View accessible accessibilityRole="text" accessibilityLabel={`${t('surveillance.overview.correctionRequested', locale)}: ${overview.correctionRequestedDeclarations}`}>
+          <AppText style={[styles.kpiValue, { color: themeColors.danger }]}>{overview.correctionRequestedDeclarations}</AppText>
           <AppText style={styles.kpiLabel}>{t('surveillance.overview.correctionRequested')}</AppText>
+          </View>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-active-oh">
-          <AppText style={[styles.kpiValue, { color: aesColors.primaryAction }]}>{overview.activeOhCoordinations}</AppText>
+          <View accessible accessibilityRole="text" accessibilityLabel={`${t('surveillance.overview.activeOh', locale)}: ${overview.activeOhCoordinations}`}>
+          <AppText style={[styles.kpiValue, { color: themeColors.primary }]}>{overview.activeOhCoordinations}</AppText>
           <AppText style={styles.kpiLabel}>{t('surveillance.overview.activeOh')}</AppText>
+          </View>
         </AesCard>
         <AesCard style={styles.kpiCard} elevated testID="surveillance-kpi-completed-oh">
-          <AppText style={[styles.kpiValue, { color: aesColors.accentGreen }]}>{overview.completedOhCoordinations}</AppText>
+          <View accessible accessibilityRole="text" accessibilityLabel={`${t('surveillance.overview.completedOh', locale)}: ${overview.completedOhCoordinations}`}>
+          <AppText style={[styles.kpiValue, { color: themeColors.primary }]}>{overview.completedOhCoordinations}</AppText>
           <AppText style={styles.kpiLabel}>{t('surveillance.overview.completedOh')}</AppText>
+          {(() => {
+            const active = Number.isFinite(overview.activeOhCoordinations)
+              ? Math.max(0, overview.activeOhCoordinations)
+              : 0;
+            const completed = Number.isFinite(overview.completedOhCoordinations)
+              ? Math.max(0, overview.completedOhCoordinations)
+              : 0;
+            const denominator = active + completed;
+            if (denominator <= 0) return null;
+            return (
+              <CircleProgress
+                value={completed}
+                maxValue={denominator}
+                size={48}
+                strokeWidth={5}
+                showValue
+                accessibilityLabel={t('progress.oh.completed', locale)}
+                accessibilityValueText={`${completed} / ${denominator}`}
+                testID="surveillance-oh-completion-progress"
+              />
+            );
+          })()}
+          </View>
         </AesCard>
       </View>
 
@@ -587,13 +654,13 @@ export const SurveillanceDashboardScreen: React.FC = () => {
           <AppText style={styles.emptyNote}>{t('surveillance.temporal.empty')}</AppText>
         ) : (
           temporalDistribution.map(item => (
-            <View key={item.month} style={barRowStyle} testID={`surveillance-temporal-bar-${item.month}`}>
+            <View key={item.month} style={barRowStyle} testID={`surveillance-temporal-bar-${item.month}`} accessible accessibilityRole="text" accessibilityLabel={`${item.month}: ${item.count}`}>
               <AppText style={[styles.barLabel, { textAlign: 'left', writingDirection: 'ltr' }]}>{item.month}</AppText>
               <View style={styles.barTrack}>
                 <View
                   style={[
                     styles.barFill,
-                    { width: `${Math.round((item.count / maxTemporalCount) * 100)}%`, backgroundColor: aesColors.primaryAction },
+                    { width: `${Math.round((item.count / maxTemporalCount) * 100)}%`, backgroundColor: themeColors.primary },
                   ]}
                 />
               </View>
@@ -610,10 +677,9 @@ export const SurveillanceDashboardScreen: React.FC = () => {
           <AppText style={styles.emptyNote}>{t('surveillance.exposure.empty')}</AppText>
         ) : (
           exposureDistribution.map(item => (
-            <View key={item.incidentType} style={barRowStyle} testID={`surveillance-exposure-bar-${item.incidentType}`}>
+            <View key={item.incidentType} style={barRowStyle} testID={`surveillance-exposure-bar-${item.incidentType}`} accessible accessibilityRole="text" accessibilityLabel={`${exposureLabelMap[item.incidentType as AesIncidentType]}: ${item.count}`}>
               <AppText
-                style={[styles.barLabel, { width: 112, textAlign }]}
-                numberOfLines={3}
+                style={[styles.barLabel, styles.exposureBarLabel, { textAlign }]}
               >
                 {exposureLabelMap[item.incidentType as AesIncidentType]}
               </AppText>
@@ -621,7 +687,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
                 <View
                   style={[
                     styles.barFill,
-                    { width: `${Math.round((item.count / maxExposureCount) * 100)}%`, backgroundColor: aesColors.accentGreen },
+                    { width: `${Math.round((item.count / maxExposureCount) * 100)}%`, backgroundColor: themeColors.primary },
                   ]}
                 />
               </View>
@@ -637,7 +703,7 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         {statusDistribution.length === 0 ? (
           <AppText style={styles.emptyNote}>{t('surveillance.status.empty', locale)}</AppText>
         ) : statusDistribution.map(item => (
-          <View key={item.status} style={distributionRowStyle} testID={`surveillance-status-row-${item.status}`}>
+          <View key={item.status} style={distributionRowStyle} testID={`surveillance-status-row-${item.status}`} accessible accessibilityRole="text" accessibilityLabel={`${statusLabelMap[item.status as DeclarationStatus]}: ${item.count}`}>
             <View style={styles.statusBadgeContainer}>
               <AesStatusBadge status={item.status as DeclarationStatus} domain="declaration" testID={`surveillance-status-badge-${item.status}`} />
             </View>
@@ -651,17 +717,23 @@ export const SurveillanceDashboardScreen: React.FC = () => {
       <AesCard style={styles.distributionCard} elevated testID="surveillance-admin">
         <AppText style={styles.sectionHeading}>{t('surveillance.admin.title')}</AppText>
 
-        <View style={adminSummaryRowStyle} testID="surveillance-admin-summary">
+        <View
+          style={adminSummaryRowStyle}
+          testID="surveillance-admin-summary"
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={`${t('surveillance.admin.totalReviews', locale)}: ${administrativeReview.totalReviews}; ${t('surveillance.admin.correctionRequests', locale)}: ${administrativeReview.correctionRequests}; ${t('surveillance.admin.correctionResponses', locale)}: ${administrativeReview.correctionResponses}`}
+        >
           <View style={styles.adminSummaryItem}>
             <AppText style={styles.adminSummaryValue}>{administrativeReview.totalReviews}</AppText>
             <AppText style={styles.adminSummaryLabel}>{t('surveillance.admin.totalReviews')}</AppText>
           </View>
           <View style={styles.adminSummaryItem}>
-            <AppText style={[styles.adminSummaryValue, { color: aesColors.banners.error.text }]}>{administrativeReview.correctionRequests}</AppText>
+            <AppText style={[styles.adminSummaryValue, { color: themeColors.danger }]}>{administrativeReview.correctionRequests}</AppText>
             <AppText style={styles.adminSummaryLabel}>{t('surveillance.admin.correctionRequests')}</AppText>
           </View>
           <View style={styles.adminSummaryItem}>
-            <AppText style={[styles.adminSummaryValue, { color: aesColors.accentGreen }]}>{administrativeReview.correctionResponses}</AppText>
+            <AppText style={[styles.adminSummaryValue, { color: themeColors.primary }]}>{administrativeReview.correctionResponses}</AppText>
             <AppText style={styles.adminSummaryLabel}>{t('surveillance.admin.correctionResponses')}</AppText>
           </View>
         </View>
@@ -670,11 +742,11 @@ export const SurveillanceDashboardScreen: React.FC = () => {
           <View style={{ marginTop: aesSpacing.sm }} testID="surveillance-admin-outcomes">
             <AppText style={styles.filterLabel}>{t('surveillance.admin.outcomes')}</AppText>
             {administrativeReview.outcomes.map(item => (
-              <View key={item.outcome} style={distributionRowStyle} testID={`surveillance-admin-outcome-${item.outcome}`}>
+              <View key={item.outcome} style={distributionRowStyle} testID={`surveillance-admin-outcome-${item.outcome}`} accessible accessibilityRole="text" accessibilityLabel={`${t(`review.outcome.${item.outcome}` as TranslationKey, locale)}: ${item.count}`}>
                 <View style={styles.statusBadgeContainer}>
                   <AesStatusBadge status={item.outcome as ReviewOutcome} domain="declaration" testID={`surveillance-admin-outcome-badge-${item.outcome}`} />
                 </View>
-                <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`review.outcome.${item.outcome}` as any)}</AppText>
+                <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`review.outcome.${item.outcome}` as TranslationKey)}</AppText>
                 <AppText style={[styles.distributionValue, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
               </View>
             ))}
@@ -689,11 +761,11 @@ export const SurveillanceDashboardScreen: React.FC = () => {
         {/* Coordination status */}
         <AppText style={styles.filterLabel}>{t('surveillance.oh.status')}</AppText>
         {occupationalHealth.statusDistribution.map(item => (
-          <View key={item.status} style={distributionRowStyle} testID={`surveillance-oh-status-${item.status}`}>
+          <View key={item.status} style={distributionRowStyle} testID={`surveillance-oh-status-${item.status}`} accessible accessibilityRole="text" accessibilityLabel={`${t(`oh.status.${item.status}` as TranslationKey, locale)}: ${item.count}`}>
             <View style={styles.statusBadgeContainer}>
               <AesStatusBadge status={item.status as OhCoordinationStatus} domain="ohCoordination" testID={`surveillance-oh-status-badge-${item.status}`} />
             </View>
-            <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`oh.status.${item.status}` as any)}</AppText>
+            <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`oh.status.${item.status}` as TranslationKey)}</AppText>
             <AppText style={[styles.distributionValue, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
           </View>
         ))}
@@ -704,8 +776,8 @@ export const SurveillanceDashboardScreen: React.FC = () => {
           <AppText style={styles.emptyNote}>{t('oh.detail.noEvents')}</AppText>
         ) : (
           occupationalHealth.eventCategories.map(item => (
-            <View key={item.category} style={distributionRowStyle} testID={`surveillance-oh-event-${item.category}`}>
-              <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`oh.event.${item.category}` as any)}</AppText>
+            <View key={item.category} style={distributionRowStyle} testID={`surveillance-oh-event-${item.category}`} accessible accessibilityRole="text" accessibilityLabel={`${t(`oh.event.${item.category}` as TranslationKey, locale)}: ${item.count}`}>
+              <AppText style={[styles.distributionLabel, { textAlign }]}>{t(`oh.event.${item.category}` as TranslationKey)}</AppText>
               <AppText style={[styles.distributionValue, { textAlign: 'right', writingDirection: 'ltr' }]}>{item.count}</AppText>
             </View>
           ))
@@ -715,16 +787,34 @@ export const SurveillanceDashboardScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+function validateDateRange(startDate: string, endDate: string): 'surveillance.filters.invalidDate' | 'surveillance.filters.invalidDateRange' | null {
+  const isValidIsoDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  };
+  const start = startDate.trim();
+  const end = endDate.trim();
+  if ((start && !isValidIsoDate(start)) || (end && !isValidIsoDate(end))) {
+    return 'surveillance.filters.invalidDate';
+  }
+  if (start && end && start > end) {
+    return 'surveillance.filters.invalidDateRange';
+  }
+  return null;
+}
+
+function createStyles(themeColors: ColorToken) {
+  return StyleSheet.create({
   roleSwitcherContainer: {
-    paddingHorizontal: aesSpacing.screenHorizontal,
+    paddingHorizontal: 0,
     paddingVertical: aesSpacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: aesColors.borderSubdued,
+    borderBottomColor: themeColors.border,
   },
   roleSwitcherLabel: {
     ...aesTypography.labelSmall,
-    color: aesColors.textSecondary,
+    color: themeColors.mutedForeground,
     marginBottom: aesSpacing.xs,
   },
   roleSwitcherScroll: {
@@ -756,10 +846,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...aesTypography.bodySmall,
-    color: aesColors.textSecondary,
+    color: themeColors.mutedForeground,
   },
   unauthorizedCard: {
-    marginHorizontal: aesSpacing.screenHorizontal,
+    marginHorizontal: 0,
     marginTop: aesSpacing.md,
     marginBottom: aesSpacing.md,
   },
@@ -777,7 +867,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorCard: {
-    marginHorizontal: aesSpacing.screenHorizontal,
+    marginHorizontal: 0,
     marginTop: aesSpacing.md,
     marginBottom: aesSpacing.md,
   },
@@ -791,11 +881,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   disclaimerCard: {
-    marginHorizontal: aesSpacing.screenHorizontal,
+    marginHorizontal: 0,
     marginTop: aesSpacing.md,
     marginBottom: aesSpacing.sm,
     borderStartWidth: 4,
-    borderStartColor: aesColors.accentGreen,
+    borderStartColor: themeColors.primary,
   },
   disclaimerRow: {
     alignItems: 'flex-start',
@@ -804,11 +894,11 @@ const styles = StyleSheet.create({
   disclaimerIcon: { marginTop: 2 },
   disclaimerText: {
     ...aesTypography.caption,
-    color: aesColors.textSecondary,
+    color: themeColors.mutedForeground,
     flex: 1,
   },
   filterSummaryCard: {
-    marginHorizontal: aesSpacing.screenHorizontal,
+    marginHorizontal: 0,
     marginBottom: aesSpacing.md,
   },
   filterSummaryRow: {
@@ -818,12 +908,12 @@ const styles = StyleSheet.create({
   },
   filterSummaryText: {
     ...aesTypography.bodySmall,
-    color: aesColors.accentGreen,
+    color: themeColors.primary,
     fontWeight: '600',
     flex: 1,
   },
   filtersCard: {
-    marginHorizontal: aesSpacing.screenHorizontal,
+    marginHorizontal: 0,
     marginBottom: aesSpacing.md,
   },
   filtersHeader: {
@@ -833,11 +923,11 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     ...aesTypography.heading2,
-    color: aesColors.textPrimary,
+    color: themeColors.foreground,
   },
   filterLabel: {
     ...aesTypography.labelSmall,
-    color: aesColors.textSecondary,
+    color: themeColors.mutedForeground,
     fontWeight: '600',
     marginBottom: aesSpacing.xs,
   },
@@ -864,6 +954,13 @@ const styles = StyleSheet.create({
   },
   dateRow: {
     marginTop: aesSpacing.xs,
+    gap: aesSpacing.sm,
+  },
+  dateField: {
+    minWidth: 0,
+  },
+  dateFieldInline: {
+    flex: 1,
   },
   dateInput: {
     borderRadius: aesRadii.input,
@@ -874,17 +971,23 @@ const styles = StyleSheet.create({
     height: MIN_TOUCH_TARGET,
     minHeight: MIN_TOUCH_TARGET,
   },
+  dateFilterError: {
+    ...aesTypography.bodySmall,
+    color: themeColors.danger,
+    marginTop: aesSpacing.xs,
+    textAlign: 'left',
+  },
   mainSectionTitle: {
     ...aesTypography.heading1,
-    color: aesColors.textPrimary,
-    marginHorizontal: aesSpacing.screenHorizontal,
+    color: themeColors.foreground,
+    marginHorizontal: 0,
     marginBottom: aesSpacing.xs,
     marginTop: aesSpacing.md,
   },
   kpiGrid: {
     flexWrap: 'wrap',
     gap: aesSpacing.xs,
-    marginHorizontal: aesSpacing.screenHorizontal,
+    marginHorizontal: 0,
     marginBottom: aesSpacing.md,
     justifyContent: 'space-between',
   },
@@ -901,12 +1004,12 @@ const styles = StyleSheet.create({
   },
   kpiLabel: {
     ...aesTypography.caption,
-    color: aesColors.textSecondary,
+    color: themeColors.mutedForeground,
     textAlign: 'center',
     marginTop: aesSpacing.xs,
   },
   distributionCard: {
-    marginHorizontal: aesSpacing.screenHorizontal,
+    marginHorizontal: 0,
     marginBottom: aesSpacing.md,
   },
   barRow: {
@@ -914,14 +1017,18 @@ const styles = StyleSheet.create({
     marginBottom: aesSpacing.xs,
   },
   barLabel: {
-    width: 80,
+    flexBasis: 80,
+    flexShrink: 1,
     ...aesTypography.caption,
-    color: aesColors.textSecondary,
+    color: themeColors.mutedForeground,
+  },
+  exposureBarLabel: {
+    flexBasis: 112,
   },
   barTrack: {
     flex: 1,
     height: 10,
-    backgroundColor: aesColors.borderSubdued,
+    backgroundColor: themeColors.border,
     borderRadius: aesRadii.pill,
     overflow: 'hidden',
     marginHorizontal: aesSpacing.sm,
@@ -933,7 +1040,7 @@ const styles = StyleSheet.create({
   barCount: {
     width: 30,
     ...aesTypography.caption,
-    color: aesColors.textPrimary,
+    color: themeColors.foreground,
     fontWeight: '600',
     textAlign: 'right',
   },
@@ -942,7 +1049,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: aesSpacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: aesColors.borderSubdued,
+    borderBottomColor: themeColors.border,
   },
   statusBadgeContainer: {
     marginEnd: aesSpacing.sm,
@@ -951,18 +1058,18 @@ const styles = StyleSheet.create({
   distributionLabel: {
     flex: 1,
     ...aesTypography.bodySmall,
-    color: aesColors.textPrimary,
+    color: themeColors.foreground,
     fontWeight: '500',
   },
   distributionValue: {
     ...aesTypography.bodySmall,
-    color: aesColors.textPrimary,
+    color: themeColors.foreground,
     fontWeight: '700',
     marginStart: aesSpacing.sm,
   },
   emptyNote: {
     ...aesTypography.caption,
-    color: aesColors.textTertiary,
+    color: themeColors.mutedForeground,
     fontStyle: 'italic',
     marginVertical: aesSpacing.xs,
     textAlign: 'center',
@@ -972,7 +1079,7 @@ const styles = StyleSheet.create({
     marginBottom: aesSpacing.sm,
     paddingBottom: aesSpacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: aesColors.borderSubdued,
+    borderBottomColor: themeColors.border,
   },
   adminSummaryItem: {
     alignItems: 'center',
@@ -985,10 +1092,11 @@ const styles = StyleSheet.create({
   },
   adminSummaryLabel: {
     ...aesTypography.caption,
-    color: aesColors.textSecondary,
+    color: themeColors.mutedForeground,
     textAlign: 'center',
     marginTop: aesSpacing.xs,
   },
-});
+  });
+}
 
 export default SurveillanceDashboardScreen;
